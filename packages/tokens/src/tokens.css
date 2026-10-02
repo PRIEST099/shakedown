@@ -1,0 +1,103 @@
+/*
+ * Shakedown semantic tokens: Day shift (light) and Night shift (dark).
+ * Only money gets color. The Tape stays paper in both themes.
+ */
+:root {
+  color-scheme: light;
+  --sd-bg: #f4efe6;
+  --sd-surface: #fffdf8;
+  --sd-surface-sunken: #eae3d6;
+  --sd-text: #12100d;
+  --sd-text-muted: #57514a;
+  --sd-text-subtle: #6b645b;
+  --sd-border-ui: #8a8277;
+  --sd-rule: #d9d1c3;
+  --sd-leak: #b42318;
+  --sd-leak-bg: #fbe3df;
+  --sd-sealed: #08706a;
+  --sd-sealed-bg: #d9efea;
+  --sd-signal: #ffe14d;
+  --sd-signal-bg: #fff3b0;
+  --sd-on-signal: #12100d;
+  --sd-focus: #12100d;
+  --sd-btn-bg: #12100d;
+  --sd-btn-text: #fffdf8;
+  --sd-imp-fill: #fffdf8;
+  /* The card art window is paper in both themes, so the imps' ink line work always reads. */
+  --sd-art-bg: #eae3d6;
+  --sd-art-rule: #d3cab9;
+  --sd-shadow-paper: 0 1px 0 rgb(18 16 13 / 0.06), 0 12px 24px -12px rgb(18 16 13 / 0.28);
+
+  /* The Tape: always paper with ink, in both themes. */
+  --sd-tape: #fffdf8;
+  --sd-tape-text: #12100d;
+  --sd-tape-muted: #57514a;
+  --sd-tape-rule: #c9c0b1;
+  --sd-tape-leak: #b42318;
+  --sd-tape-leak-bg: #fbe3df;
+  --sd-tape-sealed: #08706a;
+
+  --sd-font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --sd-font-ui: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --sd-font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  --sd-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --sd-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --sd-ease-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --sd-ease-print: cubic-bezier(0.3, 0, 0.1, 1);
+  --sd-dur-xs: 133ms;
+  --sd-dur-sm: 267ms;
+  --sd-dur-md: 400ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --sd-bg: #12100d;
+    --sd-surface: #1c1915;
+    --sd-surface-sunken: #12100d;
+    --sd-text: #f4efe6;
+    --sd-text-muted: #b9b0a3;
+    --sd-text-subtle: #958c80;
+    --sd-border-ui: #7a7266;
+    --sd-rule: #3a342c;
+    --sd-leak: #ff6b5e;
+    --sd-leak-bg: #3a1612;
+    --sd-sealed: #4fd1c5;
+    --sd-sealed-bg: #0f2a28;
+    --sd-signal-bg: #3a3317;
+    --sd-focus: #ffe14d;
+    --sd-btn-bg: #f4efe6;
+    --sd-btn-text: #12100d;
+    --sd-imp-fill: #ece5d8;
+    --sd-art-bg: #e2dacb;
+    --sd-art-rule: #c9c0b0;
+    --sd-shadow-paper: 0 16px 40px -16px rgb(0 0 0 / 0.6);
+    --sd-tape: #ece5d8;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --sd-bg: #12100d;
+  --sd-surface: #1c1915;
+  --sd-surface-sunken: #12100d;
+  --sd-text: #f4efe6;
+  --sd-text-muted: #b9b0a3;
+  --sd-text-subtle: #958c80;
+  --sd-border-ui: #7a7266;
+  --sd-rule: #3a342c;
+  --sd-leak: #ff6b5e;
+  --sd-leak-bg: #3a1612;
+  --sd-sealed: #4fd1c5;
+  --sd-sealed-bg: #0f2a28;
+  --sd-signal-bg: #3a3317;
+  --sd-focus: #ffe14d;
+  --sd-btn-bg: #f4efe6;
+  --sd-btn-text: #12100d;
+  --sd-imp-fill: #ece5d8;
+  --sd-art-bg: #e2dacb;
+  --sd-art-rule: #c9c0b0;
+  --sd-shadow-paper: 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --sd-tape: #ece5d8;
+}

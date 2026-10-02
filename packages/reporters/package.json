@@ -1,0 +1,13 @@
+{
+  "name": "@shakedown/reporters",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Terminal, JSON, HTML, JUnit and Markdown reports. Arrives in Phase 7.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

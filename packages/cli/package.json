@@ -1,0 +1,26 @@
+{
+  "name": "@shakedown-dev/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Customers from hell for your PayPal sandbox checkout. Sandbox only.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "shakedown": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@shakedown/core": "workspace:*",
+    "@shakedown/paypal": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "8.5.1"
+  }
+}

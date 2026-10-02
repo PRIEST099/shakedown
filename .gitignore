@@ -1,0 +1,21 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+out
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# secrets: never commit these
+.env
+.env.local
+.env.*.local
+
+# test artifacts
+playwright-report
+test-results
+
+# Next.js generates this
+next-env.d.ts

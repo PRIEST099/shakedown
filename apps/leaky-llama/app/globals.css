@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+/* Leaky Llama has its own plain storefront look, deliberately unlike Shakedown's brand. */
+@theme {
+  --color-moss: #2f5d3a;
+  --color-sand: #f6f1e7;
+}
+
+body {
+  margin: 0;
+  background: var(--color-sand);
+  color: #1d241f;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@shakedown/support-bot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Leaky Llama's AI support agent (isolated: uses @paypal/agent-toolkit, which pins ai@4). Arrives in Phase 3.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
