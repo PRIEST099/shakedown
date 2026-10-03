@@ -1,0 +1,25 @@
+{
+  "name": "@shakedown/video",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Remotion compositions for the Shakedown explainer and demo videos. Reuses @shakedown/ui.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render:spike": "remotion render src/index.ts TapeSpike out/tape-spike.mp4",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.532",
+    "@shakedown/core": "workspace:*",
+    "@shakedown/tokens": "workspace:*",
+    "@shakedown/ui": "workspace:*",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0"
+  }
+}

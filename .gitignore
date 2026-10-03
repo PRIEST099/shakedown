@@ -19,3 +19,12 @@ test-results
 
 # Next.js generates this
 next-env.d.ts
+
+# Spike evidence (sandbox IDs; kept local)
+spikes/results
+
+# Rendered video output
+apps/video/out
+
+# Local app data (webhook inbox, etc.)
+.data

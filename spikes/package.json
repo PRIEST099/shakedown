@@ -1,0 +1,23 @@
+{
+  "name": "@shakedown/spikes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 1 sandbox spikes: prove each PayPal capability before building on it.",
+  "scripts": {
+    "s1": "tsx src/s1-oauth.ts",
+    "s2": "tsx src/s2-headless-capture.ts",
+    "s3": "tsx src/s3-webhooks.ts",
+    "s4": "tsx src/s4-declines.ts",
+    "s5": "tsx src/s5-refunds.ts",
+    "s6": "tsx src/s6-chargeback.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@shakedown/core": "workspace:*",
+    "@shakedown/paypal": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15"
+  }
+}
