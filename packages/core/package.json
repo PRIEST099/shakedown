@@ -6,13 +6,22 @@
   "exports": {
     ".": "./src/index.ts",
     "./cast": "./src/cast.ts",
-    "./env": "./src/env.ts"
+    "./env": "./src/env.ts",
+    "./testing": "./src/testing/fixture-target.ts",
+    "./db": "./src/db/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.3",
+    "postgres": "^3.4.9",
     "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11"
   }
 }

@@ -3,11 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Terminal, JSON, HTML, JUnit and Markdown reports. Arrives in Phase 7.",
+  "description": "Terminal, JSON, HTML, JUnit and Markdown reports. The terminal receipt lands in Phase 2.",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "demo": "tsx src/demo.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@shakedown/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15"
   }
 }
