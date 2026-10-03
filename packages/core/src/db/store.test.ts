@@ -1,33 +1,39 @@
+import path from 'node:path'
+import { PGlite } from '@electric-sql/pglite'
+import { drizzle } from 'drizzle-orm/pglite'
+import { migrate } from 'drizzle-orm/pglite/migrator'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { runCampaign } from '../runner'
 import type { FixtureTarget } from '../testing/fixture-target'
 import { LEAKY, startFixtureTarget } from '../testing/fixture-target'
 import type { Database } from './client'
-import { createDb } from './client'
-import { campaigns, findings, invariantResults, ledgerEntries, scenarioRuns } from './schema'
+import {
+  campaigns,
+  findings,
+  invariantResults,
+  ledgerEntries,
+  scenarioRuns,
+  schema,
+} from './schema'
 import { saveCampaign } from './store'
 
 /**
- * Needs a Postgres to talk to. Run `pnpm db:up` and `pnpm --filter @shakedown/core db:migrate`,
- * then set DATABASE_URL. Without one the suite skips rather than pretending to have checked.
+ * Runs the real migration against a real Postgres: PGlite, which is Postgres compiled to
+ * WebAssembly, so the test needs no Docker and no DATABASE_URL.
  */
-const url = process.env.DATABASE_URL
-
-describe.skipIf(!url)('saveCampaign', () => {
+describe('saveCampaign', () => {
   let fixture: FixtureTarget
   let db: Database
-  let close: () => Promise<void>
 
   beforeAll(async () => {
     fixture = await startFixtureTarget({ flags: LEAKY })
-    const created = createDb(url as string)
-    db = created.db
-    close = () => created.client.end()
+    const pg = drizzle(new PGlite(), { schema })
+    await migrate(pg, { migrationsFolder: path.resolve(import.meta.dirname, '../../drizzle') })
+    db = pg as unknown as Database
   })
 
   afterAll(async () => {
     await fixture.close()
-    await close?.()
   })
 
   it('stores a whole run, ledger and all, and reads it back', async () => {
@@ -47,9 +53,17 @@ describe.skipIf(!url)('saveCampaign', () => {
     expect((await db.select().from(invariantResults)).length).toBe(
       result.outcomes.reduce((sum, outcome) => sum + outcome.results.length, 0),
     )
+  })
 
-    // Deleting the campaign takes its evidence with it.
+  it('keeps the evidence quotable: a stored finding still points at real event IDs', async () => {
+    const [finding] = await db.select().from(findings)
+    const eventId = finding?.evidence.find((item) => item.label === 'Event ID')?.value
+    expect(eventId).toMatch(/^WH-[0-9A-F]{12}$/)
+  })
+
+  it('takes the evidence with it when a campaign is deleted', async () => {
     await db.delete(campaigns)
     expect(await db.select().from(ledgerEntries)).toHaveLength(0)
+    expect(await db.select().from(findings)).toHaveLength(0)
   })
 })

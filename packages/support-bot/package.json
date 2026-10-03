@@ -3,11 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Leaky Llama's AI support agent (isolated: uses @paypal/agent-toolkit, which pins ai@4). Arrives in Phase 3.",
+  "description": "Lulu, Leaky Llama's AI support agent. Isolated because @paypal/agent-toolkit pins ai@4.",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "gen:schema": "node scripts/gen-toolkit-schema.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.131.0",
+    "@paypal/agent-toolkit": "1.11.0",
+    "zod": "4.6.5",
+    "@shakedown/paypal": "workspace:*"
   }
 }

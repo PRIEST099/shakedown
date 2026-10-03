@@ -6,6 +6,7 @@ export const SECRET_ENV_KEYS = [
   'ANTHROPIC_API_KEY',
   'SHAKEDOWN_PROBE_SECRET',
   'DATABASE_URL',
+  'STORE_DATABASE_URL',
 ] as const
 
 // .env files often leave keys present but empty; treat those as unset.
@@ -28,6 +29,15 @@ export const envSchema = z.object({
   ANTHROPIC_API_KEY: optionalString,
   DATABASE_URL: z.preprocess(blankToUndefined, z.url({ error: 'Must be a valid URL.' }).optional()),
   SHAKEDOWN_PROBE_SECRET: z.preprocess(
+    blankToUndefined,
+    z.string().min(16, { error: 'Use at least 16 characters.' }).optional(),
+  ),
+  STORE_DATABASE_URL: z.preprocess(
+    blankToUndefined,
+    z.url({ error: 'Must be a valid URL.' }).optional(),
+  ),
+  PAYPAL_WEBHOOK_ID: optionalString,
+  SHAKEDOWN_VERIFICATION_TOKEN: z.preprocess(
     blankToUndefined,
     z.string().min(16, { error: 'Use at least 16 characters.' }).optional(),
   ),

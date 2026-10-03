@@ -1,3 +1,4 @@
+import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { schema } from './schema'
@@ -8,7 +9,8 @@ import { schema } from './schema'
  */
 export function createDb(url: string, options: { max?: number } = {}) {
   const client = postgres(url, { max: options.max ?? 5 })
-  return { db: drizzle(client, { schema }), client }
+  return { db: drizzle(client, { schema }) as unknown as Database, client }
 }
 
-export type Database = ReturnType<typeof createDb>['db']
+/** Any Drizzle Postgres database with Shakedown's schema: postgres-js in production, PGlite in tests. */
+export type Database = PgDatabase<PgQueryResultHKT, typeof schema>

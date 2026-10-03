@@ -1,26 +1,34 @@
-import { appendFile, mkdir } from 'node:fs/promises'
-import path from 'node:path'
+import { CAMPAIGN_HEADER, verifyCampaignToken } from '@shakedown/core/campaign-token'
+import { transmissionHeadersOf } from '@shakedown/paypal'
+import { getDb } from '@/lib/db/client'
+import { errorResponse, json } from '@/lib/http'
+import { getPayPal } from '@/lib/paypal'
+import { handleWebhook } from '@/lib/webhooks'
 
-// Phase 1 inbox: store each PayPal webhook exactly as received (raw body plus transmission headers),
-// so the S3 spike can verify the signature. Phase 3 replaces this with the store's real handler.
-const INBOX = path.join(process.cwd(), '.data', 'webhook-inbox.jsonl')
 const MAX_BYTES = 256 * 1024
-const TRANSMISSION_HEADERS = [
-  'paypal-auth-algo',
-  'paypal-cert-url',
-  'paypal-transmission-id',
-  'paypal-transmission-sig',
-  'paypal-transmission-time',
-] as const
 
+/**
+ * PayPal's notifications land here, and so do a Shakedown campaign's test deliveries. The body
+ * is read as text and handed on untouched: verification needs the exact bytes PayPal signed.
+ */
 export async function POST(request: Request) {
-  const raw = await request.text()
-  if (raw.length > MAX_BYTES) return new Response('Payload too large', { status: 413 })
-  const headers = Object.fromEntries(TRANSMISSION_HEADERS.map((h) => [h, request.headers.get(h)]))
-  await mkdir(path.dirname(INBOX), { recursive: true })
-  await appendFile(
-    INBOX,
-    `${JSON.stringify({ receivedAt: new Date().toISOString(), headers, raw })}\n`,
-  )
-  return new Response(null, { status: 200 })
+  try {
+    const raw = await request.text()
+    if (raw.length > MAX_BYTES) return json({ error: 'Payload too large.' }, { status: 413 })
+
+    const token = request.headers.get(CAMPAIGN_HEADER)
+    const secret = process.env.SHAKEDOWN_PROBE_SECRET
+    const campaignMode =
+      token && secret ? (await verifyCampaignToken(token, secret)).mode : undefined
+    if (token && !secret)
+      return json({ error: 'Campaign tokens are not accepted here.' }, { status: 401 })
+
+    const result = await handleWebhook(
+      { db: await getDb(), paypal: getPayPal() },
+      { raw, headers: transmissionHeadersOf(request.headers), campaignMode },
+    )
+    return json({ outcome: result.outcome, detail: result.detail }, { status: result.status })
+  } catch (error) {
+    return errorResponse(error)
+  }
 }

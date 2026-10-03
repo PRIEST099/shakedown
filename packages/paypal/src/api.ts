@@ -135,3 +135,100 @@ export function capturesOf(order: Order): Capture[] {
 export function payerActionLink(order: Order): string | undefined {
   return order.links?.find((link) => link.rel === 'payer-action')?.href
 }
+
+/** The transmission headers PayPal signs a webhook delivery with. */
+export const TRANSMISSION_HEADERS = [
+  'paypal-auth-algo',
+  'paypal-cert-url',
+  'paypal-transmission-id',
+  'paypal-transmission-sig',
+  'paypal-transmission-time',
+] as const
+
+export type TransmissionHeader = (typeof TRANSMISSION_HEADERS)[number]
+export type TransmissionHeaders = Partial<Record<TransmissionHeader, string | null>>
+
+/** Pull the transmission headers off an incoming request. */
+export function transmissionHeadersOf(headers: Headers): TransmissionHeaders {
+  return Object.fromEntries(TRANSMISSION_HEADERS.map((name) => [name, headers.get(name)]))
+}
+
+/**
+ * The verify-webhook-signature request body, built around the event's raw bytes. The event is
+ * spliced in verbatim: parsing and re-serializing it would change the bytes PayPal signed, and
+ * a genuine event would then fail verification.
+ */
+export function verifySignatureBody(input: {
+  headers: TransmissionHeaders
+  webhookId: string
+  rawEvent: string
+}): string {
+  const field = (name: TransmissionHeader) => JSON.stringify(input.headers[name] ?? '')
+  return `{"auth_algo":${field('paypal-auth-algo')},"cert_url":${field('paypal-cert-url')},"transmission_id":${field('paypal-transmission-id')},"transmission_sig":${field('paypal-transmission-sig')},"transmission_time":${field('paypal-transmission-time')},"webhook_id":${JSON.stringify(input.webhookId)},"webhook_event":${input.rawEvent}}`
+}
+
+export type VerificationStatus = 'SUCCESS' | 'FAILURE'
+
+/** Ask PayPal whether a delivery is genuine. Anything malformed fails closed, without a call. */
+export async function verifyWebhookSignature(
+  client: PayPalSandboxClient,
+  input: { headers: TransmissionHeaders; webhookId: string; rawEvent: string },
+): Promise<VerificationStatus> {
+  const missing = TRANSMISSION_HEADERS.some((name) => !input.headers[name])
+  if (missing || !input.webhookId) return 'FAILURE'
+  try {
+    JSON.parse(input.rawEvent)
+  } catch {
+    return 'FAILURE'
+  }
+  const res = await client.request<{ verification_status: string }>(
+    'POST',
+    '/v1/notifications/verify-webhook-signature',
+    { rawJson: verifySignatureBody(input) },
+  )
+  return res.data.verification_status === 'SUCCESS' ? 'SUCCESS' : 'FAILURE'
+}
+
+/** Attach a card to an order the store created. This is what card fields do in the browser. */
+export function confirmPaymentSource(
+  client: PayPalSandboxClient,
+  orderId: string,
+  card: CardSource,
+  options?: RequestOptions,
+) {
+  return client.request<Order>(
+    'POST',
+    `/v2/checkout/orders/${encodeURIComponent(orderId)}/confirm-payment-source`,
+    {
+      ...options,
+      body: {
+        payment_source: {
+          card: { ...card, attributes: { verification: { method: 'SCA_WHEN_REQUIRED' } } },
+        },
+      },
+    },
+  )
+}
+
+/**
+ * PayPal's published sandbox test card. It only works against the sandbox, which is the only
+ * place this client can reach. Pass `CARD_DECLINE_TRIGGER` as the name to get a real decline.
+ */
+export function sandboxTestCard(name = 'Sandbox Customer'): CardSource {
+  return {
+    number: '4012888888881881',
+    expiry: '2030-12',
+    security_code: '123',
+    name,
+    billing_address: {
+      address_line_1: '1 Test Street',
+      admin_area_2: 'San Jose',
+      admin_area_1: 'CA',
+      postal_code: '95131',
+      country_code: 'US',
+    },
+  }
+}
+
+/** The sandbox cardholder name that makes a capture come back DECLINED (see SPIKES.md, S4). */
+export const CARD_DECLINE_TRIGGER = 'CCREJECT-REFUSED'

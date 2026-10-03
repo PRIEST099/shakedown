@@ -1,2 +1,2 @@
-/** Leaky Llama's AI support agent (isolated: uses @paypal/agent-toolkit, which pins ai@4). Arrives in Phase 3. */
-export const PACKAGE = '@shakedown/support-bot'
+export * from './lulu'
+export { REFUSAL_REPLY, STUCK_REPLY, systemPrompt } from './prompt'

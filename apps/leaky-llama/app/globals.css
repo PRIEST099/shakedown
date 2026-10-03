@@ -1,14 +1,62 @@
 @import "tailwindcss";
 
-/* Leaky Llama has its own plain storefront look, deliberately unlike Shakedown's brand. */
+/*
+ * Leaky Llama is its own plain storefront, deliberately unlike Shakedown's brand: an outfitter's
+ * sand and moss. Only the demo strip on top borrows Shakedown's leak and seal colours, because
+ * that strip belongs to the test harness, not the shop.
+ */
 @theme {
-  --color-moss: #2f5d3a;
   --color-sand: #f6f1e7;
+  --color-paper: #fffdf8;
+  --color-line: #e3dccd;
+  --color-ink: #1d241f;
+  --color-stone: #636a60;
+  --color-moss: #2f5d3a;
+  --color-moss-dark: #234a2d;
+  --color-clay: #a94f2c;
+  --color-night: #141a16;
+  --color-leak: #ff6b5e;
+  --color-seal: #4fd1c5;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  background: var(--color-sand);
 }
 
 body {
   margin: 0;
   background: var(--color-sand);
-  color: #1d241f;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-moss);
+  outline-offset: 2px;
+}
+
+/* PayPal's v6 button is a web component; the React wrapper does not forward style props. */
+paypal-button {
+  display: block;
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }

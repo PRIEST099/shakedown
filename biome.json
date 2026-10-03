@@ -40,7 +40,7 @@
   },
   "overrides": [
     {
-      "includes": ["apps/web/app/globals.css"],
+      "includes": ["apps/web/app/globals.css", "apps/leaky-llama/app/globals.css"],
       "linter": {
         "rules": {
           "complexity": {
