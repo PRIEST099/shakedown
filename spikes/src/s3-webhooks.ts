@@ -48,7 +48,7 @@ if (!tunnel?.startsWith('https://')) throw new Error('Set TUNNEL_URL to the publ
 
 await spike(
   'S3',
-  'Real webhooks over HTTPS, verify-webhook-signature, forged events',
+  'Real webhooks over HTTPS, verify-webhook-signature, altered events',
   async (note, keep) => {
     const url = `${tunnel}/api/paypal/webhook`
     const created = await client.request<{ id: string }>('POST', '/v1/notifications/webhooks', {
@@ -101,13 +101,13 @@ await spike(
         evidence: `verification_status ${genuine}`,
       })
 
-      // 2. The Echo, forged: same headers, body changed by one amount.
-      const tampered = real.raw.replace('"12.00"', '"1.00"')
-      const forged = await verify(real, webhookId, tampered)
+      // 2. The Echo: same headers, body changed by one amount.
+      const altered = real.raw.replace('"12.00"', '"1.00"')
+      const alteredStatus = await verify(real, webhookId, altered)
       note({
-        claim: 'A tampered copy of a genuine event fails verification',
-        verdict: tampered !== real.raw && forged === 'FAILURE' ? 'CONFIRMED' : 'REFUTED',
-        evidence: `verification_status ${forged}${tampered === real.raw ? ' (body was not changed!)' : ''}`,
+        claim: 'A copy of a genuine event with one amount changed fails verification',
+        verdict: altered !== real.raw && alteredStatus === 'FAILURE' ? 'CONFIRMED' : 'REFUTED',
+        evidence: `verification_status ${alteredStatus}${altered === real.raw ? ' (body was not changed!)' : ''}`,
       })
 
       // 3. The webhook simulator's events arrive but are not verifiable.

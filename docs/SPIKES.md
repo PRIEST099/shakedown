@@ -33,7 +33,7 @@ Run on **2026-10-02 and 2026-10-03** against a US sandbox business app.
 **S3: webhooks.**
 - A webhook registered by API received a **real `PAYMENT.CAPTURE.COMPLETED`**, delivered **42 s** after the payment.
 - `verify-webhook-signature` returned `SUCCESS` when it was sent the event's **raw bytes**. We build the request body around the raw body; it is never parsed and re-serialized.
-- A copy with one amount changed (`"12.00"` → `"1.00"`) returned `FAILURE`. *Implication (the Echo):* forged or edited notifications are detectable, and stores must verify every event.
+- A copy with one amount changed (`"12.00"` → `"1.00"`) returned `FAILURE`. *Implication (the Echo):* altered notifications are detectable, and stores must verify every event.
 - **Correction to our research:** events from the webhook **simulator**, sent to a registered `webhook_id`, are **signed and pass verification**. *Implication:* the Echo can use PayPal's own simulator to send genuinely signed duplicate and out-of-order events. That tests de-duplication and the order state machine, not just signature checks.
 - The temporary webhook registration was deleted afterwards and the tunnel was closed.
 
