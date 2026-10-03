@@ -10,10 +10,12 @@
   "scripts": {
     "demo": "tsx src/demo.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo:store": "tsx src/demo-store.ts"
   },
   "dependencies": {
-    "@shakedown/core": "workspace:*"
+    "@shakedown/core": "workspace:*",
+    "@shakedown/paypal": "workspace:*"
   },
   "devDependencies": {
     "tsx": "4.23.15"

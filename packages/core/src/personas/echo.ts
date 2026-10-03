@@ -16,6 +16,10 @@ import { captureCompleted, captureRefunded } from '../webhook'
 
 const AMOUNTS = [3600, 4200, 8950, 12400]
 
+/** Why an Echo check can be inconclusive against a store that verifies signatures. */
+const UNSIGNED_NOTE =
+  ' The copies were unsigned, and only PayPal can sign: against a listener that verifies signatures, this check needs genuine PayPal events.'
+
 const times = (count: number) => (count === 1 ? 'once' : count === 2 ? 'twice' : `${count} times`)
 
 /** Scenario 1 — an event the listener cannot authenticate must not move the order. */
@@ -68,7 +72,9 @@ const duplicateOnce: Invariant = {
   evaluate(view) {
     const order = view.order()
     const probe = view.lastProbe(order?.orderId)
-    const delivered = view.deliveries((entry) => entry.signed)
+    // Every delivery counts, signed or not: against a real store only PayPal can sign, and a
+    // listener that refuses unsigned events acts on neither copy, which reads as inconclusive.
+    const delivered = view.deliveries()
     const repeated = delivered.filter((entry) => entry.eventId === delivered[0]?.eventId)
     if (!order || !probe?.found || repeated.length < 2) {
       return { verdict: 'inconclusive', detail: 'The same event was not delivered twice.' }
@@ -83,8 +89,22 @@ const duplicateOnce: Invariant = {
     if (probe.fulfillmentCount === 0) {
       return {
         verdict: 'inconclusive',
-        detail: 'The listener never acted on the valid event, so there is nothing to deduplicate.',
+        detail: `The listener answered ${repeated.map((entry) => entry.status).join(', ')} and acted on neither copy, so deduplication could not be seen.${repeated.some((entry) => !entry.signed) ? UNSIGNED_NOTE : ''}`,
         evidence: facts,
+      }
+    }
+    // When the target says what its listener did with each delivery, use that: a repeat that was
+    // applied twice is a fault even if idempotent fulfilment kept it from shipping twice.
+    const applied = probe.deliveries?.filter(
+      (delivery) => delivery.eventId === repeated[0]?.eventId && delivery.outcome === 'applied',
+    ).length
+    if (applied !== undefined && applied > 1 && probe.fulfillmentCount <= 1) {
+      return {
+        verdict: 'leak',
+        severity: 'medium',
+        merchantLeakCents: 0,
+        detail: `Event ${repeated[0]?.eventId} was delivered ${times(repeated.length)} and the listener applied it ${times(applied)}. Fulfilment is idempotent, so the order shipped once and no money moved this time, but every other effect of that event ran ${times(applied)}.`,
+        evidence: [...facts, evidence('Times the listener applied it', String(applied))],
       }
     }
     if (probe.fulfillmentCount > 1) {
@@ -117,7 +137,12 @@ const noRegression: Invariant = {
     const probes = view.probes(order.orderId)
     const refundedAt = probes.findIndex((entry) => entry.status === 'refunded')
     if (refundedAt === -1) {
-      return { verdict: 'inconclusive', detail: 'The order never reached a refunded state.' }
+      const refusedUnsigned =
+        view.deliveries((entry) => !entry.signed && !entry.accepted).length > 0
+      return {
+        verdict: 'inconclusive',
+        detail: `The order never reached a refunded state, so a late event had nothing to undo.${refusedUnsigned ? UNSIGNED_NOTE : ''}`,
+      }
     }
     const after = probes.slice(refundedAt + 1)
     const last = after[after.length - 1]

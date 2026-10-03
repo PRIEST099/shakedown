@@ -34,6 +34,50 @@ const fake = (overrides: Partial<TargetAdapter> = {}): TargetAdapter => ({
   ...overrides,
 })
 
+describe('meter, on a checkout', () => {
+  const checkoutTarget = (): TargetAdapter => ({
+    ...fake(),
+    checkout: {
+      catalog: [{ sku: 'LL-BTL-750', name: 'Bottle', priceCents: 3600 }],
+      openCheckout: async () => ({
+        status: 201,
+        storeOrderId: 'LL-1',
+        paypalOrderId: 'PP-1',
+        amountCents: 3600,
+      }),
+      // The target's verdict field is called `kind`, like the ledger's own discriminant.
+      capture: async () => ({
+        status: 200,
+        kind: 'paid',
+        storeOrderId: 'LL-1',
+        captureId: 'CAP-1',
+        shipped: true,
+      }),
+    },
+  })
+
+  it("records the target's answer without letting it rename the entry", async () => {
+    const ledger = new Ledger()
+    const target = meter(checkoutTarget(), { budget: new Budget(), ledger })
+    await target.checkout?.openCheckout({
+      lines: [{ sku: 'LL-BTL-750', qty: 1 }],
+      email: 'c@example.com',
+    })
+    await target.checkout?.capture('PP-1', { lines: [{ sku: 'LL-PNR-PR', qty: 2 }] })
+    const view = ledger.view()
+    expect(view.entries.map((entry) => entry.kind)).toEqual(['checkout', 'capture'])
+    expect(view.captures('PP-1')).toEqual([
+      expect.objectContaining({
+        kind: 'capture',
+        answer: 'paid',
+        captureId: 'CAP-1',
+        lines: [{ sku: 'LL-PNR-PR', qty: 2 }],
+      }),
+    ])
+    expect(view.paypalOrderIds()).toEqual(['PP-1'])
+  })
+})
+
 describe('meter', () => {
   it('records every exchange so the persona never writes its own grade', async () => {
     const ledger = new Ledger()

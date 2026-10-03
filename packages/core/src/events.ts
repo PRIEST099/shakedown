@@ -5,6 +5,7 @@ import type { Finding } from './finding'
 export type RunEvent =
   | { type: 'campaign:started'; campaignId: string; seed: number; cast: PersonaId[] }
   | { type: 'scenario:started'; persona: PersonaId; scenario: string }
+  | { type: 'scenario:skipped'; persona: PersonaId; scenario: string; reason: string }
   | { type: 'scenario:step'; persona: PersonaId; detail: string }
   | { type: 'scenario:finished'; persona: PersonaId; findings: number }
   | { type: 'finding'; finding: Finding }

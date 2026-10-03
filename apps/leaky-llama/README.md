@@ -37,7 +37,9 @@ same way, whoever flips the panel in the meantime.
 
 ## What Shakedown reads
 
-Read-only and protected by `x-shakedown-probe: <SHAKEDOWN_PROBE_SECRET>`.
+`GET /api/catalog` is public, like any storefront: what the store sells, at its own prices. The
+cast picks what to buy from it. Everything else here is read-only and protected by
+`x-shakedown-probe: <SHAKEDOWN_PROBE_SECRET>`.
 
 - `GET /api/probe/orders/:id`: what the store believes about an order (`LL-10042` or the PayPal
   order ID). Status, amounts, every shipment with the code path that released it, refunds,

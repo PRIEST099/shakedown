@@ -8,9 +8,10 @@ import type { GradedInvariant } from './grader'
 import { grade } from './grader'
 import type { LedgerEntry } from './ledger'
 import { Ledger } from './ledger'
-import { meter } from './metered'
+import { meter, meterPayPal } from './metered'
 import type { Cents } from './money'
-import type { PersonaModule, Scenario, ScenarioContext } from './persona'
+import type { PayPalSide } from './paypal-side'
+import type { PersonaModule, Requirement, Scenario, ScenarioContext } from './persona'
 import { implementedPersonas, PERSONA_MODULES } from './registry'
 import { createRng } from './rng'
 import type { TargetAdapter } from './target'
@@ -26,6 +27,8 @@ export class CampaignCancelledError extends Error {
 
 export interface CampaignOptions {
   target: TargetAdapter
+  /** PayPal's side of a checkout: card confirmation and ledger reads. Needed by the checkout cast. */
+  paypal?: PayPalSide
   /** Same seed, same run. Defaults to a timestamp, which the result always reports back. */
   seed?: number
   campaignId?: string
@@ -34,6 +37,8 @@ export interface CampaignOptions {
   bus?: EventBus
   signal?: AbortSignal
   now?: () => Date
+  /** Unique per run; defaults to the start time. Tests with a fixed clock get a fixed one. */
+  runNonce?: string
   /** Override the persona registry. The CLI uses the default; tests inject their own. */
   modules?: Partial<Record<PersonaId, PersonaModule>>
 }
@@ -48,6 +53,8 @@ export interface ScenarioOutcome {
   entries: readonly LedgerEntry[]
   /** Set when the scenario could not finish. Its invariants will mostly read inconclusive. */
   error?: string
+  /** Set when the scenario never ran because the target can't support it. */
+  skipped?: string
 }
 
 export interface CampaignResult {
@@ -83,6 +90,7 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
   const cast = (options.cast ?? implementedPersonas(modules)).filter((id) => modules[id])
 
   const startedAt = now().toISOString()
+  const runNonce = options.runNonce ?? new Date(startedAt).getTime().toString(36)
   const outcomes: ScenarioOutcome[] = []
   const findings: Finding[] = []
   let stoppedEarly: string | undefined
@@ -96,6 +104,27 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
       if (signal?.aborted) throw new CampaignCancelledError()
       budget.checkClock()
 
+      const missing = unmet(scenario.requires, options)
+      if (missing) {
+        outcomes.push({
+          scenario: scenario.id,
+          title: scenario.title,
+          persona: scenario.persona,
+          plan: scenario.plan,
+          results: [],
+          findings: [],
+          entries: [],
+          skipped: missing,
+        })
+        bus.emit({
+          type: 'scenario:skipped',
+          persona: scenario.persona,
+          scenario: scenario.id,
+          reason: missing,
+        })
+        continue
+      }
+
       bus.emit({ type: 'scenario:started', persona: scenario.persona, scenario: scenario.id })
 
       const ledger = new Ledger(now)
@@ -104,9 +133,11 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
         persona: scenario.persona,
         scenario: scenario.id,
         target: meter(options.target, { budget, ledger }),
+        paypal: options.paypal ? meterPayPal(options.paypal, { budget, ledger }) : undefined,
         ledger,
         budget,
         rng,
+        runNonce,
         signal: signal ?? new AbortController().signal,
         now,
         step(detail) {
@@ -179,6 +210,24 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
     })
   }
   return result
+}
+
+const REQUIREMENT_TEXT: Record<Requirement, string> = {
+  checkout: 'a checkout to walk through',
+  paypal: "PayPal's side of the checkout",
+}
+
+/** Why a scenario can't run here, or undefined when it can. */
+function unmet(
+  requires: readonly Requirement[] | undefined,
+  options: CampaignOptions,
+): string | undefined {
+  const missing = (requires ?? []).filter((need) =>
+    need === 'checkout' ? !options.target.checkout : !options.paypal,
+  )
+  return missing.length > 0
+    ? `Needs ${missing.map((need) => REQUIREMENT_TEXT[need]).join(' and ')}.`
+    : undefined
 }
 
 function gradeScenario(

@@ -95,29 +95,47 @@ export async function createCheckout(
 
   const number = orderNumber(row.id)
   const value = (cents: number) => ({ currency_code: row.currency, value: toDecimal(cents) })
-  const created = await paypal.createOrder(
-    {
-      intent: 'CAPTURE',
-      purchase_units: [
-        {
-          reference_id: number,
-          custom_id: number,
-          description: 'Leaky Llama Supply Co. (demo store, PayPal sandbox)',
-          amount: {
-            ...value(row.amountCents),
-            breakdown: { item_total: value(row.amountCents) },
+  const createAtPayPal = () =>
+    paypal.createOrder(
+      {
+        intent: 'CAPTURE',
+        purchase_units: [
+          {
+            reference_id: number,
+            custom_id: number,
+            description: 'Leaky Llama Supply Co. (demo store, PayPal sandbox)',
+            amount: {
+              ...value(row.amountCents),
+              breakdown: { item_total: value(row.amountCents) },
+            },
+            items: row.items.map((item) => ({
+              name: item.name,
+              sku: item.sku,
+              quantity: String(item.qty),
+              unit_amount: value(item.unitCents),
+            })),
           },
-          items: row.items.map((item) => ({
-            name: item.name,
-            sku: item.sku,
-            quantity: String(item.qty),
-            unit_amount: value(item.unitCents),
-          })),
-        },
-      ],
-    },
-    checkoutKey ? `create-${checkoutKey}` : undefined,
-  )
+        ],
+      },
+      checkoutKey ? `create-${checkoutKey}` : undefined,
+    )
+
+  let created: Order
+  try {
+    created = await createAtPayPal()
+  } catch (error) {
+    // Two submits with one key reach PayPal at once; PayPal may refuse the second while the
+    // first is still in flight. The first one's order is the answer to both.
+    const settled = checkoutKey ? await waitForOrder(db, row.id) : undefined
+    if (!settled) throw error
+    return {
+      orderNumber: number,
+      paypalOrderId: settled,
+      amountCents: row.amountCents,
+      currency: row.currency,
+      reused: true,
+    }
+  }
 
   await db
     .update(orders)
@@ -131,6 +149,16 @@ export async function createCheckout(
     currency: row.currency,
     reused: !inserted,
   }
+}
+
+/** Poll briefly for the PayPal order a concurrent submit is creating for the same row. */
+async function waitForOrder(db: StoreDb, id: number, attempts = 30): Promise<string | undefined> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const [row] = await db.select().from(orders).where(eq(orders.id, id))
+    if (row?.paypalOrderId) return row.paypalOrderId
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+  return undefined
 }
 
 export type CaptureOutcome =

@@ -1,4 +1,5 @@
 import { allLeaky, allSealed, type StoreMode } from '@shakedown/core/mode'
+import { PayPalApiError } from '@shakedown/paypal'
 import { eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { captureCheckout, createCheckout, type StoreDeps } from './checkout'
@@ -60,6 +61,42 @@ describe('createCheckout', () => {
         .filter((c) => c.method === 'createOrder')
         .every((c) => c.requestId === 'create-key-1'),
     ).toBe(true)
+  })
+
+  it('still hands both submits one order when PayPal refuses the concurrent repeat', async () => {
+    // PayPal may refuse a request ID that is still in flight. Model exactly that.
+    class StrictPayPal extends FakePayPal {
+      readonly #inFlight = new Set<string>()
+      override async createOrder(body: Record<string, unknown>, requestId?: string) {
+        if (requestId && this.#inFlight.has(requestId)) {
+          throw new PayPalApiError({
+            status: 409,
+            message: 'Request in progress',
+            issue: 'DUPLICATE_REQUEST',
+          })
+        }
+        if (requestId) this.#inFlight.add(requestId)
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        try {
+          return await super.createOrder(body, requestId)
+        } finally {
+          if (requestId) this.#inFlight.delete(requestId)
+        }
+      }
+    }
+    const paypal = new StrictPayPal()
+    const input = {
+      lines: socks,
+      email: 'race@example.com',
+      checkoutKey: 'key-race',
+      mode: allSealed(),
+    }
+    const [first, second] = await Promise.all([
+      createCheckout(deps(paypal), input),
+      createCheckout(deps(paypal), input),
+    ])
+    expect(second.paypalOrderId).toBe(first.paypalOrderId)
+    expect(paypal.orders.size).toBe(1)
   })
 
   it('opens a fresh order on every submit when the Double-Clicker switch is leaky', async () => {

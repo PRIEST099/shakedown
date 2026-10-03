@@ -44,11 +44,24 @@ describe('runCampaign', () => {
   it('skips personas that are not wired up yet instead of failing', async () => {
     const result = await runCampaign({
       target: fixture.adapter,
-      cast: ['bouncer', 'policy-lawyer'],
+      cast: ['policy-lawyer', 'second-opinion'],
       seed: 1,
     })
     expect(result.outcomes).toEqual([])
     expect(result.findings).toEqual([])
+  })
+
+  it('skips a scenario the target cannot support, and says why, without running it', async () => {
+    const bus = new EventBus()
+    const seen: RunEvent[] = []
+    bus.on((event) => seen.push(event))
+    // The fixture is a bare webhook listener: no checkout, and no PayPal side in this campaign.
+    const result = await runCampaign({ target: fixture.adapter, cast: ['bouncer'], seed: 1, bus })
+    expect(result.outcomes).toHaveLength(1)
+    expect(result.outcomes[0]).toMatchObject({ persona: 'bouncer', results: [], entries: [] })
+    expect(result.outcomes[0]?.skipped).toMatch(/checkout to walk through.*PayPal/)
+    expect(seen.map((event) => event.type)).toContain('scenario:skipped')
+    expect(fixture.orders()).toHaveLength(0)
   })
 
   it('stops when the operator cancels, and says so', async () => {

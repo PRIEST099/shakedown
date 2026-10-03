@@ -31,7 +31,8 @@ describe('scoreboard', () => {
     expect(text).toContain('3. THE ECHO')
     expect(text).toContain('3 LEAKS')
     expect(text).toContain('MERCHANT LEAK')
-    expect(text).toMatch(/\$\d+\.\d{2}/)
+    expect(text).toContain('CUSTOMER HARM')
+    expect(text).toMatch(/At risk\s+\$\d+\.\d{2} merchant/)
     expect(text).toContain('Fix: Call verify-webhook-signature')
     expect(text).toContain('✗ An unverified webhook never releases goods')
   })
@@ -59,6 +60,15 @@ describe('scoreboard', () => {
         expect(text).toContain(item.value)
       }
     }
+  })
+
+  it('shows a scenario the target could not support as skipped, not passed', async () => {
+    fixture.setFlags(LEAKY)
+    const result = await runCampaign({ target: fixture.adapter, cast: ['bouncer'], seed: 1 })
+    const text = scoreboard(result)
+    expect(text).toContain('Pays with a card that bounces (skipped:')
+    expect(text).toContain('1 skipped')
+    expect(text).not.toContain('✓')
   })
 
   it('says when a run stopped early', async () => {

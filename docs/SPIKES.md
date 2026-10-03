@@ -41,6 +41,7 @@ Run on **2026-10-02 and 2026-10-03** against a US sandbox business app.
 - `PayPal-Mock-Response: {"mock_application_codes":"INSTRUMENT_DECLINED"}` on capture returns `422 UNPROCESSABLE_ENTITY` with issue `INSTRUMENT_DECLINED`.
 - The cardholder-name trigger `CCREJECT-REFUSED` produces a real decline. However, PayPal answers with **order `status: COMPLETED`, while the capture inside it is `DECLINED`** (processor code `0500`).
 - *Implication (the Bouncer):* an integration that checks only `order.status` ships goods for a payment that never happened. The fix is to check `purchase_units[].payments.captures[].status === 'COMPLETED'` before fulfilling.
+- *Addendum (2026-10-04, Phase 4 live runs):* read back later with `GET /v2/checkout/orders/{id}`, the same declined order reports **`CREATED`**, with its capture `DECLINED`. The order looks `COMPLETED` only in the capture *response*, which is exactly where a hurried integration reads it. Shakedown grades the capture status from the ledger, never the order status.
 
 **S5: refunds.**
 - A partial refund (18.00 of 45.00) completed.

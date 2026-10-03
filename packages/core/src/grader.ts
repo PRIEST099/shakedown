@@ -17,6 +17,8 @@ export interface InvariantResult {
   merchantLeakCents?: Cents
   customerHarmCents?: Cents
   evidence?: readonly Evidence[]
+  /** Overrides the invariant's severity, e.g. a real fault that happened to move no money. */
+  severity?: Severity
 }
 
 export interface Invariant {
@@ -68,7 +70,7 @@ export function grade(
       scenario: context.scenario,
       invariant: invariant.id,
       title: invariant.title,
-      severity: invariant.severity,
+      severity: result.severity ?? invariant.severity,
       merchantLeakCents: result.merchantLeakCents ?? 0,
       customerHarmCents: result.customerHarmCents ?? 0,
       detail: result.detail,

@@ -1,5 +1,6 @@
 import type { Cents } from './money'
-import type { OrderState, WebhookEvent } from './target'
+import type { PayPalCapture } from './paypal-side'
+import type { CheckoutLine, OrderState, Shipment, WebhookEvent } from './target'
 
 /**
  * The ledger is the engine's system of record. Only the engine writes to it: a persona can ask
@@ -38,6 +39,64 @@ export interface ProbeEntry {
   fulfillmentCount: number
   amountCents: Cents
   currency: string
+  paypalOrderId?: string | null
+  captureId?: string | null
+  capturedCents?: Cents
+  shipments?: readonly Shipment[]
+  deliveries?: readonly { eventId: string | null; outcome: string }[]
+}
+
+/** The customer asked the target to open a checkout, and this is what came back. */
+export interface CheckoutEntry {
+  kind: 'checkout'
+  at: string
+  email: string
+  lines: CheckoutLine[]
+  checkoutKey?: string
+  status: number
+  storeOrderId?: string
+  paypalOrderId?: string
+  amountCents?: Cents
+  currency?: string
+  reused?: boolean
+  error?: string
+}
+
+/** The customer's card step at PayPal. */
+export interface CardEntry {
+  kind: 'card'
+  at: string
+  paypalOrderId: string
+  /** A card the sandbox is set up to decline. */
+  decline: boolean
+  status: number
+  orderStatus?: string
+  error?: string
+}
+
+/** The target's answer to a capture request. */
+export interface CaptureEntry {
+  kind: 'capture'
+  at: string
+  paypalOrderId: string
+  /** The cart the customer's browser sent along, if any. */
+  lines?: CheckoutLine[]
+  status: number
+  answer: string
+  storeOrderId?: string
+  captureId?: string
+  shipped?: boolean
+  error?: string
+}
+
+/** What PayPal's ledger holds for an order: the grader's source of truth. */
+export interface PayPalOrderEntry {
+  kind: 'paypal-order'
+  at: string
+  paypalOrderId: string
+  found: boolean
+  status: string
+  captures: readonly PayPalCapture[]
 }
 
 /** A persona's own commentary. Recorded for the report, never graded. */
@@ -47,7 +106,15 @@ export interface NoteEntry {
   detail: string
 }
 
-export type LedgerEntry = OrderOpenedEntry | DeliveryEntry | ProbeEntry | NoteEntry
+export type LedgerEntry =
+  | OrderOpenedEntry
+  | DeliveryEntry
+  | ProbeEntry
+  | CheckoutEntry
+  | CardEntry
+  | CaptureEntry
+  | PayPalOrderEntry
+  | NoteEntry
 
 /** A frozen snapshot handed to the grader. Query only; nothing here can mutate the run. */
 export class LedgerView {
@@ -81,6 +148,39 @@ export class LedgerView {
     const probes = this.probes(orderId)
     return probes[probes.length - 1]
   }
+
+  checkouts(): readonly CheckoutEntry[] {
+    return this.entries.filter((entry) => entry.kind === 'checkout')
+  }
+
+  cards(): readonly CardEntry[] {
+    return this.entries.filter((entry) => entry.kind === 'card')
+  }
+
+  captures(paypalOrderId?: string): readonly CaptureEntry[] {
+    const all = this.entries.filter((entry) => entry.kind === 'capture')
+    return paypalOrderId ? all.filter((entry) => entry.paypalOrderId === paypalOrderId) : all
+  }
+
+  /** PayPal's latest word on an order. */
+  paypalOrder(paypalOrderId: string): PayPalOrderEntry | undefined {
+    const reads = this.entries.filter(
+      (entry): entry is PayPalOrderEntry =>
+        entry.kind === 'paypal-order' && entry.paypalOrderId === paypalOrderId,
+    )
+    return reads[reads.length - 1]
+  }
+
+  /** The distinct PayPal orders the target opened during this scenario, in order. */
+  paypalOrderIds(): string[] {
+    return [
+      ...new Set(
+        this.checkouts()
+          .map((entry) => entry.paypalOrderId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ]
+  }
 }
 
 export class Ledger {
@@ -105,7 +205,7 @@ export class Ledger {
     amountCents: Cents
     currency: string
   }): void {
-    this.#entries.push({ kind: 'order-opened', at: this.#stamp(), ...order })
+    this.#entries.push({ ...order, kind: 'order-opened', at: this.#stamp() })
   }
 
   delivered(
@@ -113,18 +213,46 @@ export class Ledger {
     outcome: { signed: boolean; status: number; accepted: boolean },
   ): void {
     this.#entries.push({
+      ...outcome,
       kind: 'delivery',
       at: this.#stamp(),
       eventId: event.id,
       eventType: event.event_type,
       createTime: event.create_time,
       orderId: event.resource.custom_id,
-      ...outcome,
     })
   }
 
   probed(state: OrderState): void {
-    this.#entries.push({ kind: 'probe', at: this.#stamp(), ...state })
+    this.#entries.push({
+      ...state,
+      kind: 'probe',
+      at: this.#stamp(),
+      shipments: state.shipments?.map((shipment) => ({
+        source: shipment.source,
+        valueCents: shipment.valueCents,
+      })),
+      deliveries: state.deliveries?.map((delivery) => ({
+        eventId: delivery.eventId,
+        outcome: delivery.outcome,
+      })),
+    })
+  }
+
+  checkoutOpened(entry: Omit<CheckoutEntry, 'kind' | 'at'>): void {
+    this.#entries.push({ ...entry, kind: 'checkout', at: this.#stamp() })
+  }
+
+  cardConfirmed(entry: Omit<CardEntry, 'kind' | 'at'>): void {
+    this.#entries.push({ ...entry, kind: 'card', at: this.#stamp() })
+  }
+
+  captureAnswered(entry: Omit<CaptureEntry, 'kind' | 'at'>): void {
+    this.#entries.push({ ...entry, kind: 'capture', at: this.#stamp() })
+  }
+
+  paypalRead(entry: Omit<PayPalOrderEntry, 'kind' | 'at'>): void {
+    this.#entries.push({ ...entry, kind: 'paypal-order', at: this.#stamp() })
   }
 
   noted(detail: string): void {

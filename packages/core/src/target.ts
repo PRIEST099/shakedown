@@ -35,6 +35,19 @@ export interface DeliveryResult {
   /** True when the listener answered 2xx. Says nothing about what it then did. */
   accepted: boolean
   body: string
+  /**
+   * Whether the delivery really carried valid proof of origin. An adapter that was asked to sign
+   * but cannot (only PayPal can sign for a real store) must say so, so the ledger stays true.
+   */
+  signed?: boolean
+}
+
+/** One release of goods, as the target reports it. */
+export interface Shipment {
+  /** The code path that released the goods, e.g. 'checkout' or 'webhook'. */
+  source: string
+  /** What the goods are worth at the target's own catalog prices. */
+  valueCents: Cents
 }
 
 /** What the target believes about an order. Read through its secret-protected probe route. */
@@ -47,6 +60,62 @@ export interface OrderState {
   fulfillmentCount: number
   amountCents: Cents
   currency: string
+  paypalOrderId?: string | null
+  captureId?: string | null
+  /** What the target believes was captured. PayPal's ledger is checked separately. */
+  capturedCents?: Cents
+  shipments?: readonly Shipment[]
+  /** What the target's listener did with each delivery for this order, in order, if it says. */
+  deliveries?: readonly { eventId: string | null; outcome: string }[]
+}
+
+/** A line in a cart. A price is only sent when a scenario deliberately sends its own. */
+export interface CheckoutLine {
+  sku: string
+  qty: number
+  unitCents?: Cents
+}
+
+export interface CatalogItem {
+  sku: string
+  name: string
+  priceCents: Cents
+}
+
+/** What the target answered when asked to open a checkout. HTTP failures are answers too. */
+export interface CheckoutOpened {
+  status: number
+  storeOrderId?: string
+  paypalOrderId?: string
+  amountCents?: Cents
+  currency?: string
+  /** The target recognised a repeat and handed back the order it already made. */
+  reused?: boolean
+  error?: string
+}
+
+/** What the target told the customer after capturing. */
+export interface CaptureAnswer {
+  status: number
+  /** The target's own verdict, e.g. 'paid', 'held', 'declined'. */
+  kind: string
+  storeOrderId?: string
+  captureId?: string
+  shipped?: boolean
+  error?: string
+}
+
+/** A checkout the cast can walk through, as a customer's browser would. */
+export interface CheckoutPort {
+  /** What the store sells. */
+  readonly catalog: readonly CatalogItem[]
+  openCheckout(input: {
+    lines: CheckoutLine[]
+    email: string
+    checkoutKey?: string
+  }): Promise<CheckoutOpened>
+  /** Ask the target to capture an order the customer has approved. */
+  capture(paypalOrderId: string, input?: { lines?: CheckoutLine[] }): Promise<CaptureAnswer>
 }
 
 export interface OpenedOrder {
@@ -66,4 +135,6 @@ export interface TargetAdapter {
   openOrder(input: { amountCents: Cents; currency?: string }): Promise<OpenedOrder>
   deliverWebhook(event: WebhookEvent, options?: DeliveryOptions): Promise<DeliveryResult>
   probeOrder(orderId: string): Promise<OrderState>
+  /** Present when the target has a checkout the cast can walk through. */
+  checkout?: CheckoutPort
 }
