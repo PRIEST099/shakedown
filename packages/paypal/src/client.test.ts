@@ -109,6 +109,24 @@ describe('PayPalSandboxClient', () => {
   })
 })
 
+describe('PayPalApiError', () => {
+  it('is recognised even when its module was loaded twice', async () => {
+    // What a second copy of this module would throw: a different class, the same shape.
+    const copy = await import(`./errors?copy=${Date.now()}`)
+    const error = new copy.PayPalApiError({
+      status: 422,
+      message: 'x',
+      issue: 'ORDER_ALREADY_CAPTURED',
+    })
+    expect(copy.PayPalApiError).not.toBe(PayPalApiError)
+    expect(error instanceof PayPalApiError).toBe(true)
+    expect(new Error('x') instanceof PayPalApiError).toBe(false)
+    expect(
+      Object.assign(new Error('x'), { name: 'PayPalApiError' }) instanceof PayPalApiError,
+    ).toBe(false)
+  })
+})
+
 describe('authAssertion', () => {
   it('builds an unsigned JWT with the given claims', () => {
     const jwt = authAssertion({ iss: 'client-id', email: 'buyer@example.com' })

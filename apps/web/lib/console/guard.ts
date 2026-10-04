@@ -13,6 +13,22 @@ const holder = globalThis as unknown as { __shakedownLimits?: Map<string, number
 if (!holder.__shakedownLimits) holder.__shakedownLimits = new Map()
 const hits = holder.__shakedownLimits
 
+/**
+ * Who is asking. On Render, Cloudflare writes CF-Connecting-IP on every request and overwrites
+ * whatever the caller sent, while X-Forwarded-For keeps anything the caller put in it.
+ */
+export function clientAddress(request: Request): string {
+  if (process.env.RENDER) {
+    const address = request.headers.get('cf-connecting-ip')?.trim()
+    if (address) return address
+  }
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'local'
+  )
+}
+
 /** A sliding window per address and route: true while under `max` calls in `windowMs`. */
 export function underLimit(
   request: Request,
@@ -20,11 +36,7 @@ export function underLimit(
   max: number,
   windowMs: number,
 ): boolean {
-  const address =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'local'
-  const key = `${route}:${address}`
+  const key = `${route}:${clientAddress(request)}`
   const now = Date.now()
   const recent = (hits.get(key) ?? []).filter((at: number) => now - at < windowMs)
   if (recent.length >= max) {

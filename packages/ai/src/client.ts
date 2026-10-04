@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import Anthropic from '@anthropic-ai/sdk'
 import { claudeGate } from './gate'
-import { SpendLedger } from './spend'
+import { SpendLedger, type SpendStore } from './spend'
 
 /**
  * Where Shakedown keeps its AI spend log and replay cache: `.data` at the repo root, found by
@@ -36,6 +36,8 @@ export interface ClaudeOptions {
   budgetUsd?: number
   /** false switches the replay cache off, e.g. for a deliberately fresh measurement. */
   replay?: boolean
+  /** Where paid calls are written down. Defaults to the machine-wide file in `dir`. */
+  spend?: SpendStore
   apiKey?: string
   /** The real transport. Tests pass a fake one. */
   fetch?: typeof fetch
@@ -53,7 +55,7 @@ export function createClaude(options: ClaudeOptions): Anthropic {
     // One retry for a transient 429 or 5xx; a retried call that succeeds is billed once.
     maxRetries: 1,
     fetch: claudeGate({
-      spend: spendLedger(dir),
+      spend: options.spend ?? spendLedger(dir),
       budgetUsd: options.budgetUsd ?? budgetUsd(),
       cacheDir: options.replay === false ? null : path.join(dir, 'ai-cache'),
       purpose: options.purpose,

@@ -1,0 +1,154 @@
+# The frozen deployment for judging: the same services as render.yaml under their own names,
+# with their own database, built from the `judge` branch (tag v0.1.0-devpost) and never deployed
+# again by a push. Create it from this file once, at submission. docs/DEPLOY.md has the steps.
+
+envVarGroups:
+  - name: shakedown-judge-sandbox
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: PAYPAL_ENV
+        value: sandbox
+      # Your PayPal sandbox app. Typed into the Render Dashboard, never committed.
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      # Shared by the store and whatever tests it: signs campaign tokens, opens the probe API.
+      - key: SHAKEDOWN_PROBE_SECRET
+        generateValue: true
+
+services:
+  - type: web
+    name: shakedown-judge-web
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: judge
+    autoDeployTrigger: "off"
+    buildCommand: npm install -g pnpm@12.8.1 && pnpm install --frozen-lockfile && pnpm --filter @shakedown/web build
+    startCommand: cd apps/web && ./node_modules/.bin/next start --port $PORT
+    healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - apps/web/**
+        - packages/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+      ignoredPaths:
+        - "**/*.test.ts"
+        - "**/*.md"
+    envVars:
+      - fromGroup: shakedown-judge-sandbox
+      - key: CONSOLE_DATABASE_URL
+        fromDatabase:
+          name: shakedown-judge-db
+          property: connectionString
+      # The store, over Render's private network.
+      - key: LEAKY_LLAMA_HOSTPORT
+        fromService:
+          name: shakedown-judge-store
+          type: web
+          property: hostport
+      # Live runs go to Render Workflows. The key comes from a Render user that belongs only to
+      # this workspace: Render API keys reach every workspace their owner is in.
+      - key: SHAKEDOWN_WORKFLOW
+        fromService:
+          name: shakedown-judge-runs
+          type: workflow
+          property: slug
+      - key: RENDER_API_KEY
+        sync: false
+      # Hosted for judges: per-visitor limits, a few runs at once, a daily ceiling.
+      - key: SHAKEDOWN_JUDGE_MODE
+        value: "1"
+      # Triage, the console's agent. Optional; its spend is capped and kept in Postgres.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_WORKSPACE_ID
+        sync: false
+      - key: SHAKEDOWN_CONSOLE_AI_BUDGET_USD
+        value: "0.25"
+      - key: NEXT_PUBLIC_AG_STUDIO_LICENSE_KEY
+        sync: false
+
+  - type: web
+    name: shakedown-judge-store
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: judge
+    autoDeployTrigger: "off"
+    buildCommand: npm install -g pnpm@12.8.1 && pnpm install --frozen-lockfile && pnpm --filter @shakedown/leaky-llama build
+    startCommand: cd apps/leaky-llama && ./node_modules/.bin/next start --port $PORT
+    healthCheckPath: /api/health
+    # The store keeps its orders, and Lulu's spend log, on its own disk.
+    disk:
+      name: store-data
+      mountPath: /var/data
+      sizeGB: 1
+    buildFilter:
+      paths:
+        - apps/leaky-llama/**
+        - packages/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+      ignoredPaths:
+        - "**/*.test.ts"
+        - "**/*.md"
+    envVars:
+      - fromGroup: shakedown-judge-sandbox
+      - key: STORE_DATA_DIR
+        value: /var/data/pglite
+      - key: SHAKEDOWN_DATA_DIR
+        value: /var/data/shakedown
+      # Lulu, the store's support assistant. Optional; capped like every Claude call.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_WORKSPACE_ID
+        sync: false
+      - key: SHAKEDOWN_AI_BUDGET_USD
+        value: "0.50"
+      - key: LULU_MODEL
+        value: claude-haiku-4-5
+
+  - type: workflow
+    name: shakedown-judge-runs
+    runtime: node
+    region: oregon
+    branch: judge
+    autoDeployTrigger: "off"
+    buildCommand: npm install -g pnpm@12.8.1 && pnpm install --frozen-lockfile && pnpm --filter @shakedown/workflows build
+    startCommand: node apps/workflows/dist/index.js
+    buildFilter:
+      paths:
+        - apps/workflows/**
+        - packages/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+      ignoredPaths:
+        - "**/*.test.ts"
+        - "**/*.md"
+    envVars:
+      - fromGroup: shakedown-judge-sandbox
+      - key: CONSOLE_DATABASE_URL
+        fromDatabase:
+          name: shakedown-judge-db
+          property: connectionString
+      - key: LEAKY_LLAMA_HOSTPORT
+        fromService:
+          name: shakedown-judge-store
+          type: web
+          property: hostport
+
+databases:
+  - name: shakedown-judge-db
+    plan: basic-256mb
+    region: oregon
+    databaseName: shakedown
+    user: shakedown
+    # Private network only: no address outside Render can connect.
+    ipAllowList: []

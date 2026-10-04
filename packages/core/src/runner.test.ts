@@ -81,6 +81,48 @@ describe('runCampaign', () => {
     expect(drawn[1]).toBe(drawn[3])
   })
 
+  it('runs a cast one customer at a time, each resuming the last, exactly as one run would', async () => {
+    const leaks = {
+      id: 'always-leaks',
+      persona: 'echo' as const,
+      title: 'x',
+      severity: 'high' as const,
+      fix: 'x',
+      evaluate: () => ({ verdict: 'leak' as const, detail: 'x', merchantLeakCents: 100 }),
+    }
+    const drawing = (persona: 'echo' | 'bouncer'): PersonaModule => ({
+      id: persona,
+      scenarios: [
+        {
+          ...scenario(`${persona}-draws`, async (context) => {
+            context.step(`${context.rng.id('A')} ${context.rng.int(1000)}`)
+          }),
+          persona,
+          invariants: [{ ...leaks, persona }],
+        },
+      ],
+    })
+    const modules = { echo: drawing('echo'), bouncer: drawing('bouncer') }
+    const common = { target: fixture.adapter, seed: 11, campaignId: 'CMP-STEPS', modules }
+    const lines = (result: { outcomes: { entries: readonly { kind: string }[] }[] }) =>
+      result.outcomes.flatMap((outcome) =>
+        outcome.entries.map((entry) => ('detail' in entry ? entry.detail : entry.kind)),
+      )
+
+    const whole = await runCampaign({ ...common, cast: ['echo', 'bouncer'] })
+    const first = await runCampaign({ ...common, cast: ['echo'] })
+    const second = await runCampaign({ ...common, cast: ['bouncer'], resume: first.streams })
+
+    expect([...lines(first), ...lines(second)]).toEqual(lines(whole))
+    expect([...first.findings, ...second.findings].map((f) => f.id)).toEqual(
+      whole.findings.map((f) => f.id),
+    )
+    expect(second.streams).toEqual(whole.streams)
+    await expect(
+      runCampaign({ ...common, campaignId: undefined, cast: ['bouncer'], resume: first.streams }),
+    ).rejects.toThrow(/campaignId/)
+  })
+
   it('judges a saved run again, identically, without sending anything', async () => {
     const result = await runCampaign({ target: fixture.adapter, cast: ['echo'], seed: 3 })
     const saved = JSON.parse(JSON.stringify(saveRun(result)))

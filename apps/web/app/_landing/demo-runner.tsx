@@ -14,6 +14,16 @@ const SENT: readonly PersonaId[] = ['double-clicker', 'cart-shuffler', 'echo', '
 type Chip = 'queued' | 'running' | 'leak' | 'sealed' | 'inconclusive' | 'skipped'
 type Phase = 'idle' | 'starting' | 'running' | 'done' | 'failed' | 'replay'
 
+/** Why live runs can't work right now, from /api/console/status. */
+type Unavailable = 'off' | 'setup' | 'store' | 'paypal'
+
+const UNAVAILABLE: Record<Unavailable, string> = {
+  paypal: 'PayPal’s sandbox isn’t answering right now, so here is a recording of a real run.',
+  store: 'The demo store isn’t answering right now, so here is a recording of a real run.',
+  off: 'Live runs aren’t switched on here, so here is a recording of a real run.',
+  setup: 'Live runs aren’t switched on here, so here is a recording of a real run.',
+}
+
 interface RunInfo {
   id: string
   switches: string
@@ -77,6 +87,7 @@ export function DemoRunner({ recorded }: { recorded: RecordedRun }) {
   const [message, setMessage] = useState<string>()
   const [lastLeaky, setLastLeaky] = useState<number>()
   const [now, setNow] = useState(0)
+  const [unavailable, setUnavailable] = useState<Unavailable>()
   const source = useRef<EventSource | null>(null)
   const handled = useRef(0)
 
@@ -84,6 +95,16 @@ export function DemoRunner({ recorded }: { recorded: RecordedRun }) {
   const tick = useTick(total)
 
   useEffect(() => () => source.current?.close(), [])
+  useEffect(() => {
+    fetch('/api/console/status', { cache: 'no-store' })
+      .then((res) =>
+        res.ok ? (res.json() as Promise<{ live: boolean; reason?: Unavailable }>) : null,
+      )
+      .then((status) => {
+        if (status && !status.live) setUnavailable(status.reason ?? 'off')
+      })
+      .catch(() => {})
+  }, [])
   useEffect(() => {
     if (phase !== 'running' && phase !== 'starting') return
     const timer = setInterval(() => setNow(Date.now()), 1000)
@@ -160,12 +181,16 @@ export function DemoRunner({ recorded }: { recorded: RecordedRun }) {
         setMessage('The demo store didn’t answer. Watch the recorded run instead.')
         return
       }
-      const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string }
+      const body = (await res.json().catch(() => ({}))) as {
+        id?: string
+        error?: string
+        code?: string
+      }
       if (!res.ok || !body.id) {
         setPhase('failed')
         setMessage(
-          res.status === 409
-            ? 'The cast is busy with another run. Try again in a minute, or watch the recorded run.'
+          body.code === 'busy'
+            ? 'The cast is busy with other runs. Try again in a minute, or watch the recorded run.'
             : res.status === 429
               ? 'That’s a lot of runs. Try again in a few minutes, or watch the recorded run.'
               : 'Live runs aren’t available here right now. Watch the recorded run instead.',
@@ -208,6 +233,10 @@ export function DemoRunner({ recorded }: { recorded: RecordedRun }) {
                 : line,
             )
           })
+        } else if (event.type === 'retry') {
+          // The customer is running again from the start: drop what it printed the first time.
+          setChips((current) => ({ ...current, [event.persona]: 'running' }))
+          setLines((current) => current.filter((line) => line.personaId !== event.persona))
         } else if (event.type === 'stored') {
           void finish(id)
         } else if (event.type === 'failed') {
@@ -227,22 +256,28 @@ export function DemoRunner({ recorded }: { recorded: RecordedRun }) {
     [finish, lastLeaky, total],
   )
 
-  // The hero's "Run it live" asks for a run; start one if nothing is running.
-  useEffect(() => {
-    if (runRequests > handled.current) {
-      handled.current = runRequests
-      if (phase !== 'running' && phase !== 'starting') void start('leaky')
-    }
-  }, [runRequests, phase, start])
-
-  const replay = () => {
+  const replay = useCallback(() => {
     source.current?.close()
     setRun(undefined)
     setMessage(undefined)
     setPhase('replay')
     setChips(Object.fromEntries(SENT.map((id) => [id, 'leak'])))
     setLines([...recorded.before])
-  }
+  }, [recorded.before])
+
+  // When live runs can't work, show the recording straight away, labelled as one.
+  useEffect(() => {
+    if (unavailable) replay()
+  }, [unavailable, replay])
+
+  // The hero's "Run it live" asks for a run: start one, or replay the recording if runs are off.
+  useEffect(() => {
+    if (runRequests > handled.current) {
+      handled.current = runRequests
+      if (unavailable) replay()
+      else if (phase !== 'running' && phase !== 'starting') void start('leaky')
+    }
+  }, [runRequests, phase, start, unavailable, replay])
 
   const reset = () => {
     source.current?.close()
@@ -267,18 +302,24 @@ export function DemoRunner({ recorded }: { recorded: RecordedRun }) {
     <div className="demo">
       <div className="demo__controls">
         <div className="demo__buttons">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={live}
-            onClick={() => start('leaky')}
-          >
-            Unleash the cast
-          </button>
+          {unavailable ? (
+            <button type="button" className="btn btn-primary" onClick={replay}>
+              Replay the recording
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={live}
+              onClick={() => start('leaky')}
+            >
+              Unleash the cast
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-ghost"
-            disabled={live || phase !== 'done' || !leaked}
+            disabled={Boolean(unavailable) || live || phase !== 'done' || !leaked}
             onClick={() => start('sealed')}
           >
             Apply fixes and re-run
@@ -306,6 +347,7 @@ export function DemoRunner({ recorded }: { recorded: RecordedRun }) {
         <p className="demo__status" aria-live="polite">
           {status}
         </p>
+        {unavailable ? <p className="demo__message">{UNAVAILABLE[unavailable]}</p> : null}
         {message ? (
           <p className="demo__message">
             {message}{' '}

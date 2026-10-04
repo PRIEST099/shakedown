@@ -15,6 +15,13 @@
       "when": 1791130612264,
       "tag": "0001_lonely_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791138769056,
+      "tag": "0002_hosted_jobs",
+      "breakpoints": true
     }
   ]
 }

@@ -1,27 +1,30 @@
-import { randomBytes } from 'node:crypto'
+import { Render } from '@renderinc/sdk'
+import { PERSONA_MODULES, type PersonaId, type StoreMode } from '@shakedown/core'
 import {
-  allLeaky,
-  allSealed,
-  EventBus,
-  httpStoreTarget,
-  loadEnv,
-  PERSONA_MODULES,
-  type PersonaId,
-  type RunEvent,
-  runCampaign,
-  type StoreMode,
-  sandboxPayPalSide,
-  signCampaignToken,
-} from '@shakedown/core'
-import { PayPalSandboxClient } from '@shakedown/paypal'
+  BusyError,
+  type CampaignRunner,
+  dispatch,
+  eventLog,
+  inProcessRunner,
+  type JobEvent,
+  jobStore,
+  type Limits,
+  RunSetupError,
+  renderWorkflowsRunner,
+  runEnvironment,
+  STALE_AFTER_MS,
+  storeMode,
+} from '@shakedown/runs'
 import { LIVE_CAST } from './labels'
 import { describeSwitches, type FindingRow, findingRow } from './rows'
-import { getConsoleDb, storeCampaign } from './store'
+import { getConsoleDb } from './store'
 
 /**
- * Live campaigns from the console. They run against Shakedown's own demo store (never anyone
- * else's), one at a time, with only the customers that need no AI, so a click costs nothing but
- * sandbox calls. Events go to every open stream as they happen; the run is stored when it ends.
+ * Live campaigns from the console and the site. They run against Shakedown's own demo store
+ * (never anyone else's), with only the customers that need no AI, so a click costs nothing but
+ * sandbox calls. A run is a job: it runs on Render Workflows when that is set up, in this
+ * process otherwise, and either way writes its progress to the campaign store, which is where
+ * the console's stream reads it from.
  */
 
 export { LIVE_CAST }
@@ -38,20 +41,42 @@ export type LiveEvent =
       reason?: string
     }
   | { type: 'leak'; row: FindingRow }
+  /** A customer's step is being run again: drop what it printed so far. */
+  | { type: 'retry'; campaignId: string; persona: PersonaId }
   | { type: 'stored'; campaignId: string }
   | { type: 'failed'; reason: string }
 
 const titleOf = (persona: PersonaId, scenario: string) =>
   PERSONA_MODULES[persona]?.scenarios.find((s) => s.id === scenario)?.title ?? scenario
 
-/** The engine's events, translated for the console. */
-export function toLiveEvents(
-  event: RunEvent,
-  context: { campaignId: string; current?: { persona: PersonaId; scenario: string } },
-): LiveEvent[] {
+export interface LiveContext {
+  campaignId: string
+  /** The scenario each customer is on, so a finished one can be named. */
+  current?: Partial<Record<PersonaId, string>>
+}
+
+/** A job's events, translated for the console. */
+export function toLiveEvents(event: JobEvent, context: LiveContext): LiveEvent[] {
+  context.current ??= {}
   switch (event.type) {
+    case 'job:started': {
+      const mode = storeMode(event.switches)
+      return [
+        {
+          type: 'started',
+          campaignId: context.campaignId,
+          switches: describeSwitches(mode),
+          mode,
+          startedAt: event.startedAt,
+        },
+      ]
+    }
+    case 'job:customer':
+      return event.attempt > 1
+        ? [{ type: 'retry', campaignId: context.campaignId, persona: event.persona }]
+        : []
     case 'scenario:started':
-      context.current = { persona: event.persona, scenario: event.scenario }
+      context.current[event.persona] = event.scenario
       return [
         {
           type: 'scenario',
@@ -70,16 +95,18 @@ export function toLiveEvents(
           reason: event.reason,
         },
       ]
-    case 'scenario:finished':
+    case 'scenario:finished': {
+      const scenario = context.current[event.persona]
       return [
         {
           type: 'scenario',
           persona: event.persona,
-          title: context.current ? titleOf(context.current.persona, context.current.scenario) : '',
+          title: scenario ? titleOf(event.persona, scenario) : '',
           state: 'done',
           leaks: event.findings,
         },
       ]
+    }
     case 'finding':
       return [
         {
@@ -92,138 +119,113 @@ export function toLiveEvents(
           ),
         },
       ]
+    case 'job:stored':
+      return [{ type: 'stored', campaignId: event.campaignId }]
+    case 'job:failed':
+      return [{ type: 'failed', reason: event.reason }]
     default:
       return []
   }
 }
 
-export interface LiveCampaign {
-  id: string
-  switches: StoreMode
-  startedAt: string
-  events: LiveEvent[]
-  done: boolean
-  listeners: Set<(event: LiveEvent) => void>
-}
-
+/** Why a run didn't start, in words fit for anyone visiting the site. */
 export class LiveCampaignError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code: 'busy' | 'limit' | 'unavailable',
   ) {
     super(message)
     this.name = 'LiveCampaignError'
   }
 }
 
-const holder = globalThis as unknown as { __shakedownLive?: Map<string, LiveCampaign> }
-if (!holder.__shakedownLive) holder.__shakedownLive = new Map<string, LiveCampaign>()
-const registry = holder.__shakedownLive
+/** Hosted for judges: more people at once, so a few runs side by side and a daily ceiling. */
+export const judgeMode = () => process.env.SHAKEDOWN_JUDGE_MODE === '1'
 
-export const getLiveCampaign = (id: string) => registry.get(id)
+export const runLimits = (): Limits =>
+  judgeMode() ? { maxActive: 3, maxPerDay: 200 } : { maxActive: 1, maxPerDay: 1000 }
 
-/** The demo store this console may test: its own Leaky Llama, by default on :3100. */
-export function demoStoreUrl(): string {
-  return process.env.LEAKY_LLAMA_URL?.trim() || 'http://localhost:3100'
-}
-
-export async function startLiveCampaign(
-  options: { switches: 'leaky' | 'sealed'; seed?: number },
-  deps: { runner?: typeof runCampaign } = {},
-): Promise<LiveCampaign> {
-  if ([...registry.values()].some((campaign) => !campaign.done)) {
-    throw new LiveCampaignError('A campaign is already running. Watch that one finish first.', 409)
-  }
-  const env = loadEnv(process.env)
-  if (!env.SHAKEDOWN_PROBE_SECRET) {
-    throw new LiveCampaignError(
-      'SHAKEDOWN_PROBE_SECRET is not set, so the store cannot be read.',
-      503,
-    )
-  }
-  const switches = options.switches === 'sealed' ? allSealed() : allLeaky()
-  const id = `CMP-${randomBytes(6).toString('hex').toUpperCase()}`
-  const campaign: LiveCampaign = {
-    id,
-    switches,
-    startedAt: new Date().toISOString(),
-    events: [],
-    done: false,
-    listeners: new Set(),
-  }
-  const emit = (event: LiveEvent) => {
-    campaign.events.push(event)
-    for (const listener of campaign.listeners) listener(event)
-  }
-  const finish = (event: LiveEvent) => {
-    emit(event)
-    campaign.done = true
-    campaign.listeners.clear()
-  }
-
-  const token = await signCampaignToken(
-    { campaignId: id, exp: Date.now() + 20 * 60_000, mode: switches },
-    env.SHAKEDOWN_PROBE_SECRET,
-  )
-  const target = await httpStoreTarget({
-    baseUrl: demoStoreUrl(),
-    probeSecret: env.SHAKEDOWN_PROBE_SECRET,
-    campaignToken: token,
-  }).catch((error: Error) => {
-    throw new LiveCampaignError(
-      `The demo store at ${demoStoreUrl()} is not answering: ${error.message}`,
-      503,
-    )
-  })
-  const paypal =
-    env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET
-      ? sandboxPayPalSide(
-          new PayPalSandboxClient({
-            clientId: env.PAYPAL_CLIENT_ID,
-            clientSecret: env.PAYPAL_CLIENT_SECRET,
-          }),
-        )
-      : undefined
-
-  const bus = new EventBus()
-  const context: Parameters<typeof toLiveEvents>[1] = { campaignId: id }
-  bus.on((event) => {
-    for (const live of toLiveEvents(event, context)) emit(live)
-  })
-  registry.set(id, campaign)
-  emit({
-    type: 'started',
-    campaignId: id,
-    switches: describeSwitches(switches),
-    mode: switches,
-    startedAt: campaign.startedAt,
-  })
-  // Keep only the latest few finished runs' event buffers.
-  for (const [key, old] of registry) if (old.done && registry.size > 5) registry.delete(key)
-
-  void (deps.runner ?? runCampaign)({
-    target,
-    paypal,
-    cast: LIVE_CAST,
-    seed: options.seed ?? 2026,
-    campaignId: id,
-    bus,
-    budget: { wallClockMs: 10 * 60_000 },
-  })
-    .then(async (result) => {
-      const db = await getConsoleDb()
-      const stored = await storeCampaign(db, result, { source: 'live', switches })
-      finish({ type: 'stored', campaignId: stored })
+/** Where live runs go: Render Workflows when its service and an API key are set, else here. */
+export async function liveRunner(): Promise<CampaignRunner> {
+  const db = await getConsoleDb()
+  const workflow = process.env.SHAKEDOWN_WORKFLOW?.trim()
+  if (workflow && process.env.RENDER_API_KEY?.trim()) {
+    return renderWorkflowsRunner({
+      workflows: new Render().workflows,
+      workflow,
+      jobs: jobStore(db),
     })
-    .catch((error: Error) => finish({ type: 'failed', reason: error.message }))
-
-  return campaign
+  }
+  return inProcessRunner({
+    db,
+    jobs: jobStore(db),
+    events: eventLog(db),
+    customer: { env: runEnvironment(), events: eventLog(db), jobs: jobStore(db) },
+  })
 }
 
-/** Follow a campaign: everything so far, then each event as it happens, until it ends. */
-export function followCampaign(campaign: LiveCampaign, listener: (event: LiveEvent) => void) {
-  for (const event of campaign.events) listener(event)
-  if (campaign.done) return () => {}
-  campaign.listeners.add(listener)
-  return () => campaign.listeners.delete(listener)
+/** Start a live run against the demo store, with every switch one way. Returns the job's ID. */
+export async function startLiveRun(switches: 'leaky' | 'sealed'): Promise<string> {
+  try {
+    const db = await getConsoleDb()
+    const job = await dispatch(
+      { switches, cast: LIVE_CAST },
+      { runner: await liveRunner(), jobs: jobStore(db), events: eventLog(db), limits: runLimits() },
+    )
+    return job.id
+  } catch (error) {
+    if (error instanceof BusyError) {
+      throw new LiveCampaignError(
+        error.message,
+        error.status,
+        error.status === 503 ? 'busy' : 'limit',
+      )
+    }
+    // The details stay in the server log: they can name internal addresses.
+    console.error('[live] a run could not start:', error instanceof Error ? error.message : error)
+    throw new LiveCampaignError(
+      error instanceof RunSetupError
+        ? 'Live runs aren’t set up here. Watch the recorded run instead.'
+        : 'Live runs aren’t available right now. Watch the recorded run instead.',
+      503,
+      'unavailable',
+    )
+  }
+}
+
+/**
+ * Follow a job: everything so far, then each event as it lands, until it ends. Reads the log
+ * every half second, so it works the same whether the job runs here or on Render Workflows.
+ */
+export async function followRun(
+  jobId: string,
+  send: (event: LiveEvent) => void,
+  signal: AbortSignal,
+  options: { intervalMs?: number; quietLimitMs?: number } = {},
+): Promise<void> {
+  const log = eventLog(await getConsoleDb())
+  const context: LiveContext = { campaignId: jobId }
+  let after = 0
+  let heardAt = Date.now()
+  while (!signal.aborted) {
+    const rows = await log.since(jobId, after)
+    for (const { id, event } of rows) {
+      after = id
+      heardAt = Date.now()
+      for (const live of toLiveEvents(event, context)) {
+        send(live)
+        if (live.type === 'stored' || live.type === 'failed') return
+      }
+    }
+    if (Date.now() - heardAt > (options.quietLimitMs ?? STALE_AFTER_MS)) {
+      send({ type: 'failed', reason: 'The run stopped answering. Watch the recorded run instead.' })
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, options.intervalMs ?? 500))
+  }
+}
+
+export async function jobExists(jobId: string): Promise<boolean> {
+  return Boolean(await jobStore(await getConsoleDb()).get(jobId))
 }

@@ -1,19 +1,18 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
-import { type CampaignResult, regrade, type SavedRun, type StoreMode } from '@shakedown/core'
+import { regrade, type SavedRun, type StoreMode } from '@shakedown/core'
 import {
   campaigns,
   type Database,
   findings,
   invariantResults,
   ledgerEntries,
-  type SaveCampaignOptions,
-  saveCampaign,
   scenarioRuns,
   schema,
+  storeCampaign,
 } from '@shakedown/core/db'
-import { asc, desc, eq, inArray } from 'drizzle-orm'
+import { asc, desc, inArray } from 'drizzle-orm'
 import { drizzle as drizzlePglite } from 'drizzle-orm/pglite'
 import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator'
 import { drizzle as drizzlePostgres } from 'drizzle-orm/postgres-js'
@@ -102,41 +101,6 @@ export async function seedRecordedRuns(db: Database, dir = RECORDED): Promise<nu
   return count
 }
 
-/**
- * Store a finished campaign under an ID nothing else holds. Campaign IDs come from the seed, so
- * two runs with the same seed would otherwise collide.
- */
-export async function storeCampaign(
-  db: Database,
-  result: CampaignResult,
-  options: SaveCampaignOptions = {},
-): Promise<string> {
-  let id = result.campaignId
-  for (let n = 2; ; n += 1) {
-    const [taken] = await db
-      .select({ id: campaigns.id })
-      .from(campaigns)
-      .where(eq(campaigns.id, id))
-      .limit(1)
-    if (!taken) break
-    id = `${result.campaignId}-${n}`
-  }
-  const rekeyed: CampaignResult =
-    id === result.campaignId
-      ? result
-      : {
-          ...result,
-          campaignId: id,
-          findings: result.findings.map((finding) => ({ ...finding, campaignId: id })),
-          outcomes: result.outcomes.map((outcome) => ({
-            ...outcome,
-            findings: outcome.findings.map((finding) => ({ ...finding, campaignId: id })),
-          })),
-        }
-  await saveCampaign(db, rekeyed, options)
-  return id
-}
-
 /** The most recent campaigns, ledger and all. */
 export async function loadCampaigns(db: Database, limit = 50): Promise<StoredCampaign[]> {
   const rows = await db.select().from(campaigns).orderBy(desc(campaigns.startedAt)).limit(limit)
@@ -203,3 +167,5 @@ export async function loadCampaigns(db: Database, limit = 50): Promise<StoredCam
       })),
   }))
 }
+
+export { storeCampaign }

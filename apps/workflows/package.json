@@ -1,0 +1,26 @@
+{
+  "name": "@shakedown/workflows",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shakedown's Render Workflows service: one durable task per campaign, and one per customer in it.",
+  "scripts": {
+    "build": "tsup",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@renderinc/sdk": "1.2.0",
+    "postgres": "3.4.9"
+  },
+  "devDependencies": {
+    "@shakedown/core": "workspace:*",
+    "@shakedown/paypal": "workspace:*",
+    "@shakedown/runs": "workspace:*",
+    "drizzle-orm": "0.45.3",
+    "tsup": "8.5.1",
+    "yaml": "2.9.1",
+    "zod": "4.6.5"
+  }
+}

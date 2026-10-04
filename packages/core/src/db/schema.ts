@@ -126,6 +126,66 @@ export const findings = pgTable(
   ],
 )
 
+/**
+ * A campaign someone asked for from the console or the site. The job outlives the request: it
+ * runs in this process or on Render Workflows, writes its progress to campaign_events as it
+ * goes, and records where the finished campaign was stored.
+ */
+export const campaignJobs = pgTable(
+  'campaign_jobs',
+  {
+    /** The campaign ID the run uses. It is stored under it, or a free variant of it. */
+    id: text('id').primaryKey(),
+    /** The demo store's switches for the whole run: 'leaky' or 'sealed'. */
+    switches: text('switches').notNull(),
+    seed: bigint('seed', { mode: 'number' }).notNull(),
+    cast: jsonb('cast').$type<string[]>().notNull(),
+    /** 'in-process' or 'render-workflows'. */
+    runner: text('runner').notNull(),
+    /** 'queued', 'running', 'stored' or 'failed'. */
+    status: text('status').notNull().default('queued'),
+    /** Render Workflows' run ID, when it runs there. */
+    taskRunId: text('task_run_id'),
+    storedAs: text('stored_as'),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('campaign_jobs_status').on(table.status)],
+)
+
+/** A job's progress, in order: the engine's events, then how the job ended. Append-only. */
+export const campaignEvents = pgTable(
+  'campaign_events',
+  {
+    id: serial('id').primaryKey(),
+    jobId: text('job_id')
+      .notNull()
+      .references(() => campaignJobs.id, { onDelete: 'cascade' }),
+    event: jsonb('event').$type<Record<string, unknown> & { type: string }>().notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('campaign_events_job').on(table.jobId, table.id)],
+)
+
+/**
+ * Paid Claude calls made by a hosted service with no disk of its own, so its spending cap holds
+ * across restarts and deploys. Local tools keep the machine-wide file in .data instead.
+ */
+export const aiSpend = pgTable('ai_spend', {
+  id: serial('id').primaryKey(),
+  at: timestamp('at', { withTimezone: true }).notNull(),
+  model: text('model').notNull(),
+  purpose: text('purpose').notNull(),
+  inputTokens: integer('input_tokens').notNull(),
+  outputTokens: integer('output_tokens').notNull(),
+  cacheWriteTokens: integer('cache_write_tokens').notNull(),
+  cacheReadTokens: integer('cache_read_tokens').notNull(),
+  /** Micro-dollars, so sums are exact. */
+  costMicros: bigint('cost_micros', { mode: 'number' }).notNull(),
+  requestId: text('request_id'),
+})
+
 export const campaignRelations = relations(campaigns, ({ many }) => ({
   scenarioRuns: many(scenarioRuns),
   findings: many(findings),
@@ -166,4 +226,7 @@ export const schema = {
   ledgerEntries,
   invariantResults,
   findings,
+  campaignJobs,
+  campaignEvents,
+  aiSpend,
 }

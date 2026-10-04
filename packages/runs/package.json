@@ -1,0 +1,22 @@
+{
+  "name": "@shakedown/runs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hosted campaign runs: the job, one step per customer, the event log, and the in-process and Render Workflows runners.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@shakedown/core": "workspace:*",
+    "@shakedown/paypal": "workspace:*",
+    "drizzle-orm": "0.45.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
+  }
+}

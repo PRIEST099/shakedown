@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Phase 10: hosting on Render (2026-10-04)
+
+- `render.yaml` deploys the demo to Render:
+  - the site and console;
+  - Leaky Llama, with a persistent disk;
+  - a Render Workflows service;
+  - Postgres, reachable only on Render's private network.
+
+  `render.judge.yaml` is the frozen copy for judging. Both are checked against Render's schema
+  and against each other.
+- Hosted runs are jobs (`@shakedown/runs`, migration `0002`). A run goes to Render Workflows when
+  it's configured, and otherwise runs in the web app.
+  - The `campaign` task runs each customer as its own `customer` task, retried on its own, and
+    hands the random streams on. A hosted run is the same run as the CLI's with the same seed.
+  - Progress goes to a Postgres event log, which the page streams from.
+- The engine can resume another run's random streams (`resume`, `streams`), so a campaign can run
+  one customer at a time and still draw exactly what one run of the whole cast would.
+- Judge mode (`SHAKEDOWN_JUDGE_MODE=1`):
+  - per-visitor limits, keyed on the address Cloudflare writes on Render;
+  - up to three runs at once, and 200 a day;
+  - Triage's spend kept in Postgres, so its cap survives deploys.
+- When PayPal's sandbox or the store isn't answering, `/api/console/status` says why. The site
+  then shows a labelled recording of a real run, and the console pauses its live runs.
+- `PayPalApiError` is recognised even when its module was loaded twice. A stale dev server had
+  turned PayPal's "already captured" into an unknown error and a false "sealed".
+- Visitors never see internal addresses or raw errors in a failed run's reason.
+
 ### Phase 9: the site and docs (2026-10-04)
 
 - The landing page at `/`, per DESIGN_SPEC.md: hero, problem, the cast, how it works, the live

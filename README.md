@@ -37,7 +37,8 @@ the reports and CI. Always use the scoped name: `npx shakedown` is someone else'
 
 Under active development for the PayPal AI Hackathon (2026). Built so far: the engine, Leaky Llama,
 the Double-Clicker, the Cart Shuffler, the Echo, the Bouncer, the Policy Lawyer, the CLI with its
-reports and CI, the console, and the site with its docs. The Second Opinion is still to come.
+reports and CI, the console, the site with its docs, and the hosting setup for Render, ready to
+deploy. The Second Opinion is still to come.
 
 ## The site
 
@@ -50,6 +51,29 @@ reports and CI, the console, and the site with its docs. The Second Opinion is s
   receipt as PayPal's ledger confirms each leak. If no store is answering, it offers the recording.
 - With reduced motion, the hero shows the before and after receipts side by side, still.
 - Lighthouse (mobile): performance 96 and accessibility 100 on `/`; 98 and 100 on `/docs`.
+
+## Hosting
+
+`render.yaml` deploys the whole demo to Render: the site and console, Leaky Llama, a
+[Render Workflows](https://render.com/docs/workflows) service, and Postgres.
+
+- **A live run is a Render Workflows task run.** Each customer is a task of its own, on its own
+  compute, retried on its own if it fails.
+- **Hosted runs match the CLI.** The customers run in order, and each picks up the random streams
+  where the last one left them. A hosted run is therefore the same run the CLI makes with the same
+  seed: 8 leaks and $467.00 at seed 2026.
+- **Progress reaches the page through Postgres.** The receipt prints as PayPal's sandbox confirms
+  each leak.
+- **There's a labelled fallback.** If PayPal's sandbox or the store isn't answering, the site
+  says so and shows a recording of a real run, labelled as one.
+- **Hosted for judges, the limits are tighter:**
+  - runs per visitor;
+  - a few runs at once, and a daily ceiling;
+  - a Claude cap that survives deploys.
+
+`render.judge.yaml` is the frozen copy for judging. [docs/DEPLOY.md](docs/DEPLOY.md) has the
+steps and the costs. Without Render, the web app runs the same steps itself, which is how local
+development works.
 
 ## The console
 
@@ -108,11 +132,13 @@ Every pull request runs the same thing in CI and posts the scoreboard as a comme
 |---|---|
 | `apps/web` | Landing page, docs, the hosted demo and the console |
 | `apps/leaky-llama` | Leaky Llama Supply Co., a deliberately leaky demo store (sandbox only) |
+| `apps/workflows` | The Render Workflows service: a task per campaign, and one per customer in it |
 | `packages/core` | The engine: the cast, the runner, the ledger, the graders, the HTTP target |
 | `packages/paypal` | The PayPal sandbox client and the sandbox lock |
 | `packages/tokens` | Design tokens shared by the web app, the console and the video |
 | `packages/ui` | Brand components: the Tape receipt, LedgerNumber, Stamp, the imp cast |
 | `packages/ai` | Every Claude call, metered and capped, with a replay cache |
+| `packages/runs` | Hosted runs: the job, a step per customer, the event log, and the runners |
 | `packages/reporters` | The terminal receipt, JSON, HTML, JUnit and the PR comment |
 | `packages/support-bot` | Lulu, Leaky Llama's AI support assistant |
 | `packages/cli` | `@shakedown-dev/cli`, the `shakedown` command |

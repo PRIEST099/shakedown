@@ -78,8 +78,26 @@ export function ConsoleShell({
   const source = useRef<EventSource | null>(null)
   const shift = useShift()
   const wide = useWide()
+  // Why live runs can't work right now, if they can't: the recorded runs are still all here.
+  const [offline, setOffline] = useState<string>()
 
   useEffect(() => () => source.current?.close(), [])
+  useEffect(() => {
+    if (!liveReady) return
+    fetch('/api/console/status', { cache: 'no-store' })
+      .then((res) => (res.ok ? (res.json() as Promise<{ live: boolean; reason?: string }>) : null))
+      .then((status) => {
+        if (!status || status.live) return
+        setOffline(
+          status.reason === 'paypal'
+            ? 'PayPal’s sandbox isn’t answering, so live runs are paused.'
+            : status.reason === 'store'
+              ? 'The demo store isn’t answering, so live runs are paused.'
+              : 'Live runs aren’t switched on here.',
+        )
+      })
+      .catch(() => {})
+  }, [liveReady])
 
   const refresh = useCallback(async () => {
     const res = await fetch('/api/console/data', { cache: 'no-store' })
@@ -158,6 +176,35 @@ export function ConsoleShell({
           ),
         }))
         setLive((l) => (l ? { ...l, leaks: l.leaks + 1 } : l))
+      } else if (event.type === 'retry') {
+        // The customer is running again from the start: drop what it reported the first time.
+        setTables((t) => {
+          const dropped = t.findings.filter(
+            (f) => f.campaign_id === event.campaignId && f.persona_id === event.persona,
+          )
+          if (dropped.length === 0) return t
+          const sum = (key: 'merchant_leak_usd' | 'customer_harm_usd' | 'at_risk_usd') =>
+            dropped.reduce((total, f) => total + f[key], 0)
+          return {
+            ...t,
+            findings: t.findings.filter((f) => !dropped.includes(f)),
+            checks: t.checks.filter(
+              (c) => !(c.campaign_id === event.campaignId && c.persona_id === event.persona),
+            ),
+            campaigns: t.campaigns.map((c) =>
+              c.campaign_id === event.campaignId
+                ? {
+                    ...c,
+                    leaks: c.leaks - dropped.length,
+                    merchant_leak_usd: c.merchant_leak_usd - sum('merchant_leak_usd'),
+                    customer_harm_usd: c.customer_harm_usd - sum('customer_harm_usd'),
+                    at_risk_usd: c.at_risk_usd - sum('at_risk_usd'),
+                  }
+                : c,
+            ),
+          }
+        })
+        setLive((l) => (l ? { ...l, now: '↻ running a customer again' } : l))
       } else if (event.type === 'stored' || event.type === 'failed') {
         source.current?.close()
         source.current = null
@@ -238,14 +285,24 @@ export function ConsoleShell({
             </span>
           ) : live?.status === 'failed' ? (
             <span className="sd-console__status is-error">{live.message}</span>
+          ) : offline ? (
+            <span className="sd-console__status">{offline}</span>
           ) : null}
         </div>
         {liveReady ? (
           <div className="sd-console__actions">
-            <button type="button" disabled={running} onClick={() => run('leaky')}>
+            <button
+              type="button"
+              disabled={running || Boolean(offline)}
+              onClick={() => run('leaky')}
+            >
               Run leaky
             </button>
-            <button type="button" disabled={running} onClick={() => run('sealed')}>
+            <button
+              type="button"
+              disabled={running || Boolean(offline)}
+              onClick={() => run('sealed')}
+            >
               Run sealed
             </button>
           </div>

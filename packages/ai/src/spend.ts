@@ -24,10 +24,20 @@ export class AiBudgetError extends Error {
 }
 
 /**
+ * Where paid calls are written down. The gate reads the total before every call and records each
+ * paid one. A file serves one machine; a hosted service with no disk of its own keeps it in its
+ * database instead.
+ */
+export interface SpendStore {
+  total(): number | Promise<number>
+  record(entry: SpendRecord): void | Promise<void>
+}
+
+/**
  * Every paid call, appended to one file shared by every process on this machine (the store,
  * the CLI, the eval), so the cap holds across all of them together.
  */
-export class SpendLedger {
+export class SpendLedger implements SpendStore {
   constructor(readonly file: string) {}
 
   records(): SpendRecord[] {

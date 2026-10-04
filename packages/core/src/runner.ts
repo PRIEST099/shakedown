@@ -26,6 +26,15 @@ export class CampaignCancelledError extends Error {
   }
 }
 
+/**
+ * Where a campaign's two random streams stand: the one the cast draws from, and the one finding
+ * IDs come from. A run that resumes from them carries on exactly where another left off.
+ */
+export interface RandomStreams {
+  rng: number
+  findings: number
+}
+
 export interface CampaignOptions {
   target: TargetAdapter
   /** PayPal's side of a checkout: card confirmation and ledger reads. Needed by the checkout cast. */
@@ -44,6 +53,12 @@ export interface CampaignOptions {
   runNonce?: string
   /** Override the persona registry. The CLI uses the default; tests inject their own. */
   modules?: Partial<Record<PersonaId, PersonaModule>>
+  /**
+   * Continue another run's random streams instead of starting them from the seed. Running a
+   * cast one customer at a time, each resuming from the last, draws exactly what one run of the
+   * whole cast would. Needs that run's campaignId.
+   */
+  resume?: RandomStreams
 }
 
 export interface ScenarioOutcome {
@@ -72,6 +87,8 @@ export interface CampaignResult {
   customerHarmCents: Cents
   /** Set when the budget ran out or the operator stopped the run. */
   stoppedEarly?: string
+  /** Where the random streams ended, for a run that carries on from this one. */
+  streams?: RandomStreams
 }
 
 const toBudget = (input: CampaignOptions['budget']): Budget =>
@@ -84,11 +101,14 @@ const toBudget = (input: CampaignOptions['budget']): Budget =>
 export async function runCampaign(options: CampaignOptions): Promise<CampaignResult> {
   const now = options.now ?? (() => new Date())
   const seed = options.seed ?? Date.now()
-  const rng = createRng(seed)
+  if (options.resume && !options.campaignId) {
+    throw new Error('A resumed run carries on another campaign, so it needs that campaignId.')
+  }
+  const rng = createRng(options.resume?.rng ?? seed)
   const campaignId = options.campaignId ?? rng.id('CMP')
   // Finding IDs come from their own stream. Grading must never shift what a later scenario
   // says, or a change to one grader would change every conversation after it.
-  const findingRng = createRng((seed ^ 0x9e3779b9) >>> 0)
+  const findingRng = createRng(options.resume?.findings ?? (seed ^ 0x9e3779b9) >>> 0)
   const bus = options.bus ?? new EventBus()
   const budget = toBudget(options.budget)
   const signal = options.signal
@@ -212,6 +232,7 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
     findings,
     merchantLeakCents,
     customerHarmCents: totalCustomerHarm(findings),
+    streams: { rng: rng.state(), findings: findingRng.state() },
   }
   if (stoppedEarly) result.stoppedEarly = stoppedEarly
 

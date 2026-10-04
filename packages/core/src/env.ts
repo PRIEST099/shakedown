@@ -7,6 +7,8 @@ export const SECRET_ENV_KEYS = [
   'SHAKEDOWN_PROBE_SECRET',
   'DATABASE_URL',
   'STORE_DATABASE_URL',
+  'CONSOLE_DATABASE_URL',
+  'RENDER_API_KEY',
 ] as const
 
 // .env files often leave keys present but empty; treat those as unset.

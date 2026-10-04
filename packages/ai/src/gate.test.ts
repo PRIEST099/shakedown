@@ -55,6 +55,30 @@ describe('the spend gate', () => {
     ).toBeCloseTo(0.001, 10)
   })
 
+  it('keeps the cap with a ledger that lives elsewhere, such as a database', async () => {
+    const records: { costUsd: number; purpose: string }[] = []
+    const api = transport()
+    const spend = {
+      total: async () => records.reduce((sum, record) => sum + record.costUsd, 0),
+      record: async (entry: { costUsd: number; purpose: string }) => {
+        records.push(entry)
+      },
+    }
+    const client = createClaude({
+      apiKey: 'test-key-not-real',
+      purpose: 'hosted',
+      dir: fresh(),
+      budgetUsd: 0.003,
+      replay: false,
+      spend,
+      fetch: api.fetch,
+    })
+    await say(client, 'one')
+    expect(records).toEqual([expect.objectContaining({ purpose: 'hosted', costUsd: 0.002 })])
+    await expect(say(client, 'two')).rejects.toMatchObject({ status: 402 })
+    expect(api.calls).toHaveLength(1)
+  })
+
   it('pays once, records it, and replays the identical request for nothing', async () => {
     const dir = fresh()
     const api = transport()

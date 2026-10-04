@@ -16,6 +16,7 @@ const config: NextConfig = {
     '@shakedown/ai',
     '@shakedown/core',
     '@shakedown/paypal',
+    '@shakedown/runs',
     '@shakedown/tokens',
     '@shakedown/ui',
   ],

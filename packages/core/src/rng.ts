@@ -13,6 +13,8 @@ export interface Rng {
   /** A reproducible identifier, shaped like the ones PayPal issues. */
   id(prefix: string, length?: number): string
   pick<T>(items: readonly T[]): T
+  /** Where the stream is now. `createRng(rng.state())` carries on exactly where this one is. */
+  state(): number
 }
 
 /** mulberry32: small, fast, and good enough for picking fixtures. */
@@ -39,5 +41,6 @@ export function createRng(seed: number): Rng {
       if (chosen === undefined) throw new Error('Cannot pick from an empty list.')
       return chosen
     },
+    state: () => state,
   }
 }

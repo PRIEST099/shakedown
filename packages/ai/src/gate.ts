@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import path from 'node:path'
 import type { Usage } from './prices'
 import { costOf, priceOf, worstCaseCost } from './prices'
-import type { SpendLedger } from './spend'
+import type { SpendStore } from './spend'
 
 /**
  * The spend gate. Every request to the Messages API goes through it, whichever SDK helper made
@@ -15,7 +15,7 @@ import type { SpendLedger } from './spend'
  * 3. Meters: every paid response is priced from the usage it reports and written down.
  */
 export interface GateOptions {
-  spend: SpendLedger
+  spend: SpendStore
   budgetUsd: number
   /** Where replayed responses live. null switches the replay cache off. */
   cacheDir: string | null
@@ -101,7 +101,7 @@ export function claudeGate(options: GateOptions): typeof fetch {
       })
     }
 
-    const spent = options.spend.total()
+    const spent = await options.spend.total()
     const worst = worstCaseCost(model, raw.length, body.max_tokens ?? 0)
     if (spent + worst > options.budgetUsd) {
       log(
@@ -130,7 +130,7 @@ export function claudeGate(options: GateOptions): typeof fetch {
     const servedBy = message.model && priceOf(message.model) ? message.model : model
     const usage = message.usage ?? {}
     const costUsd = costOf(servedBy, usage)
-    options.spend.record({
+    await options.spend.record({
       at: new Date().toISOString(),
       model: servedBy,
       purpose: options.purpose,

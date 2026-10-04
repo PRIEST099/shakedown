@@ -25,6 +25,19 @@ export class PayPalApiError extends Error {
     this.details = init.details ?? []
   }
 
+  /**
+   * Recognise the error by its shape as well as its class. A bundler that loads this module
+   * twice (a dev server after a hot reload, say) makes two classes, and a plain instanceof
+   * check would then treat PayPal's "already captured" as some unknown failure.
+   */
+  static [Symbol.hasInstance](value: unknown): value is PayPalApiError {
+    return (
+      value instanceof Error &&
+      value.name === 'PayPalApiError' &&
+      typeof (value as { status?: unknown }).status === 'number'
+    )
+  }
+
   static async fromResponse(res: Response): Promise<PayPalApiError> {
     const debugId = res.headers.get('paypal-debug-id') ?? undefined
     let body: Record<string, unknown> = {}

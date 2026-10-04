@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm'
 import type { StoreMode } from '../mode'
 import type { CampaignResult } from '../runner'
 import type { Database } from './client'
@@ -95,4 +96,39 @@ export async function saveCampaign(
       }
     }
   })
+}
+
+/**
+ * Store a finished campaign under an ID nothing else holds, and return that ID. Campaign IDs can
+ * come from the seed, so two runs with the same seed would otherwise collide.
+ */
+export async function storeCampaign(
+  db: Database,
+  result: CampaignResult,
+  options: SaveCampaignOptions = {},
+): Promise<string> {
+  let id = result.campaignId
+  for (let n = 2; ; n += 1) {
+    const [taken] = await db
+      .select({ id: campaigns.id })
+      .from(campaigns)
+      .where(eq(campaigns.id, id))
+      .limit(1)
+    if (!taken) break
+    id = `${result.campaignId}-${n}`
+  }
+  const rekeyed: CampaignResult =
+    id === result.campaignId
+      ? result
+      : {
+          ...result,
+          campaignId: id,
+          findings: result.findings.map((finding) => ({ ...finding, campaignId: id })),
+          outcomes: result.outcomes.map((outcome) => ({
+            ...outcome,
+            findings: outcome.findings.map((finding) => ({ ...finding, campaignId: id })),
+          })),
+        }
+  await saveCampaign(db, rekeyed, options)
+  return id
 }
