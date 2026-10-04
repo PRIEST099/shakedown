@@ -119,6 +119,14 @@
   flex: 1;
   min-height: 0;
 }
+/* Over the canvas while Studio sizes it, so the canvas keeps its final place and size. */
+.sd-console__laying {
+  position: absolute;
+  top: 56px;
+  left: 16px;
+  margin: 0;
+  color: var(--sd-text-muted);
+}
 .sd-console__loading {
   padding: 24px 16px;
   color: var(--sd-text-muted);
@@ -181,6 +189,12 @@
 }
 .sd-tape__pick:hover {
   background: var(--sd-tape-leak-bg);
+}
+/* `all: unset` drops the browser's focus ring; put one back for keyboard users. */
+.sd-tape__pick:focus-visible,
+.sd-widget--tape:focus-visible {
+  outline: 2px solid var(--sd-focus);
+  outline-offset: 2px;
 }
 .sd-tape__pick:focus-visible {
   outline: 2px solid var(--sd-focus);

@@ -110,6 +110,10 @@ describe('the Render Blueprints', () => {
         'SHAKEDOWN_JUDGE_MODE',
       ]),
     )
+    // Both public services run with the tighter limits.
+    for (const s of [web, store]) {
+      expect(envOf(dev, s).find((e) => e.key === 'SHAKEDOWN_JUDGE_MODE')?.value, s.name).toBe('1')
+    }
     expect(keysOf(dev, runs)).toEqual(
       expect.arrayContaining(['CONSOLE_DATABASE_URL', 'LEAKY_LLAMA_HOSTPORT']),
     )

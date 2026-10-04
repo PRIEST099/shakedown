@@ -5,6 +5,7 @@ import { getDb } from '@/lib/db/client'
 import { errorResponse, json, readJson } from '@/lib/http'
 import { readCookie, resolveMode, VISITOR_COOKIE } from '@/lib/mode'
 import { getPayPal } from '@/lib/paypal'
+import { checkoutAllowed } from '@/lib/rate-limit'
 
 /** Open a PayPal order for the cart. The v6 SDK calls this from createOrder. */
 export async function POST(request: Request) {
@@ -13,6 +14,9 @@ export async function POST(request: Request) {
       request,
     )
     const { mode, campaignId } = await resolveMode(request)
+    if (!checkoutAllowed(request, campaignId)) {
+      return json({ error: 'Too many checkouts. Try again in a few minutes.' }, { status: 429 })
+    }
     const existingVisitor = readCookie(request.headers.get('cookie'), VISITOR_COOKIE)
     const visitorId = existingVisitor ?? randomUUID()
 

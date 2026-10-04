@@ -101,7 +101,9 @@ export function ScoreboardWidget(params: AgWidgetParams) {
   }
 
   return (
-    <div className="sd-widget sd-widget--tape">
+    // A region that can scroll has to be reachable from the keyboard, leaks to pick or not.
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: WCAG 2.1.1, a scrollable region needs focus.
+    <section className="sd-widget sd-widget--tape" aria-label="Scoreboard" tabIndex={0}>
       <figure className={`sd-tape sd-tape--${sealed ? 'sealed' : 'leak'}`}>
         <div className="sd-tape__paper">
           <header className="sd-tape__header">Shakedown · test run</header>
@@ -191,6 +193,6 @@ export function ScoreboardWidget(params: AgWidgetParams) {
           </div>
         ) : null}
       </figure>
-    </div>
+    </section>
   )
 }

@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Phase 11: hardening, evals and credibility (2026-10-05)
+
+- **Security review.** The new [threat model](docs/THREAT_MODEL.md) ties each threat to the code
+  that stops it. Fixes:
+  - **The public demo store is now limited:** checkouts (per visitor and overall), test webhook
+    deliveries, and Lulu per address, all in judge mode.
+  - **The client address comes from `CF-Connecting-IP` on Render.**
+  - **Both apps send security headers:** framing, sniffing, plugins, referrer and permissions,
+    plus HSTS on Render.
+  - **Open live streams are capped.**
+- **Dependency audit.** It found 13 advisories, none reachable from how Shakedown runs. The
+  reachability analysis is in the threat model.
+- **Accessibility.** axe checks every page of the site, in both themes, and every page of the
+  store. They found and fixed four problems:
+  - an outline button with too little contrast in Night shift;
+  - a scrollable region keyboard users couldn't reach;
+  - a focus ring removed by a style reset;
+  - tabs missing Home and End.
+- **Performance.** The console no longer loads AG Studio on phones (mobile performance went from
+  75 to 95), and no longer shifts while Studio lays out (desktop CLS went from 0.158 to 0.002).
+- **Error pages.** Both apps have their own 404 and error pages.
+- **A new eval.** `pnpm eval:checkout` runs the checkout cast against each store switch on its
+  own, in the sandbox. Every customer caught its own leak in all 8 cases, with no false alarm in
+  16 ([EVAL-CHECKOUT.md](docs/EVAL-CHECKOUT.md)). The Policy Lawyer eval replays unchanged, at $0.
+- **README additions:** "For judges (2 minutes)", an architecture diagram, and "Tools used". There
+  is also a Postman collection of the demo's API.
+
 ### Phase 10: hosting on Render (2026-10-04)
 
 - `render.yaml` deploys the demo to Render:

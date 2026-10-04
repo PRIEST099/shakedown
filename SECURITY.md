@@ -12,6 +12,12 @@ Shakedown is a quality-assurance tool for integrations **you own**.
 - Your credentials stay on your machine. The hosted demo only tests our own demo store, in our own
   sandbox.
 
+## How it is protected
+
+[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) lists each threat, in the CLI and in the hosted demo,
+and the code that stops it, along with the latest dependency audit. [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md)
+covers the rules for using Shakedown.
+
 ## Reporting a vulnerability
 
 Please report security issues privately through GitHub's private vulnerability reporting on this

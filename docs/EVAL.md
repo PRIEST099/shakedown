@@ -3,6 +3,9 @@
 Measured by `pnpm eval` on 2026-10-04. Nothing here is estimated: re-run it and the
 same requests are replayed from the cache, so the numbers repeat at no cost.
 
+The checkout cast has its own page, measured against the PayPal sandbox:
+[EVAL-CHECKOUT.md](EVAL-CHECKOUT.md), the switch-by-switch matrix.
+
 ## The grader
 
 Grader: 32/32 known verdicts reproduced.

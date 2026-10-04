@@ -1,0 +1,49 @@
+/* The 404 and error pages: one slip of receipt paper on the desk. */
+.status-page {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+  padding: 48px 16px;
+}
+.status-slip {
+  width: min(100%, 560px);
+  padding: 28px 28px 36px;
+  background: var(--sd-tape);
+  color: var(--sd-tape-text);
+  box-shadow: var(--sd-shadow-paper);
+}
+.status-slip__header {
+  margin: 0;
+  text-align: center;
+  font: 600 12.5px var(--sd-font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.status-slip__meta {
+  margin: 4px 0 0;
+  text-align: center;
+  font: 12px var(--sd-font-mono);
+  color: var(--sd-tape-muted);
+}
+.status-slip hr {
+  margin: 16px 0 20px;
+  border: 0;
+  border-top: 1px dashed var(--sd-tape-rule);
+}
+.status-slip h1 {
+  margin: 0;
+}
+.status-slip p {
+  margin: 12px 0 0;
+}
+.status-slip__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+/* The slip is paper in both shifts, so its outline buttons take the paper's ink. */
+.status-slip .btn-ghost {
+  border-color: var(--sd-tape-rule);
+  color: var(--sd-tape-text);
+}

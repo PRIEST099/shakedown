@@ -3,6 +3,7 @@ import { transmissionHeadersOf } from '@shakedown/paypal'
 import { getDb } from '@/lib/db/client'
 import { errorResponse, json } from '@/lib/http'
 import { getPayPal } from '@/lib/paypal'
+import { deliveryAllowed } from '@/lib/rate-limit'
 import { handleWebhook } from '@/lib/webhooks'
 
 const MAX_BYTES = 256 * 1024
@@ -18,10 +19,13 @@ export async function POST(request: Request) {
 
     const token = request.headers.get(CAMPAIGN_HEADER)
     const secret = process.env.SHAKEDOWN_PROBE_SECRET
-    const campaignMode =
-      token && secret ? (await verifyCampaignToken(token, secret)).mode : undefined
+    const claims = token && secret ? await verifyCampaignToken(token, secret) : undefined
     if (token && !secret)
       return json({ error: 'Campaign tokens are not accepted here.' }, { status: 401 })
+    if (!deliveryAllowed(request, claims?.campaignId)) {
+      return json({ error: 'Too many deliveries. Try again later.' }, { status: 429 })
+    }
+    const campaignMode = claims?.mode
 
     const result = await handleWebhook(
       { db: await getDb(), paypal: getPayPal() },

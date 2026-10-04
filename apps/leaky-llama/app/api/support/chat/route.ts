@@ -5,7 +5,7 @@ import { getDb } from '@/lib/db/client'
 import { errorResponse, json, readJson } from '@/lib/http'
 import { readCookie, resolveMode, VISITOR_COOKIE } from '@/lib/mode'
 import { getPayPal } from '@/lib/paypal'
-import { chatLimiter } from '@/lib/rate-limit'
+import { chatAllowedFrom, chatLimiter, clientAddress } from '@/lib/rate-limit'
 import { supportStore } from '@/lib/support'
 
 const MAX_TURNS = 40
@@ -52,9 +52,8 @@ export async function POST(request: Request) {
     const who =
       campaignId ??
       readCookie(request.headers.get('cookie'), VISITOR_COOKIE) ??
-      request.headers.get('x-forwarded-for') ??
-      'anonymous'
-    if (!chatLimiter().allow(who)) {
+      clientAddress(request)
+    if (!chatLimiter().allow(who) || (!campaignId && !chatAllowedFrom(request))) {
       return json(
         { error: 'Lulu needs a short break. Try again in a few minutes.' },
         { status: 429 },

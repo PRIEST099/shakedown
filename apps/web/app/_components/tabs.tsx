@@ -33,11 +33,21 @@ export function Tabs({ tabs, storageKey }: { tabs: readonly Tab[]; storageKey?: 
     }
   }
 
+  // Arrows move along the row and wrap; Home and End jump to either end (WAI-ARIA tabs pattern).
   const onKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
-    if (!step) return
+    const target =
+      event.key === 'ArrowRight'
+        ? index + 1
+        : event.key === 'ArrowLeft'
+          ? index - 1
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? tabs.length - 1
+              : undefined
+    if (target === undefined) return
     event.preventDefault()
-    const next = tabs[(index + step + tabs.length) % tabs.length]
+    const next = tabs[(target + tabs.length) % tabs.length]
     if (!next) return
     choose(next.id)
     document.getElementById(`${base}-tab-${next.id}`)?.focus()

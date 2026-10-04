@@ -20,6 +20,7 @@
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "eval": "pnpm --filter @shakedown/leaky-llama eval",
+    "eval:checkout": "pnpm --filter @shakedown/leaky-llama eval:checkout",
     "shakedown": "pnpm --filter @shakedown-dev/cli build > /dev/null && node packages/cli/dist/index.js"
   },
   "devDependencies": {

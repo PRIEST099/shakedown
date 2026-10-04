@@ -8,7 +8,7 @@ import type { LiveEvent } from '../../lib/console/live'
 import type { CampaignRow, CheckRow, ConsoleTables } from '../../lib/console/rows'
 import { ThemeToggle } from '../_components/theme-toggle'
 import { PocketReceipt } from './pocket-receipt'
-import { DAY, NIGHT } from './studio/theme'
+import { DAY, NIGHT } from './studio/shift'
 
 const ConsoleStudio = dynamic(() => import('./console-studio').then((m) => m.ConsoleStudio), {
   ssr: false,

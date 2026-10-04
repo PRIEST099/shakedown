@@ -9,6 +9,30 @@ so a leak can't quietly come back.
 
 > A *shakedown cruise* is a ship's test voyage before it enters service. This one is for your checkout.
 
+## For judges (2 minutes)
+
+1. **The receipt at the top of the site.** In five seconds it replays a recorded sandbox run:
+   four test customers, −$491.00 that would have leaked, then the fixed store sealed to $0.00.
+   It is labelled as a recording, because it is one.
+2. **Run the demo shakedown.** The same four customers go to Leaky Llama, our deliberately leaky
+   demo store, in the PayPal sandbox, live. Each leak prints as PayPal's ledger confirms it, with
+   the sandbox ID behind it. Then press **Apply fixes and re-run** and watch it seal. Seed 2026
+   gives the same 8 leaks every time, in the CLI, the site and the console alike: $467.00 the
+   merchant would lose, and $24.00 that customers were overcharged.
+3. **Open the console.** Every run, each finding with its evidence and fix, and Triage, an agent
+   that answers questions about the runs.
+4. **AI decides vs code decides.** On the site, the support assistant says a refund is fine. The
+   sandbox ledger says $34.00 went past the written policy. The model never decides whether money
+   leaked: code reads PayPal's records.
+5. **The evidence:**
+   - [EVAL-CHECKOUT.md](docs/EVAL-CHECKOUT.md): with each store switch flipped on its own, every
+     customer caught its own leak in all 8 cases and raised no false alarm in 16.
+   - [EVAL.md](docs/EVAL.md): the Policy Lawyer and the support assistant, measured.
+   - [THREAT_MODEL.md](docs/THREAT_MODEL.md): what keeps it sandbox-only and pointed only at your
+     own integration.
+
+Every number on the site and in these pages comes from a real sandbox run. Nothing is estimated.
+
 ## The cast
 
 | # | Customer | What it tests |
@@ -33,12 +57,49 @@ npx @shakedown-dev/cli run --target http://localhost:3000
 The CLI's [README](packages/cli/README.md) covers the config file, what your store needs to answer,
 the reports and CI. Always use the scoped name: `npx shakedown` is someone else's package.
 
+## How it fits together
+
+```mermaid
+flowchart LR
+  subgraph yours["Your machine or CI"]
+    cli["shakedown CLI"]
+    store["Your store<br/>(sandbox)"]
+  end
+  subgraph hosted["Hosted demo on Render"]
+    web["Site and console<br/>Next.js · AG Studio"]
+    runs["Render Workflows<br/>campaign → customer tasks"]
+    db[("Postgres<br/>runs · jobs · events")]
+    llama["Leaky Llama<br/>demo store + Lulu"]
+  end
+  paypal["PayPal sandbox<br/>Orders · Payments · Webhooks"]
+  claude["Claude<br/>behind a spend gate"]
+
+  cli -- "test customers" --> store
+  cli -- "ledger reads" --> paypal
+  store --> paypal
+  web -- "start a run" --> runs
+  runs -- "test customers" --> llama
+  runs -- "ledger reads" --> paypal
+  runs -- "events, results" --> db
+  web -- "reads" --> db
+  llama --> paypal
+  llama -- "Lulu" --> claude
+  web -- "Triage" --> claude
+```
+
+**The same engine runs everywhere.** Personas act through a metered adapter, so every exchange
+lands in an append-only ledger. Graders then read the ledger and PayPal's records, and return
+sealed, leak or inconclusive in plain code. The CLI, a hosted run and a recording all go through
+it, so the same seed gives the same verdicts.
+
 ## Status
 
 Under active development for the PayPal AI Hackathon (2026). Built so far: the engine, Leaky Llama,
 the Double-Clicker, the Cart Shuffler, the Echo, the Bouncer, the Policy Lawyer, the CLI with its
 reports and CI, the console, the site with its docs, and the hosting setup for Render, ready to
-deploy. The Second Opinion is still to come.
+deploy. It has also had a hardening pass: a [threat model](docs/THREAT_MODEL.md), a dependency
+audit, accessibility checks in both themes, and measured evals. The Second Opinion is still to
+come.
 
 ## The site
 
@@ -125,6 +186,39 @@ pnpm shakedown report   # opens the HTML report
 Every pull request runs the same thing in CI and posts the scoreboard as a comment
 (`.github/workflows/shakedown.yml`). The store's switches live in
 `apps/leaky-llama/lib/shipped-mode.ts`: flip one to `sealed` and that leak is fixed.
+
+The evals write [docs/EVAL.md](docs/EVAL.md) and [docs/EVAL-CHECKOUT.md](docs/EVAL-CHECKOUT.md):
+
+```bash
+pnpm eval            # the Policy Lawyer and Lulu (Claude; replays from cache for $0)
+pnpm eval:checkout   # the checkout cast, switch by switch (sandbox only; needs the store)
+```
+
+[docs/postman](docs/postman/shakedown-demo.postman_collection.json) has a Postman collection of
+the demo's HTTP API: the store's checkout, probe and webhook routes, and the console's runs.
+
+## Tools used
+
+- **PayPal (sandbox only):**
+  - Orders v2 (create, capture, read);
+  - Payments v2 (captures, refunds);
+  - Webhooks (`verify-webhook-signature`);
+  - the JavaScript SDK v6 card fields in the demo store's checkout;
+  - the [PayPal Agent Toolkit](https://github.com/paypal/agent-toolkit), wired into the demo
+    support assistant to show what an unguarded refund tool does.
+- **Claude (Anthropic API, Haiku 4.5)** through the official TypeScript SDK:
+  - the Policy Lawyer;
+  - Lulu, the demo store's support assistant;
+  - the policy compiler;
+  - Triage in the console.
+
+  Every call passes a spend gate with a hard cap and a replay cache.
+- **AG Studio 3 by AG Grid,** for the console. Its widgets are Shakedown's own, and Triage is a
+  custom agent on its Agent Framework.
+- **Render,** to host the demo: a Blueprint, Render Workflows for runs, and Render Postgres.
+- **The stack:** Next.js 16, React 19, TypeScript, Drizzle ORM with PGlite and Postgres,
+  Turborepo and pnpm, Vitest, Playwright with axe, and Biome.
+- **Built with Claude Code.**
 
 ## Repository layout
 

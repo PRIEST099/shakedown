@@ -1,0 +1,316 @@
+{
+  "info": {
+    "name": "Shakedown demo (PayPal sandbox)",
+    "description": "The HTTP surface of Shakedown's hosted demo: Leaky Llama, the deliberately leaky demo store, and the console that runs the cast against it. Sandbox only. Set storeUrl and siteUrl to your local servers (localhost:3100 and localhost:3000) or the hosted demo. Your probe secret is a variable you fill in locally: never commit it.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Leaky Llama (demo store)",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{storeUrl}}/api/health",
+              "host": ["{{storeUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Up when the store can reach its own database."
+          }
+        },
+        {
+          "name": "Catalog",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{storeUrl}}/api/catalog",
+              "host": ["{{storeUrl}}"],
+              "path": ["api", "catalog"]
+            },
+            "description": "What the store sells, at its own prices."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const items = pm.response.json().items;",
+                  "if (items && items[0]) pm.collectionVariables.set('sku', items[0].sku);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refund policy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{storeUrl}}/api/policy",
+              "host": ["{{storeUrl}}"],
+              "path": ["api", "policy"]
+            },
+            "description": "The written policy the Policy Lawyer argues, as rules."
+          }
+        },
+        {
+          "name": "Open a checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{storeUrl}}/api/checkout/orders",
+              "host": ["{{storeUrl}}"],
+              "path": ["api", "checkout", "orders"]
+            },
+            "description": "Opens a PayPal sandbox order for the cart, as the checkout page does. Saves the PayPal order ID for the requests below. A buyer still has to approve the order (pay by card on the checkout page) before it can be captured.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    {\n      \"sku\": \"{{sku}}\",\n      \"qty\": 1\n    }\n  ],\n  \"email\": \"buyer@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.orderId) pm.collectionVariables.set('paypalOrderId', body.orderId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Capture",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{storeUrl}}/api/checkout/orders/{{paypalOrderId}}/capture",
+              "host": ["{{storeUrl}}"],
+              "path": ["api", "checkout", "orders", "{{paypalOrderId}}", "capture"]
+            },
+            "description": "Asks the store to capture an approved order and ship it. Sending it twice is what the Double-Clicker does: a sealed store ships once."
+          }
+        },
+        {
+          "name": "Probe an order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-shakedown-probe",
+                "value": "{{probeSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{storeUrl}}/api/probe/orders/{{paypalOrderId}}",
+              "host": ["{{storeUrl}}"],
+              "path": ["api", "probe", "orders", "{{paypalOrderId}}"]
+            },
+            "description": "Read-only: what the store believes about an order, the way Shakedown checks it. Needs your probe secret; without it the store answers 403."
+          }
+        },
+        {
+          "name": "An event it cannot verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{storeUrl}}/api/paypal/webhook",
+              "host": ["{{storeUrl}}"],
+              "path": ["api", "paypal", "webhook"]
+            },
+            "description": "Checks how your listener treats a payment event with no PayPal signature. A store that verifies signatures answers 400 and ships nothing; the leaky one acts on it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"WH-POSTMAN-TEST-0001\",\n  \"event_type\": \"PAYMENT.CAPTURE.COMPLETED\",\n  \"create_time\": \"2026-10-04T12:00:00Z\",\n  \"resource_type\": \"capture\",\n  \"resource\": {\n    \"id\": \"POSTMAN-CAPTURE\",\n    \"status\": \"COMPLETED\",\n    \"supplementary_data\": {\n      \"related_ids\": {\n        \"order_id\": \"{{paypalOrderId}}\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Ask Lulu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{storeUrl}}/api/support/chat",
+              "host": ["{{storeUrl}}"],
+              "path": ["api", "support", "chat"]
+            },
+            "description": "The store's AI support assistant. Each message costs Claude tokens, within the store's spending cap.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Hi! Where is my order? It's LL-10001 and my email is buyer@example.com.\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shakedown console",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{siteUrl}}/api/health",
+              "host": ["{{siteUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Up when the server answers."
+          }
+        },
+        {
+          "name": "Can a live run work now?",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{siteUrl}}/api/console/status",
+              "host": ["{{siteUrl}}"],
+              "path": ["api", "console", "status"]
+            },
+            "description": "Whether the demo store and PayPal's sandbox are answering, and which runner a live run would use: Render Workflows or the web app itself."
+          }
+        },
+        {
+          "name": "Start a live run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-shakedown-console",
+                "value": "1"
+              },
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{siteUrl}}/api/console/campaigns",
+              "host": ["{{siteUrl}}"],
+              "path": ["api", "console", "campaigns"]
+            },
+            "description": "Sends the four checkout customers at the demo store, with every switch leaky or sealed. Needs the console header; limited per visitor. Saves the run's ID.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"switches\": \"leaky\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.id) pm.collectionVariables.set('runId', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Follow a run",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{siteUrl}}/api/console/campaigns/{{runId}}/events",
+              "host": ["{{siteUrl}}"],
+              "path": ["api", "console", "campaigns", "{{runId}}", "events"]
+            },
+            "description": "Server-Sent Events: everything so far, then each customer, leak and the end of the run as they land."
+          }
+        },
+        {
+          "name": "Every stored run",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{siteUrl}}/api/console/data",
+              "host": ["{{siteUrl}}"],
+              "path": ["api", "console", "data"]
+            },
+            "description": "The console's tables: runs, checks, findings, ledger entries and the cast."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "storeUrl",
+      "value": "http://localhost:3100"
+    },
+    {
+      "key": "siteUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "probeSecret",
+      "value": "",
+      "description": "SHAKEDOWN_PROBE_SECRET from your .env.local. Fill it in locally; never commit it."
+    },
+    {
+      "key": "sku",
+      "value": "LL-BTL-750"
+    },
+    {
+      "key": "paypalOrderId",
+      "value": ""
+    },
+    {
+      "key": "runId",
+      "value": ""
+    }
+  ]
+}

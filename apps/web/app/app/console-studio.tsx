@@ -23,6 +23,7 @@ const MODULES = [AgStudioAiModule]
 
 /** Studio leaves page navigation to the host application. Pages an agent adds appear here too. */
 const PAGE_LABELS: Record<string, string> = { run: 'Run', ledger: 'Ledger', trend: 'Across runs' }
+const HIDDEN = { visibility: 'hidden' } as const
 
 export interface ConsoleStudioProps {
   tables: ConsoleTables
@@ -77,7 +78,9 @@ export function ConsoleStudio({ tables, shift, aiReady, observer }: ConsoleStudi
           </button>
         ))}
       </nav>
-      <div className="sd-console__canvas">
+      {api ? null : <p className="sd-console__laying">Laying out the console…</p>}
+      {/* Studio sizes its panels after it mounts; keep that out of sight so nothing jumps. */}
+      <div className="sd-console__canvas" style={api ? undefined : HIDDEN}>
         <AgStudioProvider modules={MODULES} licenseKey={LICENSE}>
           <AgStudio
             style={style}

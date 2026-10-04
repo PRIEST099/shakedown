@@ -10,8 +10,9 @@ import { studioTheme } from 'ag-studio'
  * Everything else stays in ink and paper, so a chart's colour always means money.
  */
 
-export const DAY = 'day-shift'
-export const NIGHT = 'night-shift'
+import { DAY, NIGHT } from './shift'
+
+export { DAY, NIGHT }
 
 const fonts = {
   fontFamily: 'var(--sd-font-ui)',

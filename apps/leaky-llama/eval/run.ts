@@ -223,6 +223,9 @@ const doc = `# Evaluation
 Measured by \`pnpm eval\` on ${clock().toISOString().slice(0, 10)}. Nothing here is estimated: re-run it and the
 same requests are replayed from the cache, so the numbers repeat at no cost.
 
+The checkout cast has its own page, measured against the PayPal sandbox:
+[EVAL-CHECKOUT.md](EVAL-CHECKOUT.md), the switch-by-switch matrix.
+
 ## The grader
 
 ${graderLine}
