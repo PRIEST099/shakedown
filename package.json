@@ -7,7 +7,7 @@
   "type": "module",
   "packageManager": "pnpm@12.8.1",
   "engines": {
-    "node": ">=22.12"
+    "node": ">=22.18"
   },
   "scripts": {
     "dev": "turbo run dev",
@@ -19,10 +19,12 @@
     "check": "biome check . && turbo run typecheck",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "eval": "pnpm --filter @shakedown/leaky-llama eval"
+    "eval": "pnpm --filter @shakedown/leaky-llama eval",
+    "shakedown": "pnpm --filter @shakedown-dev/cli build > /dev/null && node packages/cli/dist/index.js"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@shakedown-dev/cli": "workspace:*",
     "@types/node": "26.6.4",
     "turbo": "2.11.7",
     "typescript": "7.0.2",

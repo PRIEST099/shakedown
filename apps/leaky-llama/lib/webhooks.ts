@@ -1,4 +1,4 @@
-import { allLeaky, type StoreMode } from '@shakedown/core/mode'
+import type { StoreMode } from '@shakedown/core/mode'
 import { toCents, toDecimal } from '@shakedown/core/money'
 import type { TransmissionHeaders } from '@shakedown/paypal'
 import { eq } from 'drizzle-orm'
@@ -14,6 +14,7 @@ import {
 } from './db/schema'
 import { ship } from './fulfillment'
 import { recordRefund } from './refunds'
+import { SHIPPED_MODE } from './shipped-mode'
 
 type Order = typeof orders.$inferSelect
 type Outcome = (typeof webhookDeliveries.$inferInsert)['outcome']
@@ -109,7 +110,7 @@ export async function handleWebhook(deps: StoreDeps, input: WebhookInput): Promi
   const { db, paypal } = deps
   const event = readEvent(input.raw)
   const order = event ? await findOrder(db, event) : undefined
-  const mode = input.campaignMode ?? order?.mode ?? allLeaky()
+  const mode = input.campaignMode ?? order?.mode ?? { ...SHIPPED_MODE }
   const sealed = mode.echo === 'sealed'
 
   const record = async (verification: Verification, result: WebhookResult) => {

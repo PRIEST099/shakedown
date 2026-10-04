@@ -23,14 +23,26 @@ so a leak can't quietly come back.
 The AI plays the customers and explains what it finds. Deterministic code reads the PayPal sandbox ledger
 and decides whether money leaked. The AI never makes that call.
 
+## Run it against your store
+
+```bash
+npx @shakedown-dev/cli preflight --target http://localhost:3000
+npx @shakedown-dev/cli run --target http://localhost:3000
+```
+
+The CLI's [README](packages/cli/README.md) covers the config file, what your store needs to answer,
+the reports and CI. Always use the scoped name: `npx shakedown` is someone else's package.
+
 ## Status
 
-Under active development for the PayPal AI Hackathon (2026). This is **Phase 0**: the foundations and a
-design preview.
+Under active development for the PayPal AI Hackathon (2026). Built so far: the engine, Leaky Llama,
+the Double-Clicker, the Cart Shuffler, the Echo, the Bouncer, the Policy Lawyer, and the CLI with its
+reports and CI. The Second Opinion is still to come.
 
 ## Development
 
-Requirements: Node 22.12 or newer, pnpm 12, and Docker (for Postgres).
+Requirements: Node 22.18 or newer and pnpm 12. The demo store keeps its data in an in-process
+Postgres (PGlite); Docker is only needed to try it against a full Postgres.
 
 ```bash
 pnpm install
@@ -41,11 +53,17 @@ pnpm test
 pnpm build
 ```
 
-Check your setup and the sandbox lock:
+Send the four free customers at Leaky Llama as it ships (the store must be running on :3100):
 
 ```bash
-pnpm --filter @shakedown-dev/cli build && node packages/cli/dist/index.js preflight
+pnpm shakedown preflight
+pnpm shakedown run      # uses shakedown.config.ts at the repo root
+pnpm shakedown report   # opens the HTML report
 ```
+
+Every pull request runs the same thing in CI and posts the scoreboard as a comment
+(`.github/workflows/shakedown.yml`). The store's switches live in
+`apps/leaky-llama/lib/shipped-mode.ts`: flip one to `sealed` and that leak is fixed.
 
 ## Repository layout
 
@@ -53,10 +71,13 @@ pnpm --filter @shakedown-dev/cli build && node packages/cli/dist/index.js prefli
 |---|---|
 | `apps/web` | Landing page, docs, the hosted demo and the console |
 | `apps/leaky-llama` | Leaky Llama Supply Co., a deliberately leaky demo store (sandbox only) |
-| `packages/core` | Cast, env validation, redaction; the engine lands here in Phase 2 |
+| `packages/core` | The engine: the cast, the runner, the ledger, the graders, the HTTP target |
 | `packages/paypal` | The PayPal sandbox client and the sandbox lock |
 | `packages/tokens` | Design tokens shared by the web app, the console and the video |
 | `packages/ui` | Brand components: the Tape receipt, LedgerNumber, Stamp, the imp cast |
+| `packages/ai` | Every Claude call, metered and capped, with a replay cache |
+| `packages/reporters` | The terminal receipt, JSON, HTML, JUnit and the PR comment |
+| `packages/support-bot` | Lulu, Leaky Llama's AI support assistant |
 | `packages/cli` | `@shakedown-dev/cli`, the `shakedown` command |
 
 ## Responsible use

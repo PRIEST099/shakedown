@@ -1,6 +1,6 @@
 {
   "name": "@shakedown-dev/cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Customers from hell for your PayPal sandbox checkout. Sandbox only.",
   "license": "Apache-2.0",
@@ -8,19 +8,34 @@
   "bin": {
     "shakedown": "./dist/index.js"
   },
+  "exports": {
+    ".": {
+      "types": "./dist/define.d.ts",
+      "default": "./dist/define.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsc -p tsconfig.dts.json",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@shakedown/core": "workspace:*",
-    "@shakedown/paypal": "workspace:*"
+    "@anthropic-ai/sdk": "0.131.0",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
-    "tsup": "8.5.1"
+    "@shakedown/ai": "workspace:*",
+    "@shakedown/core": "workspace:*",
+    "@shakedown/paypal": "workspace:*",
+    "@shakedown/reporters": "workspace:*",
+    "tsup": "8.5.1",
+    "zod": "4.6.5"
   }
 }

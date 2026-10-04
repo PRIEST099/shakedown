@@ -1,2 +1,7 @@
+export * from './animate'
 export * from './ansi'
-export * from './scoreboard'
+export * from './html'
+export * from './junit'
+export * from './markdown'
+export * from './report'
+export { type ScoreboardOptions, scoreboard } from './scoreboard'

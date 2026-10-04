@@ -28,3 +28,6 @@ apps/video/out
 
 # Local app data (webhook inbox, etc.)
 .data
+
+# Shakedown run output (reports and the saved ledger)
+.shakedown

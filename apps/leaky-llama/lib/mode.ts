@@ -5,6 +5,7 @@ import {
 } from '@shakedown/core/campaign-token'
 import { PERSONA_IDS } from '@shakedown/core/cast'
 import { allLeaky, parseMode, type StoreMode } from '@shakedown/core/mode'
+import { SHIPPED_MODE } from './shipped-mode'
 
 /**
  * Which switches a request runs under. A Shakedown campaign sends a signed token; a person
@@ -51,9 +52,13 @@ export async function resolveMode(request: Request): Promise<ResolvedMode> {
       )
     }
     const claims = await verifyCampaignToken(token, secret)
-    return { mode: claims.mode ?? allLeaky(), campaignId: claims.campaignId, source: 'campaign' }
+    return {
+      mode: claims.mode ?? { ...SHIPPED_MODE },
+      campaignId: claims.campaignId,
+      source: 'campaign',
+    }
   }
   const cookie = readCookie(request.headers.get('cookie'), MODE_COOKIE)
   if (cookie !== undefined) return { mode: decodeMode(cookie), source: 'visitor' }
-  return { mode: allLeaky(), source: 'default' }
+  return { mode: { ...SHIPPED_MODE }, source: 'default' }
 }
