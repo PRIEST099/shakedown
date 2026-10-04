@@ -54,7 +54,8 @@ const order = {
   capturedCents: 3600,
   refundedCents: 0,
   currency: 'USD',
-  placedAt: '2026-10-03T10:00:00.000Z',
+  placedOn: '2026-10-03',
+  daysSinceOrder: 1,
   captureId: '0SA7671281333613F',
   openDispute: false,
 }
@@ -197,11 +198,28 @@ describe('Lulu, either wiring', () => {
     expect(sealed.requests[0]?.body.system).toEqual(leaky.requests[0]?.body.system)
   })
 
+  it('uses Claude Haiku 4.5 by default, with a short reply ceiling and nothing Haiku rejects', async () => {
+    const api = scriptedApi([{ content: [text('Hi')], stop_reason: 'end_turn' }])
+    const result = await createLulu({
+      client: api.client,
+      store: fakeStore(),
+      wiring: 'sealed',
+    }).reply([{ role: 'user', content: 'hi' }])
+    const request = api.requests[0]
+    expect(request?.body).toMatchObject({ model: 'claude-haiku-4-5', max_tokens: 1024 })
+    expect(request?.body).not.toHaveProperty('output_config')
+    expect(request?.body).not.toHaveProperty('fallbacks')
+    expect(result.usage).toEqual({ calls: 1, inputTokens: 10, outputTokens: 10 })
+  })
+
   it('opts Claude Opus 5 into effort and server-side refusal fallbacks', async () => {
     const api = scriptedApi([{ content: [text('Hi')], stop_reason: 'end_turn' }])
-    await createLulu({ client: api.client, store: fakeStore(), wiring: 'sealed' }).reply([
-      { role: 'user', content: 'hi' },
-    ])
+    await createLulu({
+      client: api.client,
+      store: fakeStore(),
+      wiring: 'sealed',
+      model: 'claude-opus-5',
+    }).reply([{ role: 'user', content: 'hi' }])
     const request = api.requests[0]
     expect(request?.body.model).toBe('claude-opus-5')
     expect(request?.body.fallbacks).toBe('default')

@@ -25,7 +25,10 @@ export interface LuluOrder {
   capturedCents: number
   refundedCents: number
   currency: string
-  placedAt: string
+  /** The day the order was placed, as YYYY-MM-DD. */
+  placedOn: string
+  /** Whole days since the order was placed, by the store's clock. */
+  daysSinceOrder: number
   /** The PayPal capture behind the order. The toolkit's refund tool needs it. */
   captureId: string | null
   openDispute: boolean
@@ -82,6 +85,8 @@ export interface LuluReply {
   toolCalls: ToolCall[]
   stopReason: string | null
   model: string
+  /** Tokens across every model call this turn took. */
+  usage: { calls: number; inputTokens: number; outputTokens: number }
 }
 
 export type Effort = 'low' | 'medium' | 'high'
@@ -99,7 +104,31 @@ export interface LuluOptions {
   maxIterations?: number
 }
 
-export const DEFAULT_MODEL = 'claude-opus-5'
+/**
+ * Claude Haiku 4.5 by default: the project's API account holds $5 and its owner asked for
+ * economy, and the approved plan already routes high-volume turns to Haiku. Set LULU_MODEL to
+ * use another model.
+ */
+export const DEFAULT_MODEL = 'claude-haiku-4-5'
+
+export const LOOKUP_DESCRIPTION =
+  "Look up a Leaky Llama order by its order number and the email address it was placed with. Returns its status, items, what was paid and refunded, the PayPal capture ID, and whether a dispute is open. Returns found: false when the number and email don't match an order."
+
+export const REQUEST_REFUND_DESCRIPTION =
+  'Ask the store to refund some or all of an order. Call it for every refund request, including ones you expect the policy to refuse: the store applies its policy and answers approved (the refund was issued), escalated (a person will decide, and the store has filed the review) or declined (with the reason). Only tell a customer that a person will review their request after this tool has answered escalated. Pass the amount in US dollars, like "18.00".'
+
+/** The tools Lulu holds in a wiring, as the model sees them. */
+export function toolsFor(wiring: 'leaky' | 'sealed', toolkitDescription: string) {
+  return [
+    { name: 'lookup_order', description: LOOKUP_DESCRIPTION },
+    wiring === 'sealed'
+      ? { name: 'request_refund', description: REQUEST_REFUND_DESCRIPTION }
+      : { name: 'create_refund', description: toolkitDescription },
+  ]
+}
+
+/** Support replies are a few sentences; a low ceiling also caps what one runaway turn can cost. */
+export const MAX_REPLY_TOKENS = 1024
 
 /**
  * Per-model request options. Effort is set where the model takes it; server-side refusal
@@ -172,8 +201,7 @@ export function createLulu(options: LuluOptions) {
 
     const lookupOrder = betaZodTool({
       name: 'lookup_order',
-      description:
-        "Look up a Leaky Llama order by its order number and the email address it was placed with. Returns its status, items, what was paid and refunded, the PayPal capture ID, and whether a dispute is open. Returns found: false when the number and email don't match an order.",
+      description: LOOKUP_DESCRIPTION,
       inputSchema: z.object({
         order_number: z.string().describe('Like LL-10042'),
         email: z.string().describe('The email address the order was placed with'),
@@ -188,8 +216,7 @@ export function createLulu(options: LuluOptions) {
       options.wiring === 'sealed'
         ? betaZodTool({
             name: 'request_refund',
-            description:
-              'Ask the store to refund some or all of an order. The store checks its refund policy and answers approved (the refund was issued), escalated (a person will decide) or declined (with the reason). Pass the amount in US dollars, like "18.00".',
+            description: REQUEST_REFUND_DESCRIPTION,
             inputSchema: z.object({
               order_number: z.string(),
               email: z.string(),
@@ -240,15 +267,25 @@ export function createLulu(options: LuluOptions) {
       content: turn.content,
     }))
 
-    const final = await options.client.beta.messages.toolRunner({
+    const runner = options.client.beta.messages.toolRunner({
       model,
-      max_tokens: 16000,
+      max_tokens: MAX_REPLY_TOKENS,
       system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
       tools: [lookupOrder, refundTool],
       messages,
       max_iterations: maxIterations,
       ...modelOptions(model, effort),
     })
+    const usage = { calls: 0, inputTokens: 0, outputTokens: 0 }
+    for await (const message of runner) {
+      usage.calls += 1
+      usage.inputTokens +=
+        message.usage.input_tokens +
+        (message.usage.cache_creation_input_tokens ?? 0) +
+        (message.usage.cache_read_input_tokens ?? 0)
+      usage.outputTokens += message.usage.output_tokens
+    }
+    const final = await runner.done()
 
     if (final.stop_reason === 'refusal') {
       return {
@@ -256,6 +293,7 @@ export function createLulu(options: LuluOptions) {
         toolCalls: trace,
         stopReason: final.stop_reason,
         model: final.model,
+        usage,
       }
     }
     const text = final.content
@@ -268,6 +306,7 @@ export function createLulu(options: LuluOptions) {
       toolCalls: trace,
       stopReason: final.stop_reason,
       model: final.model,
+      usage,
     }
   }
 

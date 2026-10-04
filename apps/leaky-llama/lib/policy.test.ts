@@ -25,7 +25,21 @@ describe('checkRefund: the written policy, as code', () => {
     ['someone else asking', ask(3600, {}, 'other@example.com'), 'decline'],
     ['more than was paid', ask(12_401), 'decline'],
     ['more than is left after an earlier refund', ask(9000, { refundedCents: 4000 }), 'decline'],
-    ['what is left after an earlier refund', ask(8400, { refundedCents: 4000 }), 'approve'],
+    [
+      'what is left, when that takes the order over the self-serve total',
+      ask(8400, { refundedCents: 4000 }),
+      'escalate',
+    ],
+    [
+      'a second instalment that stays within the self-serve total',
+      ask(3000, { refundedCents: 4000 }),
+      'approve',
+    ],
+    [
+      'a second instalment that takes the total over $100',
+      ask(3400, { refundedCents: 9000 }),
+      'escalate',
+    ],
     ['an order with an open dispute', ask(100, { hasOpenDispute: true }), 'decline'],
     [
       'an order that was never paid',

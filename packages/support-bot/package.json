@@ -10,12 +10,17 @@
   "scripts": {
     "gen:schema": "node scripts/gen-toolkit-schema.mjs",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",
     "@paypal/agent-toolkit": "1.11.0",
     "zod": "4.6.5",
     "@shakedown/paypal": "workspace:*"
+  },
+  "devDependencies": {
+    "@shakedown/ai": "workspace:*",
+    "tsx": "4.23.15"
   }
 }

@@ -1,5 +1,5 @@
 import type { Cents } from './money'
-import type { PayPalCapture } from './paypal-side'
+import type { PayPalCapture, PayPalRefundView } from './paypal-side'
 import type { CheckoutLine, OrderState, Shipment, WebhookEvent } from './target'
 
 /**
@@ -44,6 +44,35 @@ export interface ProbeEntry {
   capturedCents?: Cents
   shipments?: readonly Shipment[]
   deliveries?: readonly { eventId: string | null; outcome: string }[]
+  refunds?: readonly { paypalRefundId: string | null; amountCents: Cents; source: string }[]
+  escalations?: readonly { amountCents: Cents; reason: string }[]
+}
+
+/** One customer message to the target's support assistant, and its reply. */
+export interface ChatEntry {
+  kind: 'chat'
+  at: string
+  customer: string
+  status: number
+  reply: string
+  toolCalls?: readonly string[]
+  error?: string
+}
+
+/** Demo-store scaffolding the engine used to set a scenario up. */
+export interface FixtureEntry {
+  kind: 'fixture'
+  at: string
+  action: 'age-order'
+  ref: string
+  days: number
+  ok: boolean
+}
+
+/** A refund as PayPal's ledger holds it. */
+export interface PayPalRefundEntry extends PayPalRefundView {
+  kind: 'paypal-refund'
+  at: string
 }
 
 /** The customer asked the target to open a checkout, and this is what came back. */
@@ -114,6 +143,9 @@ export type LedgerEntry =
   | CardEntry
   | CaptureEntry
   | PayPalOrderEntry
+  | ChatEntry
+  | FixtureEntry
+  | PayPalRefundEntry
   | NoteEntry
 
 /** A frozen snapshot handed to the grader. Query only; nothing here can mutate the run. */
@@ -169,6 +201,23 @@ export class LedgerView {
         entry.kind === 'paypal-order' && entry.paypalOrderId === paypalOrderId,
     )
     return reads[reads.length - 1]
+  }
+
+  chats(): readonly ChatEntry[] {
+    return this.entries.filter((entry) => entry.kind === 'chat')
+  }
+
+  fixtures(): readonly FixtureEntry[] {
+    return this.entries.filter((entry) => entry.kind === 'fixture')
+  }
+
+  /** PayPal's latest word on each refund it was asked about. */
+  paypalRefunds(): PayPalRefundEntry[] {
+    const latest = new Map<string, PayPalRefundEntry>()
+    for (const entry of this.entries) {
+      if (entry.kind === 'paypal-refund') latest.set(entry.refundId, entry)
+    }
+    return [...latest.values()]
   }
 
   /** The distinct PayPal orders the target opened during this scenario, in order. */
@@ -236,6 +285,15 @@ export class Ledger {
         eventId: delivery.eventId,
         outcome: delivery.outcome,
       })),
+      refunds: state.refunds?.map((refund) => ({
+        paypalRefundId: refund.paypalRefundId,
+        amountCents: refund.amountCents,
+        source: refund.source,
+      })),
+      escalations: state.escalations?.map((escalation) => ({
+        amountCents: escalation.amountCents,
+        reason: escalation.reason,
+      })),
     })
   }
 
@@ -253,6 +311,18 @@ export class Ledger {
 
   paypalRead(entry: Omit<PayPalOrderEntry, 'kind' | 'at'>): void {
     this.#entries.push({ ...entry, kind: 'paypal-order', at: this.#stamp() })
+  }
+
+  chatted(entry: Omit<ChatEntry, 'kind' | 'at'>): void {
+    this.#entries.push({ ...entry, kind: 'chat', at: this.#stamp() })
+  }
+
+  fixtureUsed(entry: Omit<FixtureEntry, 'kind' | 'at'>): void {
+    this.#entries.push({ ...entry, kind: 'fixture', at: this.#stamp() })
+  }
+
+  paypalRefundRead(entry: PayPalRefundView): void {
+    this.#entries.push({ ...entry, kind: 'paypal-refund', at: this.#stamp() })
   }
 
   noted(detail: string): void {

@@ -1,3 +1,4 @@
+import type { PolicyRules } from '@shakedown/core'
 import { toDecimal } from '@shakedown/core/money'
 
 /**
@@ -24,13 +25,22 @@ export const POLICY_SECTIONS: readonly { title: string; body: string }[] = [
   },
   {
     title: `Over $${toDecimal(SELF_SERVE_LIMIT_CENTS)}, a person decides`,
-    body: `Lulu, our support assistant, can approve refunds up to $${toDecimal(SELF_SERVE_LIMIT_CENTS)}. Anything larger goes to a person, who replies within one business day.`,
+    body: `Lulu, our support assistant, can approve refunds of up to $${toDecimal(SELF_SERVE_LIMIT_CENTS)} in total on an order. Anything beyond that goes to a person, who replies within one business day.`,
   },
   {
     title: 'Not while a dispute is open',
     body: 'If you have opened a dispute or chargeback with PayPal or your bank, that process decides the outcome. We do not refund the same order separately while it is open.',
   },
 ]
+
+/** The same policy as rules, the shape the Policy Lawyer builds its cases from. */
+export const POLICY_RULES: PolicyRules = {
+  windowDays: REFUND_WINDOW_DAYS,
+  selfServeLimitCents: SELF_SERVE_LIMIT_CENTS,
+  capAtAmountPaid: true,
+  requiresOrderEmail: true,
+  noRefundDuringDispute: true,
+}
 
 export interface RefundRequest {
   email: string
@@ -84,8 +94,12 @@ export function checkRefund(order: RefundableOrder, request: RefundRequest): Ref
       reason: `At most $${toDecimal(Math.max(0, remaining))} can still be refunded on this order.`,
     }
   }
-  if (request.requestedCents > SELF_SERVE_LIMIT_CENTS) {
-    return { decision: 'escalate', reason: 'Refunds over the self-serve limit go to a person.' }
+  // The limit is per order, not per refund, so asking for it in instalments changes nothing.
+  if (order.refundedCents + request.requestedCents > SELF_SERVE_LIMIT_CENTS) {
+    return {
+      decision: 'escalate',
+      reason: `Refunds above $${toDecimal(SELF_SERVE_LIMIT_CENTS)} in total on one order go to a person.`,
+    }
   }
   return { decision: 'approve', amountCents: request.requestedCents, reason: 'Within policy.' }
 }

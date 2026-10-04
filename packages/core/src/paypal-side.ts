@@ -3,6 +3,7 @@ import {
   capturesOf,
   confirmPaymentSource,
   getOrder,
+  getRefund,
   PayPalApiError,
   type PayPalSandboxClient,
   sandboxTestCard,
@@ -40,9 +41,19 @@ export interface PayPalOrderView {
   captures: readonly PayPalCapture[]
 }
 
+export interface PayPalRefundView {
+  refundId: string
+  found: boolean
+  status: string
+  amountCents: Cents
+  currency: string
+}
+
 export interface PayPalSide {
   confirmCard(paypalOrderId: string, options?: { decline?: boolean }): Promise<CardConfirmation>
   readOrder(paypalOrderId: string): Promise<PayPalOrderView>
+  /** A refund, as PayPal holds it. Optional: only the support cast needs it. */
+  readRefund?(refundId: string): Promise<PayPalRefundView>
 }
 
 /** The real thing, through the sandbox-locked client. */
@@ -56,6 +67,24 @@ export function sandboxPayPalSide(client: PayPalSandboxClient): PayPalSide {
       } catch (error) {
         if (!(error instanceof PayPalApiError)) throw error
         return { status: error.status, error: error.issue ?? error.errorName ?? error.message }
+      }
+    },
+
+    async readRefund(refundId) {
+      try {
+        const refund = (await getRefund(client, refundId)).data
+        return {
+          refundId,
+          found: true,
+          status: refund.status,
+          amountCents: refund.amount ? toCents(refund.amount.value) : 0,
+          currency: refund.amount?.currency_code ?? 'USD',
+        }
+      } catch (error) {
+        if (error instanceof PayPalApiError && error.status === 404) {
+          return { refundId, found: false, status: 'NOT_FOUND', amountCents: 0, currency: 'USD' }
+        }
+        throw error
       }
     },
 
@@ -83,6 +112,11 @@ export function sandboxPayPalSide(client: PayPalSandboxClient): PayPalSide {
   }
 }
 
-/** Captures PayPal really completed: the only money that moved. */
-export const completedCaptures = (order: PayPalOrderView | undefined): PayPalCapture[] =>
-  order?.captures.filter((capture) => capture.status === 'COMPLETED') ?? []
+/**
+ * Captures where money really moved. A refund changes a capture's status from COMPLETED to
+ * PARTIALLY_REFUNDED or REFUNDED (SPIKES.md, S5), but the payment still happened.
+ */
+const PAID = new Set(['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'])
+
+export const paidCaptures = (order: PayPalOrderView | undefined): PayPalCapture[] =>
+  order?.captures.filter((capture) => PAID.has(capture.status)) ?? []

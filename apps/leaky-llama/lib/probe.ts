@@ -3,6 +3,7 @@ import { asc, desc, eq } from 'drizzle-orm'
 import type { StoreDb } from './db/client'
 import {
   disputes,
+  escalations,
   orderNumber,
   orders,
   parseOrderNumber,
@@ -49,7 +50,7 @@ export async function probeOrder(db: StoreDb, ref: string) {
       currency: 'USD',
     }
   }
-  const [shipped, refunded, disputed, delivered] = await Promise.all([
+  const [shipped, refunded, disputed, delivered, escalated] = await Promise.all([
     db.select().from(shipments).where(eq(shipments.orderId, order.id)).orderBy(asc(shipments.id)),
     db.select().from(refunds).where(eq(refunds.orderId, order.id)).orderBy(asc(refunds.id)),
     db.select().from(disputes).where(eq(disputes.orderId, order.id)),
@@ -58,6 +59,11 @@ export async function probeOrder(db: StoreDb, ref: string) {
       .from(webhookDeliveries)
       .where(eq(webhookDeliveries.orderId, order.id))
       .orderBy(asc(webhookDeliveries.id)),
+    db
+      .select()
+      .from(escalations)
+      .where(eq(escalations.orderId, order.id))
+      .orderBy(asc(escalations.id)),
   ])
   return {
     orderId: orderNumber(order.id),
@@ -84,6 +90,11 @@ export async function probeOrder(db: StoreDb, ref: string) {
       paypalRefundId: row.paypalRefundId,
       amountCents: row.amountCents,
       source: row.source,
+      at: row.createdAt.toISOString(),
+    })),
+    escalations: escalated.map((row) => ({
+      amountCents: row.amountCents,
+      reason: row.reason,
       at: row.createdAt.toISOString(),
     })),
     disputes: disputed.map((row) => ({

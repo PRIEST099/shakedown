@@ -1,6 +1,6 @@
 import type { Invariant } from '../grader'
 import { evidence } from '../grader'
-import { completedCaptures } from '../paypal-side'
+import { paidCaptures } from '../paypal-side'
 import type { PersonaModule, Scenario } from '../persona'
 import {
   cheapest,
@@ -29,7 +29,7 @@ const withinCaptured: Invariant = {
   evaluate(view) {
     const paypalOrderId = onlyOrder(view)
     if (!paypalOrderId) return { verdict: 'inconclusive', detail: 'No PayPal order was opened.' }
-    const charges = completedCaptures(view.paypalOrder(paypalOrderId))
+    const charges = paidCaptures(view.paypalOrder(paypalOrderId))
     const captured = charges.reduce((sum, charge) => sum + charge.amountCents, 0)
     const probe = view.lastProbe()
     const opened = view.checkouts()[0]

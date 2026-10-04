@@ -11,11 +11,13 @@
     "demo": "tsx src/demo.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "demo:store": "tsx src/demo-store.ts"
+    "demo:store": "tsx src/demo-store.ts",
+    "demo:policy": "tsx src/demo-policy.ts"
   },
   "dependencies": {
     "@shakedown/core": "workspace:*",
-    "@shakedown/paypal": "workspace:*"
+    "@shakedown/paypal": "workspace:*",
+    "@shakedown/ai": "workspace:*"
   },
   "devDependencies": {
     "tsx": "4.23.15"

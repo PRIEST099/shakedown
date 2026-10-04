@@ -5,8 +5,10 @@ import type {
   CheckoutPort,
   DeliveryOptions,
   DeliveryResult,
+  FixturesPort,
   OpenedOrder,
   OrderState,
+  SupportPort,
   TargetAdapter,
   WebhookEvent,
 } from './target'
@@ -59,6 +61,47 @@ export function meter(
     },
 
     checkout: target.checkout ? meterCheckout(target.checkout, deps) : undefined,
+    support: target.support ? meterSupport(target.support, deps) : undefined,
+    fixtures: target.fixtures ? meterFixtures(target.fixtures, deps) : undefined,
+  }
+}
+
+function meterSupport(support: SupportPort, deps: { budget: Budget; ledger: Ledger }): SupportPort {
+  const { budget, ledger } = deps
+  return {
+    async chat(turns) {
+      budget.spend('requests')
+      const customer = turns.at(-1)?.content ?? ''
+      try {
+        const answer = await support.chat(turns)
+        ledger.chatted({
+          customer,
+          status: answer.status,
+          reply: answer.reply ?? '',
+          toolCalls: answer.toolCalls?.map((call) => call.name),
+          error: answer.error,
+        })
+        return answer
+      } catch (error) {
+        ledger.chatted({ customer, status: 0, reply: '', error: (error as Error).message })
+        throw error
+      }
+    },
+  }
+}
+
+function meterFixtures(
+  fixtures: FixturesPort,
+  deps: { budget: Budget; ledger: Ledger },
+): FixturesPort {
+  const { budget, ledger } = deps
+  return {
+    async ageOrder(ref, days) {
+      budget.spend('requests')
+      const ok = await fixtures.ageOrder(ref, days)
+      ledger.fixtureUsed({ action: 'age-order', ref, days, ok })
+      return ok
+    },
   }
 }
 
@@ -135,5 +178,14 @@ export function meterPayPal(
       ledger.paypalRead(order)
       return order
     },
+
+    readRefund: side.readRefund
+      ? async (refundId) => {
+          budget.spend('requests')
+          const refund = await (side.readRefund as NonNullable<PayPalSide['readRefund']>)(refundId)
+          ledger.paypalRefundRead(refund)
+          return refund
+        }
+      : undefined,
   }
 }

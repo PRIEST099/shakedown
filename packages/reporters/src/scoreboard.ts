@@ -51,9 +51,21 @@ function atRisk(finding: Finding): string {
   return parts.length ? ink.leak(parts.join(' · ')) : ink.dim('$0.00 this time')
 }
 
-function findingBlock(finding: Finding): string[] {
+/** A plain-language explanation the AI layer wrote for a finding. */
+export interface Explanation {
+  headline: string
+  explanation: string
+  firstStep: string
+}
+
+function findingBlock(finding: Finding, explanation?: Explanation): string[] {
   const lines = [`  ${ink.leak('✗')} ${ink.bold(finding.title)}`]
   lines.push(...wrapText(finding.detail, WIDTH - 6, '    '))
+  if (explanation) {
+    lines.push('')
+    lines.push(`    ${ink.mark('In plain words')} ${ink.dim('(written by the AI layer)')}`)
+    lines.push(...wrapText(explanation.explanation, WIDTH - 6, '    '))
+  }
   lines.push('')
   for (const item of finding.evidence) {
     lines.push(`    ${ink.dim(item.label.padEnd(28))}${item.value}`)
@@ -69,6 +81,8 @@ function findingBlock(finding: Finding): string[] {
 export interface ScoreboardOptions {
   /** Show the properties that held, not just the ones that did not. */
   showSealed?: boolean
+  /** Plain-language explanations, by finding ID. */
+  explanations?: Readonly<Record<string, Explanation>>
 }
 
 export function scoreboard(result: CampaignResult, options: ScoreboardOptions = {}): string {
@@ -105,7 +119,7 @@ export function scoreboard(result: CampaignResult, options: ScoreboardOptions = 
     }
 
     for (const finding of outcome.findings) {
-      lines.push('', ...findingBlock(finding))
+      lines.push('', ...findingBlock(finding, options.explanations?.[finding.id]))
     }
 
     if (outcome.error) {

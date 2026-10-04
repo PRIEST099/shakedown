@@ -1,6 +1,6 @@
 import type { Invariant } from '../grader'
 import { evidence } from '../grader'
-import { completedCaptures } from '../paypal-side'
+import { paidCaptures } from '../paypal-side'
 import type { PersonaModule, Scenario } from '../persona'
 import {
   checkoutOf,
@@ -32,7 +32,7 @@ const oneCharge: Invariant = {
     if (!key || orders.length === 0) {
       return { verdict: 'inconclusive', detail: 'No checkout was opened.' }
     }
-    const charges = orders.flatMap((id) => completedCaptures(view.paypalOrder(id)))
+    const charges = orders.flatMap((id) => paidCaptures(view.paypalOrder(id)))
     const facts = [
       evidence('Checkout key', key),
       evidence('Submits', submits.length),
@@ -75,7 +75,7 @@ const oneShipment: Invariant = {
   evaluate(view) {
     const paypalOrderId = onlyOrder(view)
     if (!paypalOrderId) return { verdict: 'inconclusive', detail: 'No PayPal order was opened.' }
-    const charges = completedCaptures(view.paypalOrder(paypalOrderId))
+    const charges = paidCaptures(view.paypalOrder(paypalOrderId))
     const attempts = view.captures(paypalOrderId)
     const probe = view.lastProbe()
     const shipped = probe?.shipments?.filter((shipment) => shipment.source === 'checkout') ?? []

@@ -3,6 +3,7 @@ import type { RunEvent } from './events'
 import { EventBus } from './events'
 import type { PersonaModule, Scenario } from './persona'
 import { CampaignCancelledError, runCampaign } from './runner'
+import { regrade, saveRun } from './saved-run'
 import type { FixtureTarget } from './testing/fixture-target'
 import { LEAKY, startFixtureTarget } from './testing/fixture-target'
 
@@ -34,6 +35,63 @@ const moduleWith = (...scenarios: Scenario[]): Partial<Record<'echo', PersonaMod
 })
 
 describe('runCampaign', () => {
+  it("never lets one scenario's findings change what the next one says", async () => {
+    // Two scenarios that each draw from the campaign's random stream. Whether the first raises a
+    // finding must not change what the second draws.
+    const drawn: string[] = []
+    const scenarioPair = (leaks: boolean): Partial<Record<'echo', PersonaModule>> => ({
+      echo: {
+        id: 'echo',
+        scenarios: [
+          {
+            ...scenario('first', async (context) => {
+              drawn.push(context.rng.id('A'))
+            }),
+            invariants: leaks
+              ? [
+                  {
+                    id: 'always-leaks',
+                    persona: 'echo',
+                    title: 'x',
+                    severity: 'high',
+                    fix: 'x',
+                    evaluate: () => ({ verdict: 'leak', detail: 'x' }),
+                  },
+                ]
+              : [],
+          },
+          scenario('second', async (context) => {
+            drawn.push(context.rng.id('B'))
+          }),
+        ],
+      },
+    })
+    await runCampaign({
+      target: fixture.adapter,
+      cast: ['echo'],
+      seed: 5,
+      modules: scenarioPair(false),
+    })
+    await runCampaign({
+      target: fixture.adapter,
+      cast: ['echo'],
+      seed: 5,
+      modules: scenarioPair(true),
+    })
+    expect(drawn[1]).toBe(drawn[3])
+  })
+
+  it('judges a saved run again, identically, without sending anything', async () => {
+    const result = await runCampaign({ target: fixture.adapter, cast: ['echo'], seed: 3 })
+    const saved = JSON.parse(JSON.stringify(saveRun(result)))
+    const before = fixture.orders().length
+    const again = regrade(saved)
+    expect(fixture.orders()).toHaveLength(before)
+    expect(again.findings.map((f) => [f.invariant, f.merchantLeakCents])).toEqual(
+      result.findings.map((f) => [f.invariant, f.merchantLeakCents]),
+    )
+  })
+
   it('reports the seed it used, so any run can be replayed', async () => {
     const result = await runCampaign({ target: fixture.adapter, cast: ['echo'] })
     expect(typeof result.seed).toBe('number')
@@ -44,7 +102,7 @@ describe('runCampaign', () => {
   it('skips personas that are not wired up yet instead of failing', async () => {
     const result = await runCampaign({
       target: fixture.adapter,
-      cast: ['policy-lawyer', 'second-opinion'],
+      cast: ['second-opinion'],
       seed: 1,
     })
     expect(result.outcomes).toEqual([])

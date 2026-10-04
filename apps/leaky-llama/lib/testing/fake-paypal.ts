@@ -1,3 +1,4 @@
+import { toCents } from '@shakedown/core/money'
 import { type Order, PayPalApiError, type Refund } from '@shakedown/paypal'
 import type { PayPalPort } from '../paypal'
 
@@ -28,10 +29,20 @@ const nextId = () => {
   return sequence
 }
 
+/** Start fake IDs again from 1, so a campaign on a fresh database repeats exactly. */
+export const resetFakeIds = () => {
+  sequence = 0
+}
+
 export class FakePayPal implements PayPalPort {
   canVerify = true
   readonly orders = new Map<string, FakeOrder>()
   readonly calls: { method: string; requestId?: string }[] = []
+  /** Refunds issued, by ID, so a test can read them back like PayPal's ledger. */
+  readonly refunds = new Map<
+    string,
+    { id: string; captureId: string; status: string; value: string }
+  >()
   readonly #replays = new Map<string, unknown>()
   /** Next order's capture behaviour. */
   nextBehaviour: CaptureBehaviour = 'complete'
@@ -120,14 +131,59 @@ export class FakePayPal implements PayPalPort {
     requestId?: string,
   ): Promise<Refund> {
     this.calls.push({ method: 'refundCapture', requestId })
+    if (requestId && this.#replays.has(requestId)) return this.#replays.get(requestId) as Refund
+    // PayPal caps refunds at what is left of the capture (S5: REFUND_AMOUNT_EXCEEDED).
+    const captured = this.capturedCents(captureId)
+    if (captured !== undefined) {
+      const refunded = [...this.refunds.values()]
+        .filter((refund) => refund.captureId === captureId)
+        .reduce((sum, refund) => sum + toCents(refund.value), 0)
+      if (refunded + toCents(amount.value) > captured) {
+        throw new PayPalApiError({
+          status: 422,
+          message: 'Refund amount exceeded',
+          issue: 'REFUND_AMOUNT_EXCEEDED',
+        })
+      }
+    }
     return this.#replay(requestId, () => {
+      const id = `REFUND-${nextId()}`
+      this.refunds.set(id, { id, captureId, status: 'COMPLETED', value: amount.value })
+      this.#markRefunded(captureId)
       return {
-        id: `REFUND-${nextId()}`,
+        id,
         status: 'COMPLETED',
         amount,
         links: [{ rel: 'up', href: `/v2/payments/captures/${captureId}` }],
       }
     })
+  }
+
+  /** What a capture took, in cents, if this fake made it and money moved. */
+  capturedCents(captureId: string): number | undefined {
+    for (const order of this.orders.values()) {
+      const capture = order.captured?.purchase_units?.[0]?.payments?.captures?.[0]
+      if (
+        capture?.id === captureId &&
+        capture.status !== 'DECLINED' &&
+        capture.status !== 'PENDING'
+      ) {
+        return toCents(capture.amount.value)
+      }
+    }
+    return undefined
+  }
+
+  /** As the sandbox does: a refunded capture becomes PARTIALLY_REFUNDED, then REFUNDED. */
+  #markRefunded(captureId: string) {
+    for (const order of this.orders.values()) {
+      const capture = order.captured?.purchase_units?.[0]?.payments?.captures?.[0]
+      if (capture?.id !== captureId) continue
+      const refunded = [...this.refunds.values()]
+        .filter((refund) => refund.captureId === captureId)
+        .reduce((sum, refund) => sum + toCents(refund.value), 0)
+      capture.status = refunded >= toCents(capture.amount.value) ? 'REFUNDED' : 'PARTIALLY_REFUNDED'
+    }
   }
 
   /** Only deliveries carrying the fake's valid signature verify. */

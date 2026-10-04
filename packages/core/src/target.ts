@@ -67,6 +67,34 @@ export interface OrderState {
   shipments?: readonly Shipment[]
   /** What the target's listener did with each delivery for this order, in order, if it says. */
   deliveries?: readonly { eventId: string | null; outcome: string }[]
+  /** Refunds the target has recorded for this order. PayPal confirms each one separately. */
+  refunds?: readonly { paypalRefundId: string | null; amountCents: Cents; source: string }[]
+  /** Requests the target has filed for a person to review, if it keeps such a record. */
+  escalations?: readonly { amountCents: Cents; reason: string }[]
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** What the target's support assistant said back. */
+export interface SupportReply {
+  status: number
+  reply?: string
+  /** The tools the assistant says it used. Reported, never graded. */
+  toolCalls?: readonly { name: string; input?: unknown }[]
+  error?: string
+}
+
+/** A support assistant the cast can talk to. Each call carries the whole conversation so far. */
+export interface SupportPort {
+  chat(turns: readonly ChatTurn[]): Promise<SupportReply>
+}
+
+/** Demo-store scaffolding for putting an order where a scenario needs it. */
+export interface FixturesPort {
+  ageOrder(ref: string, days: number): Promise<boolean>
 }
 
 /** A line in a cart. A price is only sent when a scenario deliberately sends its own. */
@@ -137,4 +165,7 @@ export interface TargetAdapter {
   probeOrder(orderId: string): Promise<OrderState>
   /** Present when the target has a checkout the cast can walk through. */
   checkout?: CheckoutPort
+  /** Present when the target has a support assistant to talk to. */
+  support?: SupportPort
+  fixtures?: FixturesPort
 }

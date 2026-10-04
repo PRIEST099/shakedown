@@ -52,10 +52,25 @@ cast picks what to buy from it. Everything else here is read-only and protected 
 ## Lulu
 
 The support assistant on `/support`, built on Claude with the official Anthropic SDK. It needs
-`ANTHROPIC_API_KEY`; without one the store works and the Help page says Lulu isn't connected.
-`LULU_MODEL` defaults to `claude-opus-5` (`claude-haiku-4-5` is cheaper per turn) and
-`LULU_EFFORT` to `medium`. Chat is rate-limited per visitor, because tokens cost real money even
-though refunds are sandbox.
+`ANTHROPIC_API_KEY` (plus `ANTHROPIC_WORKSPACE_ID` for an organisation-level key); without them
+the store works and the Help page says Lulu isn't connected.
+
+- **Model:** `claude-haiku-4-5` by default, the cheapest suitable one. Set `LULU_MODEL` to change
+  it. Replies are capped at 1,024 tokens.
+- **Spend:** every call goes through Shakedown's spend gate (`@shakedown/ai`). It prices each
+  reply from its token usage, keeps a running total in `.data/ai-spend.jsonl`, and refuses any
+  call that could overrun `SHAKEDOWN_AI_BUDGET_USD` (default $1.50). Chat is also rate-limited per
+  visitor.
+- **Two wirings, one prompt.** Leaky Lulu holds PayPal's agent-toolkit `create_refund` tool and
+  has no way to file a review for a person. Sealed Lulu holds `request_refund`, which applies the
+  written policy in code and, when a person must decide, files the review itself.
+
+Also served, for Shakedown's recon:
+
+- `GET /api/policy`: the written refund policy as text.
+- `GET /api/support/tools`: the tools Lulu holds under this request's switches.
+- `POST /api/fixtures/orders/:id/age`: test scaffolding behind the probe secret. It makes an order
+  older, so a refund-window rule can be tested. It never touches PayPal.
 
 ## Checking it
 
@@ -63,6 +78,7 @@ though refunds are sandbox.
 pnpm --filter @shakedown/leaky-llama test                          # unit + integration, on PGlite
 RUN_SANDBOX_TESTS=1 pnpm --filter @shakedown/leaky-llama exec vitest run lib/sandbox.test.ts
 pnpm --filter @shakedown/leaky-llama e2e                           # Playwright, in your installed Chrome
+pnpm eval                                                          # measured metrics, written to docs/EVAL.md
 ```
 
 The end-to-end suite builds the store and serves it on port 3101 with its own fresh database,

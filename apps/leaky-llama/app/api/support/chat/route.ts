@@ -1,5 +1,6 @@
+import { createClaude } from '@shakedown/ai'
 import { type ChatTurn, createLulu, DEFAULT_MODEL, type Effort } from '@shakedown/support-bot'
-import { claudeConfigured, getAnthropic } from '@/lib/anthropic'
+import { claudeConfigured } from '@/lib/anthropic'
 import { getDb } from '@/lib/db/client'
 import { errorResponse, json, readJson } from '@/lib/http'
 import { readCookie, resolveMode, VISITOR_COOKIE } from '@/lib/mode'
@@ -67,7 +68,8 @@ export async function POST(request: Request) {
     const wiring = mode['policy-lawyer']
     const effort = process.env.LULU_EFFORT as Effort
     const lulu = createLulu({
-      client: getAnthropic(),
+      // Metered, capped and replayable, like every other Claude call in the project.
+      client: createClaude({ purpose: 'lulu' }),
       store: supportStore({ db: await getDb(), paypal: getPayPal() }),
       wiring,
       paypal: {

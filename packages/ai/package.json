@@ -3,11 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "AI layer: recon/test plan, Policy Lawyer, fix-writer, triage. Arrives in Phase 5.",
+  "description": "Shakedown's AI layer: a metered, capped, replayable Claude client, plus the structured AI steps.",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.131.0",
+    "zod": "4.6.5",
+    "@shakedown/core": "workspace:*"
   }
 }

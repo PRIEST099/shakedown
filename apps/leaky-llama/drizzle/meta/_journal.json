@@ -8,6 +8,13 @@
       "when": 1791063115418,
       "tag": "0000_gifted_nicolaos",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791125686601,
+      "tag": "0001_handy_silhouette",
+      "breakpoints": true
     }
   ]
 }

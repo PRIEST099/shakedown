@@ -11,6 +11,8 @@ import type { PayPalPort } from './paypal'
 export interface StoreDeps {
   db: StoreDb
   paypal: PayPalPort
+  /** The store's clock. Tests fix it so order dates, and everything derived from them, repeat. */
+  now?: () => Date
 }
 
 export interface CreateCheckoutInput {
@@ -82,6 +84,7 @@ export async function createCheckout(
       campaignId: input.campaignId ?? null,
       visitorId: input.visitorId ?? null,
       checkoutKey,
+      ...(deps.now ? { createdAt: deps.now(), updatedAt: deps.now() } : {}),
     })
     .onConflictDoNothing({ target: orders.checkoutKey })
     .returning()

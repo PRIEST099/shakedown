@@ -1,3 +1,4 @@
+import type Anthropic from '@anthropic-ai/sdk'
 import type {
   CaptureAnswer,
   CheckoutOpened,
@@ -9,9 +10,12 @@ import type {
 import type { StoreMode } from '@shakedown/core/mode'
 import { toCents } from '@shakedown/core/money'
 import { capturesOf, PayPalApiError } from '@shakedown/paypal'
+import { createLulu, payPalToolkitRefund, type ToolkitRefund } from '@shakedown/support-bot'
 import { CATALOG, CartError } from '../catalog'
 import { captureCheckout, createCheckout, type StoreDeps } from '../checkout'
+import { ageOrder } from '../fixtures'
 import { probeOrder } from '../probe'
+import { supportStore } from '../support'
 import { handleWebhook } from '../webhooks'
 import type { FakePayPal } from './fake-paypal'
 import { signedHeaders, unsignedHeaders } from './fake-paypal'
@@ -21,9 +25,16 @@ import { signedHeaders, unsignedHeaders } from './fake-paypal'
  * PayPal standing in for the sandbox. It answers exactly as the HTTP routes do, so the cast can
  * be tested in seconds; the HTTP adapter covers the real thing.
  */
+export interface InProcessOptions {
+  /** Claude for Lulu: a scripted fake in tests, the metered client in the eval. */
+  claude?: Anthropic
+  model?: string
+}
+
 export function inProcessStore(
   deps: StoreDeps & { paypal: FakePayPal },
   mode: StoreMode,
+  options: InProcessOptions = {},
 ): { target: TargetAdapter; paypal: PayPalSide } {
   const campaignId = 'CMP-IN-PROCESS'
 
@@ -100,7 +111,46 @@ export function inProcessStore(
           'webhooks' in state
             ? state.webhooks?.map((row) => ({ eventId: row.eventId, outcome: row.outcome }))
             : undefined,
+        escalations:
+          'escalations' in state
+            ? state.escalations?.map((row) => ({
+                amountCents: row.amountCents,
+                reason: row.reason,
+              }))
+            : undefined,
+        refunds:
+          'refunds' in state
+            ? state.refunds?.map((row) => ({
+                paypalRefundId: row.paypalRefundId,
+                amountCents: row.amountCents,
+                source: row.source,
+              }))
+            : undefined,
       }
+    },
+
+    support: options.claude
+      ? {
+          async chat(turns) {
+            const lulu = createLulu({
+              client: options.claude as Anthropic,
+              store: supportStore(deps),
+              wiring: mode['policy-lawyer'],
+              toolkitRefund: fakeToolkit(deps.paypal),
+              model: options.model,
+            })
+            const result = await lulu.reply([...turns])
+            return {
+              status: 200,
+              reply: result.reply,
+              toolCalls: result.toolCalls.map((call) => ({ name: call.name, input: call.input })),
+            }
+          },
+        }
+      : undefined,
+
+    fixtures: {
+      ageOrder: (ref, days) => ageOrder(deps.db, ref, days, deps.now?.() ?? new Date()),
     },
 
     checkout: {
@@ -127,6 +177,19 @@ export function inProcessStore(
       order.behaviour = options?.decline ? 'decline-inside-completed-order' : 'complete'
       return { status: 200, orderStatus: 'APPROVED' }
     },
+    async readRefund(refundId) {
+      const refund = deps.paypal.refunds.get(refundId)
+      return refund
+        ? {
+            refundId,
+            found: true,
+            status: refund.status,
+            amountCents: toCents(refund.value),
+            currency: 'USD',
+          }
+        : { refundId, found: false, status: 'NOT_FOUND', amountCents: 0, currency: 'USD' }
+    },
+
     async readOrder(paypalOrderId): Promise<PayPalOrderView> {
       const order = deps.paypal.orders.get(paypalOrderId)
       if (!order) return { paypalOrderId, found: false, status: 'NOT_FOUND', captures: [] }
@@ -148,4 +211,37 @@ export function inProcessStore(
   }
 
   return { target, paypal }
+}
+
+/**
+ * PayPal's agent-toolkit refund tool as the model sees it (the toolkit's own description), with
+ * its effect played against the fake PayPal instead of the sandbox. A refund with no amount
+ * refunds what is left of the capture, as the real one does.
+ */
+function fakeToolkit(paypal: FakePayPal): ToolkitRefund {
+  const description = payPalToolkitRefund({
+    clientId: 'description-only',
+    clientSecret: 'description-only',
+  }).description
+  return {
+    description,
+    async execute(input) {
+      const captureId = String(input.capture_id ?? '')
+      const asked = input.amount as { currency_code?: string; value?: string } | undefined
+      const captured = paypal.capturedCents(captureId) ?? 0
+      const refunded = [...paypal.refunds.values()]
+        .filter((refund) => refund.captureId === captureId)
+        .reduce((sum, refund) => sum + toCents(refund.value), 0)
+      const value = asked?.value ?? ((captured - refunded) / 100).toFixed(2)
+      try {
+        return await paypal.refundCapture(captureId, {
+          currency_code: asked?.currency_code ?? 'USD',
+          value,
+        })
+      } catch (error) {
+        if (error instanceof PayPalApiError) return { error: error.issue ?? error.message }
+        throw error
+      }
+    },
+  }
 }

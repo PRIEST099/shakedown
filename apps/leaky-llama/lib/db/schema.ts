@@ -144,8 +144,25 @@ export const disputes = pgTable(
   (table) => [index('disputes_order').on(table.orderId)],
 )
 
+/** A refund request sent to a person, as the support assistant filed it. */
+export const escalations = pgTable(
+  'escalations',
+  {
+    id: serial('id').primaryKey(),
+    orderId: integer('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    amountCents: integer('amount_cents').notNull(),
+    reason: text('reason').notNull(),
+    source: text('source').$type<'support'>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('escalations_order').on(table.orderId)],
+)
+
 export const schema = {
   orders,
+  escalations,
   shipments,
   webhookDeliveries,
   processedEvents,

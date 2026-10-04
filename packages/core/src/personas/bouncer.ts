@@ -1,6 +1,6 @@
 import type { Invariant } from '../grader'
 import { evidence } from '../grader'
-import { completedCaptures } from '../paypal-side'
+import { paidCaptures } from '../paypal-side'
 import type { PersonaModule, Scenario } from '../persona'
 import {
   checkoutOf,
@@ -44,7 +44,7 @@ const noShipWithoutPayment: Invariant = {
         shipped.length ? `${shipped.length}, worth ${dollars(shippedValue)}` : 'none',
       ),
     ]
-    if (completedCaptures(truth).length > 0) {
+    if (paidCaptures(truth).length > 0) {
       return {
         verdict: 'inconclusive',
         detail: 'PayPal completed the capture, so the card did not bounce this time.',

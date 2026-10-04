@@ -2,6 +2,7 @@ import type { PersonaId } from './cast'
 import type { Evidence, Finding, Severity } from './finding'
 import type { LedgerView } from './ledger'
 import type { Cents } from './money'
+import type { PolicyRules } from './policy'
 
 /**
  * Grading is deterministic. An invariant reads the ledger and returns one of three verdicts;
@@ -29,7 +30,13 @@ export interface Invariant {
   severity: Severity
   /** The standard fix, repeated on every finding this invariant raises. */
   fix: string
-  evaluate(view: LedgerView): InvariantResult
+  /** A pure function of what happened (the ledger) and what the policy allows. */
+  evaluate(view: LedgerView, facts?: GradeFacts): InvariantResult
+}
+
+/** What a grader may know besides the ledger: the rules the target was meant to follow. */
+export interface GradeFacts {
+  policy?: PolicyRules
 }
 
 export interface GradedInvariant {
@@ -43,6 +50,7 @@ export interface GradeContext {
   at: string
   /** Supplies finding IDs, seeded so a campaign reproduces exactly. */
   nextId: () => string
+  facts?: GradeFacts
 }
 
 export interface GradeOutput {
@@ -60,7 +68,7 @@ export function grade(
   const findings: Finding[] = []
 
   for (const invariant of invariants) {
-    const result = invariant.evaluate(view)
+    const result = invariant.evaluate(view, context.facts)
     results.push({ invariant, result })
     if (result.verdict !== 'leak') continue
     findings.push({

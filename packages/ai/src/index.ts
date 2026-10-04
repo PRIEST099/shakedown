@@ -1,2 +1,10 @@
-/** AI layer: recon/test plan, Policy Lawyer, fix-writer, triage. Arrives in Phase 5. */
-export const PACKAGE = '@shakedown/ai'
+export * from './client'
+export * from './gate'
+export * from './models'
+export * from './prices'
+export * from './prompts'
+export * from './spend'
+export * from './steps/explain'
+export * from './steps/policy'
+export * from './steps/recon'
+export * from './structured'

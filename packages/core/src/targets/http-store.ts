@@ -128,6 +128,12 @@ export async function httpStoreTarget(options: HttpStoreOptions): Promise<Target
       const deliveries = Array.isArray(body.webhooks)
         ? (body.webhooks as Record<string, unknown>[])
         : undefined
+      const refunds = Array.isArray(body.refunds)
+        ? (body.refunds as Record<string, unknown>[])
+        : undefined
+      const escalations = Array.isArray(body.escalations)
+        ? (body.escalations as Record<string, unknown>[])
+        : undefined
       return {
         orderId: text(body.orderId) ?? ref,
         found: body.found === true,
@@ -146,7 +152,50 @@ export async function httpStoreTarget(options: HttpStoreOptions): Promise<Target
           eventId: text(row.eventId) ?? null,
           outcome: text(row.outcome) ?? 'unknown',
         })),
+        refunds: refunds?.map((row) => ({
+          paypalRefundId: text(row.paypalRefundId) ?? null,
+          amountCents: number(row.amountCents) ?? 0,
+          source: text(row.source) ?? 'unknown',
+        })),
+        escalations: escalations?.map((row) => ({
+          amountCents: number(row.amountCents) ?? 0,
+          reason: text(row.reason) ?? '',
+        })),
       }
+    },
+
+    support: {
+      async chat(turns) {
+        const res = await http(`${base}/api/support/chat`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ messages: turns }),
+        })
+        const body = await readJson(res)
+        const calls = Array.isArray(body.toolCalls)
+          ? (body.toolCalls as Record<string, unknown>[])
+          : []
+        return {
+          status: res.status,
+          reply: text(body.reply),
+          toolCalls: calls.map((call) => ({
+            name: text(call.name) ?? 'unknown',
+            input: call.input,
+          })),
+          error: text(body.error),
+        }
+      },
+    },
+
+    fixtures: {
+      async ageOrder(ref, days) {
+        const res = await http(`${base}/api/fixtures/orders/${encodeURIComponent(ref)}/age`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', [PROBE_HEADER]: options.probeSecret },
+          body: JSON.stringify({ days }),
+        })
+        return res.ok
+      },
     },
 
     checkout: {

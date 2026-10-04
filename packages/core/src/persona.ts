@@ -3,6 +3,7 @@ import type { PersonaId } from './cast'
 import type { Invariant } from './grader'
 import type { Ledger } from './ledger'
 import type { PayPalSide } from './paypal-side'
+import type { PolicyRules } from './policy'
 import type { Rng } from './rng'
 import type { TargetAdapter } from './target'
 
@@ -23,6 +24,8 @@ export interface ScenarioContext {
   target: TargetAdapter
   /** PayPal's side of the checkout, metered the same way. Present when the campaign has one. */
   paypal?: PayPalSide
+  /** The target's refund policy as rules, when the campaign has them. */
+  policy?: PolicyRules
   ledger: Ledger
   budget: Budget
   rng: Rng
@@ -38,7 +41,7 @@ export interface ScenarioContext {
 }
 
 /** What a scenario needs beyond a webhook listener and a probe. */
-export type Requirement = 'checkout' | 'paypal'
+export type Requirement = 'checkout' | 'paypal' | 'support' | 'fixtures' | 'policy'
 
 export interface Scenario {
   id: string

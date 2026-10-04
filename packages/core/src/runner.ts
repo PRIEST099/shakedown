@@ -12,6 +12,7 @@ import { meter, meterPayPal } from './metered'
 import type { Cents } from './money'
 import type { PayPalSide } from './paypal-side'
 import type { PersonaModule, Requirement, Scenario, ScenarioContext } from './persona'
+import type { PolicyRules } from './policy'
 import { implementedPersonas, PERSONA_MODULES } from './registry'
 import { createRng } from './rng'
 import type { TargetAdapter } from './target'
@@ -29,6 +30,8 @@ export interface CampaignOptions {
   target: TargetAdapter
   /** PayPal's side of a checkout: card confirmation and ledger reads. Needed by the checkout cast. */
   paypal?: PayPalSide
+  /** The target's refund policy as rules. Needed by the Policy Lawyer. */
+  policy?: PolicyRules
   /** Same seed, same run. Defaults to a timestamp, which the result always reports back. */
   seed?: number
   campaignId?: string
@@ -83,6 +86,9 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
   const seed = options.seed ?? Date.now()
   const rng = createRng(seed)
   const campaignId = options.campaignId ?? rng.id('CMP')
+  // Finding IDs come from their own stream. Grading must never shift what a later scenario
+  // says, or a change to one grader would change every conversation after it.
+  const findingRng = createRng((seed ^ 0x9e3779b9) >>> 0)
   const bus = options.bus ?? new EventBus()
   const budget = toBudget(options.budget)
   const signal = options.signal
@@ -134,6 +140,7 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
         scenario: scenario.id,
         target: meter(options.target, { budget, ledger }),
         paypal: options.paypal ? meterPayPal(options.paypal, { budget, ledger }) : undefined,
+        policy: options.policy,
         ledger,
         budget,
         rng,
@@ -153,7 +160,14 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
         if (caught instanceof BudgetExceededError || caught instanceof CampaignCancelledError) {
           // Grade what we have, then stop the campaign.
           error = caught.message
-          const partial = gradeScenario(scenario, ledger, campaignId, now, rng)
+          const partial = gradeScenario(
+            scenario,
+            ledger,
+            campaignId,
+            now,
+            findingRng,
+            options.policy,
+          )
           outcomes.push({ ...partial, error })
           findings.push(...partial.findings)
           throw caught
@@ -161,7 +175,7 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
         error = caught instanceof Error ? caught.message : String(caught)
       }
 
-      const outcome = gradeScenario(scenario, ledger, campaignId, now, rng)
+      const outcome = gradeScenario(scenario, ledger, campaignId, now, findingRng, options.policy)
       if (error) outcome.error = error
       outcomes.push(outcome)
       findings.push(...outcome.findings)
@@ -215,6 +229,17 @@ export async function runCampaign(options: CampaignOptions): Promise<CampaignRes
 const REQUIREMENT_TEXT: Record<Requirement, string> = {
   checkout: 'a checkout to walk through',
   paypal: "PayPal's side of the checkout",
+  support: 'a support assistant to talk to',
+  fixtures: "the demo store's test fixtures",
+  policy: 'the refund policy as rules',
+}
+
+const HAS: Record<Requirement, (options: CampaignOptions) => boolean> = {
+  checkout: (options) => Boolean(options.target.checkout),
+  paypal: (options) => Boolean(options.paypal),
+  support: (options) => Boolean(options.target.support),
+  fixtures: (options) => Boolean(options.target.fixtures),
+  policy: (options) => Boolean(options.policy),
 }
 
 /** Why a scenario can't run here, or undefined when it can. */
@@ -222,9 +247,7 @@ function unmet(
   requires: readonly Requirement[] | undefined,
   options: CampaignOptions,
 ): string | undefined {
-  const missing = (requires ?? []).filter((need) =>
-    need === 'checkout' ? !options.target.checkout : !options.paypal,
-  )
+  const missing = (requires ?? []).filter((need) => !HAS[need](options))
   return missing.length > 0
     ? `Needs ${missing.map((need) => REQUIREMENT_TEXT[need]).join(' and ')}.`
     : undefined
@@ -236,6 +259,7 @@ function gradeScenario(
   campaignId: string,
   now: () => Date,
   rng: { id: (prefix: string) => string },
+  policy?: PolicyRules,
 ): ScenarioOutcome {
   const view = ledger.view()
   const { results, findings } = grade(scenario.invariants, view, {
@@ -243,6 +267,7 @@ function gradeScenario(
     scenario: scenario.id,
     at: now().toISOString(),
     nextId: () => rng.id('F'),
+    facts: { policy },
   })
   return {
     scenario: scenario.id,
