@@ -7,16 +7,23 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start --port 3000",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.131.0",
+    "@electric-sql/pglite": "0.5.8",
     "@next/env": "16.3.8",
+    "@shakedown/ai": "workspace:*",
     "@shakedown/core": "workspace:*",
+    "@shakedown/paypal": "workspace:*",
     "@shakedown/tokens": "workspace:*",
     "@shakedown/ui": "workspace:*",
     "ag-studio": "3.0.0",
     "ag-studio-react": "3.0.0",
+    "drizzle-orm": "0.45.3",
     "next": "16.3.8",
+    "postgres": "3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

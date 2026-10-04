@@ -1,0 +1,470 @@
+/* The console: a full-height app around AG Studio, and Shakedown's widgets inside it. */
+
+.sd-console {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--sd-bg);
+}
+
+.sd-console__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--sd-border-ui);
+  background: var(--sd-surface);
+}
+.sd-console__brand {
+  font-family: var(--sd-font-display);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--sd-text);
+  text-decoration: none;
+}
+.sd-console__brand span {
+  font-family: var(--sd-font-ui);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--sd-text-muted);
+}
+.sd-console__sandbox {
+  font: 600 11px / 1 var(--sd-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sd-text-muted);
+  border: 1px solid var(--sd-border-ui);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+.sd-console__live {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 14px;
+}
+.sd-console__status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.sd-console__status.is-error {
+  color: var(--sd-leak);
+}
+.sd-console__now {
+  color: var(--sd-text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42ch;
+}
+.sd-console__actions {
+  display: flex;
+  gap: 8px;
+}
+.sd-console__actions button {
+  font: 600 13px / 1 var(--sd-font-ui);
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--sd-text);
+  background: var(--sd-btn-bg);
+  color: var(--sd-btn-text);
+  cursor: pointer;
+}
+.sd-console__actions button + button {
+  background: transparent;
+  color: var(--sd-text);
+}
+.sd-console__actions button:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.sd-console__spend {
+  font: 12px / 1.2 var(--sd-font-mono);
+  color: var(--sd-text-muted);
+}
+.sd-console__main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.sd-console__studio {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.sd-console__pages {
+  display: flex;
+  gap: 4px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--sd-border-ui);
+  background: var(--sd-surface);
+}
+.sd-console__page {
+  font: 600 13px / 1 var(--sd-font-ui);
+  padding: 9px 14px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--sd-text-muted);
+  cursor: pointer;
+}
+.sd-console__page[aria-current="page"] {
+  color: var(--sd-text);
+  border-bottom-color: var(--sd-text);
+}
+.sd-console__canvas {
+  flex: 1;
+  min-height: 0;
+}
+.sd-console__loading {
+  padding: 24px 16px;
+  color: var(--sd-text-muted);
+}
+
+/* Phones: the pocket receipt instead of Studio. */
+.sd-pocket {
+  display: none;
+  padding: 16px;
+}
+.sd-pocket__note {
+  margin: 0 0 12px;
+  color: var(--sd-text-muted);
+  font-size: 14px;
+}
+@media (max-width: 719px) {
+  .sd-console__studio {
+    display: none;
+  }
+  .sd-pocket {
+    display: block;
+    overflow-y: auto;
+    height: 100%;
+  }
+  .sd-console__actions,
+  .sd-console__spend {
+    display: none;
+  }
+}
+
+/* ---- widgets ------------------------------------------------------------------------------ */
+
+.sd-widget {
+  height: 100%;
+  overflow: auto;
+  color: var(--sd-text);
+  font-family: var(--sd-font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* Scoreboard: the Tape, filling its widget. */
+.sd-widget--tape {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4px 2px 12px;
+}
+.sd-widget--tape .sd-tape {
+  width: 100%;
+  max-width: 420px;
+  margin: 0;
+}
+.sd-tape__pick {
+  all: unset;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.sd-tape__pick:hover {
+  background: var(--sd-tape-leak-bg);
+}
+.sd-tape__pick:focus-visible {
+  outline: 2px solid var(--sd-focus);
+  outline-offset: 2px;
+}
+.sd-tape__pick .sd-tape__row,
+.sd-tape__line .sd-tape__row {
+  display: flex;
+}
+.sd-tape__line .sd-tape__evidence {
+  display: block;
+}
+
+/* Cast lineup: five small cards in a row. */
+.sd-lineup {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding: 2px;
+  align-content: start;
+}
+.sd-mini {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px 8px;
+  border: 1px solid var(--sd-border-ui);
+  border-radius: 10px;
+  background: var(--sd-surface);
+  color: var(--sd-text);
+  font: inherit;
+  cursor: pointer;
+  transition: transform var(--sd-dur-xs) var(--sd-ease-standard);
+}
+.sd-mini:hover {
+  transform: translateY(-2px);
+}
+.sd-mini.is-selected {
+  outline: 2px solid var(--sd-text);
+  outline-offset: 1px;
+}
+.sd-mini--leak {
+  border-color: var(--sd-leak);
+}
+.sd-mini--idle {
+  opacity: 0.55;
+}
+.sd-mini__art {
+  width: min(44px, 100%);
+  aspect-ratio: 1;
+  height: auto;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--sd-art-bg);
+}
+.sd-mini__art > .sd-imp {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.sd-mini__name {
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.sd-mini .sd-state {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+.sd-state--idle {
+  color: var(--sd-text-muted);
+}
+
+/* Leak waterfall. */
+.sd-waterfall {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px 8px;
+}
+.sd-waterfall svg {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.sd-waterfall__grid {
+  stroke: var(--sd-rule);
+  stroke-width: 1;
+}
+.sd-waterfall__axis,
+.sd-waterfall__label {
+  fill: var(--sd-text-muted);
+  font: 12px var(--sd-font-ui);
+}
+.sd-waterfall__label {
+  fill: var(--sd-text);
+  font-weight: 600;
+}
+.sd-waterfall__merchant {
+  fill: var(--sd-leak);
+}
+.sd-waterfall__customer {
+  fill: var(--sd-signal);
+}
+.sd-waterfall__zero {
+  stroke: var(--sd-sealed);
+  stroke-width: 3;
+}
+.sd-waterfall__connector {
+  stroke: var(--sd-text-subtle);
+  stroke-dasharray: 3 3;
+}
+.sd-waterfall__value {
+  fill: var(--sd-sealed);
+  font: 600 12px var(--sd-font-mono);
+}
+.sd-waterfall__value.is-leak {
+  fill: var(--sd-leak);
+}
+.is-total .sd-waterfall__label {
+  font-weight: 800;
+}
+.sd-waterfall__legend {
+  display: flex;
+  gap: 6px 14px;
+  align-items: center;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--sd-text-muted);
+}
+.sd-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: -8px;
+}
+.sd-key--merchant {
+  background: var(--sd-leak);
+}
+.sd-key--customer {
+  background: var(--sd-signal);
+}
+
+/* Finding detail. */
+.sd-finding {
+  padding: 4px 6px 12px;
+}
+.sd-finding__head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font: 12px var(--sd-font-mono);
+  color: var(--sd-text-muted);
+}
+.sd-finding__severity {
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.sd-finding__severity.is-high {
+  color: var(--sd-leak);
+}
+.sd-finding__more {
+  margin-left: auto;
+}
+.sd-finding__title {
+  margin: 10px 0 2px;
+  font-family: var(--sd-font-display);
+  font-size: 18px;
+  line-height: 1.2;
+}
+.sd-finding__who {
+  margin: 0 0 8px;
+  color: var(--sd-text-muted);
+  font-size: 13px;
+}
+.sd-finding__detail {
+  margin: 0 0 10px;
+}
+.sd-finding__evidence {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--sd-surface-sunken);
+  font: 12px / 1.5 var(--sd-font-mono);
+}
+.sd-finding__evidence div {
+  display: grid;
+  grid-template-columns: minmax(110px, 40%) 1fr;
+  gap: 8px;
+}
+.sd-finding__evidence dt {
+  color: var(--sd-text-muted);
+}
+.sd-finding__evidence dd {
+  margin: 0;
+  word-break: break-word;
+}
+.sd-finding__risk .is-leak {
+  color: var(--sd-leak);
+}
+.sd-finding__fix mark {
+  background: var(--sd-signal);
+  color: var(--sd-on-signal);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-weight: 700;
+}
+.sd-finding--none {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.sd-finding__sealed {
+  font-family: var(--sd-font-display);
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--sd-sealed);
+  margin: 0;
+}
+.sd-finding__hint {
+  color: var(--sd-text-muted);
+}
+
+/* Ledger tape. */
+.sd-ltape {
+  padding: 4px 6px 12px;
+  font-size: 13px;
+}
+.sd-ltape__meta {
+  margin: 0 0 8px;
+  font: 12px var(--sd-font-mono);
+  color: var(--sd-text-muted);
+}
+.sd-ltape__group + .sd-ltape__group {
+  margin-top: 10px;
+}
+.sd-ltape__scenario {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.sd-ltape__entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px dashed var(--sd-rule);
+}
+.sd-ltape__entry {
+  display: grid;
+  grid-template-columns: 64px 70px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 0 3px 8px;
+}
+.sd-ltape__entry.is-cited {
+  background: var(--sd-signal-bg);
+  box-shadow: inset 3px 0 0 var(--sd-signal);
+}
+.sd-ltape__time,
+.sd-ltape__amount {
+  font: 12px var(--sd-font-mono);
+  color: var(--sd-text-muted);
+}
+.sd-ltape__kind {
+  font: 600 11px var(--sd-font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sd-text-muted);
+}
+.sd-ltape__kind.is-paypal-order,
+.sd-ltape__kind.is-paypal-refund {
+  color: var(--sd-text);
+}
+.sd-ltape__id {
+  margin-left: 6px;
+  font: 12px var(--sd-font-mono);
+  color: var(--sd-text-muted);
+}

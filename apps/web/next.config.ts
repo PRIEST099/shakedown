@@ -12,7 +12,15 @@ loadEnvConfig(
 )
 
 const config: NextConfig = {
-  transpilePackages: ['@shakedown/core', '@shakedown/tokens', '@shakedown/ui'],
+  transpilePackages: [
+    '@shakedown/ai',
+    '@shakedown/core',
+    '@shakedown/paypal',
+    '@shakedown/tokens',
+    '@shakedown/ui',
+  ],
+  // PGlite ships Postgres as WebAssembly; load it from node_modules rather than bundling it.
+  serverExternalPackages: ['@electric-sql/pglite'],
   poweredByHeader: false,
 }
 

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Phase 8: the console (2026-10-04)
+
+- `/app`: an AG Studio 3 console over Shakedown's campaign store (PGlite locally, Postgres when
+  hosted), seeded with four real recorded sandbox runs.
+- Five custom widgets: the Scoreboard, the Cast lineup, the Leak waterfall, Finding detail and the
+  Ledger tape, with cross-filtering, alongside AG Studio's own grids, charts and filters on three
+  pages. Day shift and Night shift themes; a pocket receipt on phones.
+- Triage, a custom agent on AG Studio's Agent Framework: a code-computed leak summary of its own,
+  and delegation to the built-in Data, Lead and Widget agents. Claude reaches the page through a
+  server route, so no key is ever in the browser, and through the spend gate with a console cap.
+- Live runs from the console, streamed over Server-Sent Events and stored when they finish.
+- The campaign store keys findings by campaign, and records each run's source, switches and
+  skipped scenarios (migration `0001`).
+
 ### Phase 7: CLI, reports and CI (2026-10-04)
 
 - `@shakedown-dev/cli` 0.1.0: `run`, `report`, `preflight` and `comment`, with a typed

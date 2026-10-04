@@ -61,6 +61,25 @@ describe('saveCampaign', () => {
     expect(eventId).toMatch(/^WH-[0-9A-F]{12}$/)
   })
 
+  it('keeps two campaigns with the same seed apart, though their finding IDs match', async () => {
+    const first = await runCampaign({ target: fixture.adapter, cast: ['echo'], seed: 11 })
+    fixture.reset()
+    const second = await runCampaign({
+      target: fixture.adapter,
+      cast: ['echo'],
+      seed: 11,
+      campaignId: `${first.campaignId}-again`,
+    })
+    expect(second.findings.map((f) => f.id)).toEqual(first.findings.map((f) => f.id))
+
+    await saveCampaign(db, first)
+    await saveCampaign(db, second)
+    const stored = await db.select().from(findings)
+    expect(stored.filter((f) => f.campaignId === second.campaignId)).toHaveLength(
+      second.findings.length,
+    )
+  })
+
   it('takes the evidence with it when a campaign is deleted', async () => {
     await db.delete(campaigns)
     expect(await db.select().from(ledgerEntries)).toHaveLength(0)

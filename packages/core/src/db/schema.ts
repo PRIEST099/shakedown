@@ -6,6 +6,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -29,6 +30,10 @@ export const campaigns = pgTable('campaigns', {
   finishedAt: timestamp('finished_at', { withTimezone: true }).notNull(),
   /** Set when the budget ran out or the operator stopped the run. */
   stoppedEarly: text('stopped_early'),
+  /** Where the run came from: the console, the CLI, or a recording. */
+  source: text('source').notNull().default('live'),
+  /** A demo store's switches for this campaign, when a campaign token set them. */
+  switches: jsonb('switches').$type<Record<string, 'leaky' | 'sealed'>>(),
   merchantLeakCents: integer('merchant_leak_cents').notNull().default(0),
   customerHarmCents: integer('customer_harm_cents').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -47,6 +52,8 @@ export const scenarioRuns = pgTable(
     /** The steps, as decided before the run started. */
     plan: jsonb('plan').$type<string[]>().notNull(),
     error: text('error'),
+    /** Why the scenario could not run against this target, when it could not. */
+    skipped: text('skipped'),
     position: integer('position').notNull(),
   },
   (table) => [
@@ -92,7 +99,8 @@ export const invariantResults = pgTable(
 export const findings = pgTable(
   'findings',
   {
-    id: text('id').primaryKey(),
+    /** Finding IDs come from the campaign's seed, so they are unique within a campaign only. */
+    id: text('id').notNull(),
     campaignId: text('campaign_id')
       .notNull()
       .references(() => campaigns.id, { onDelete: 'cascade' }),
@@ -112,7 +120,10 @@ export const findings = pgTable(
     evidence: jsonb('evidence').$type<Array<{ label: string; value: string }>>().notNull(),
     at: timestamp('at', { withTimezone: true }).notNull(),
   },
-  (table) => [index('findings_campaign').on(table.campaignId)],
+  (table) => [
+    primaryKey({ columns: [table.campaignId, table.id] }),
+    index('findings_campaign').on(table.campaignId),
+  ],
 )
 
 export const campaignRelations = relations(campaigns, ({ many }) => ({

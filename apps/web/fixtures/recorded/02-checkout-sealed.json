@@ -1,0 +1,713 @@
+{
+  "switches": "sealed",
+  "note": "The CI rehearsal: Leaky Llama built with every switch in shipped-mode.ts sealed, seed 2026, 2026-10-04.",
+  "run": {
+    "version": 1,
+    "campaignId": "CMP-74A923AC4019",
+    "seed": 2026,
+    "target": "http://localhost:3101",
+    "startedAt": "2026-10-04T15:53:58.046Z",
+    "finishedAt": "2026-10-04T15:54:40.726Z",
+    "outcomes": [
+      {
+        "scenario": "double-clicker.double-submit",
+        "persona": "double-clicker",
+        "entries": [
+          {
+            "lines": [
+              {
+                "sku": "LL-BK-001",
+                "qty": 1
+              }
+            ],
+            "email": "customer-4a923ac4@example.com",
+            "checkoutKey": "CK-01961256E903-muu03p5q",
+            "status": 201,
+            "storeOrderId": "LL-10001",
+            "paypalOrderId": "60P48130CW224324N",
+            "amountCents": 2400,
+            "currency": "USD",
+            "reused": false,
+            "kind": "checkout",
+            "at": "2026-10-04T15:54:01.155Z"
+          },
+          {
+            "lines": [
+              {
+                "sku": "LL-BK-001",
+                "qty": 1
+              }
+            ],
+            "email": "customer-4a923ac4@example.com",
+            "checkoutKey": "CK-01961256E903-muu03p5q",
+            "status": 201,
+            "storeOrderId": "LL-10001",
+            "paypalOrderId": "60P48130CW224324N",
+            "amountCents": 2400,
+            "currency": "USD",
+            "reused": true,
+            "kind": "checkout",
+            "at": "2026-10-04T15:54:01.657Z"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:01.657Z",
+            "detail": "Two submits; the store opened one PayPal order."
+          },
+          {
+            "paypalOrderId": "60P48130CW224324N",
+            "decline": false,
+            "status": 200,
+            "orderStatus": "APPROVED",
+            "kind": "card",
+            "at": "2026-10-04T15:54:04.263Z"
+          },
+          {
+            "status": 200,
+            "storeOrderId": "LL-10001",
+            "captureId": "32S97098T89287505",
+            "shipped": true,
+            "paypalOrderId": "60P48130CW224324N",
+            "answer": "paid",
+            "kind": "capture",
+            "at": "2026-10-04T15:54:07.507Z"
+          },
+          {
+            "orderId": "LL-10001",
+            "found": true,
+            "status": "fulfilled",
+            "fulfillmentCount": 1,
+            "amountCents": 2400,
+            "currency": "USD",
+            "paypalOrderId": "60P48130CW224324N",
+            "captureId": "32S97098T89287505",
+            "capturedCents": 2400,
+            "shipments": [
+              {
+                "source": "checkout",
+                "valueCents": 2400
+              }
+            ],
+            "deliveries": [],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:07.525Z"
+          },
+          {
+            "paypalOrderId": "60P48130CW224324N",
+            "found": true,
+            "status": "COMPLETED",
+            "captures": [
+              {
+                "id": "32S97098T89287505",
+                "status": "COMPLETED",
+                "amountCents": 2400,
+                "currency": "USD"
+              }
+            ],
+            "kind": "paypal-order",
+            "at": "2026-10-04T15:54:08.527Z"
+          }
+        ]
+      },
+      {
+        "scenario": "double-clicker.retried-capture",
+        "persona": "double-clicker",
+        "entries": [
+          {
+            "lines": [
+              {
+                "sku": "LL-BK-001",
+                "qty": 1
+              }
+            ],
+            "email": "customer-cffc4464@example.com",
+            "status": 201,
+            "storeOrderId": "LL-10003",
+            "paypalOrderId": "88891165TG546704A",
+            "amountCents": 2400,
+            "currency": "USD",
+            "reused": false,
+            "kind": "checkout",
+            "at": "2026-10-04T15:54:09.357Z"
+          },
+          {
+            "paypalOrderId": "88891165TG546704A",
+            "decline": false,
+            "status": 200,
+            "orderStatus": "APPROVED",
+            "kind": "card",
+            "at": "2026-10-04T15:54:10.502Z"
+          },
+          {
+            "status": 200,
+            "storeOrderId": "LL-10003",
+            "captureId": "9A796409RR505013C",
+            "shipped": true,
+            "paypalOrderId": "88891165TG546704A",
+            "answer": "paid",
+            "kind": "capture",
+            "at": "2026-10-04T15:54:13.236Z"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:13.236Z",
+            "detail": "Captured once; the answer \"never arrived\", so the browser asks again."
+          },
+          {
+            "status": 200,
+            "storeOrderId": "LL-10003",
+            "captureId": "9A796409RR505013C",
+            "shipped": false,
+            "paypalOrderId": "88891165TG546704A",
+            "answer": "paid",
+            "kind": "capture",
+            "at": "2026-10-04T15:54:16.145Z"
+          },
+          {
+            "orderId": "LL-10003",
+            "found": true,
+            "status": "paid",
+            "fulfillmentCount": 1,
+            "amountCents": 2400,
+            "currency": "USD",
+            "paypalOrderId": "88891165TG546704A",
+            "captureId": "9A796409RR505013C",
+            "capturedCents": 2400,
+            "shipments": [
+              {
+                "source": "checkout",
+                "valueCents": 2400
+              }
+            ],
+            "deliveries": [],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:16.157Z"
+          },
+          {
+            "paypalOrderId": "88891165TG546704A",
+            "found": true,
+            "status": "COMPLETED",
+            "captures": [
+              {
+                "id": "9A796409RR505013C",
+                "status": "COMPLETED",
+                "amountCents": 2400,
+                "currency": "USD"
+              }
+            ],
+            "kind": "paypal-order",
+            "at": "2026-10-04T15:54:17.479Z"
+          }
+        ]
+      },
+      {
+        "scenario": "cart-shuffler.own-price",
+        "persona": "cart-shuffler",
+        "entries": [
+          {
+            "lines": [
+              {
+                "sku": "LL-PNR-PR",
+                "qty": 1,
+                "unitCents": 100
+              }
+            ],
+            "email": "customer-ad4e105c@example.com",
+            "status": 201,
+            "storeOrderId": "LL-10004",
+            "paypalOrderId": "13P26574VS308262T",
+            "amountCents": 12400,
+            "currency": "USD",
+            "reused": false,
+            "kind": "checkout",
+            "at": "2026-10-04T15:54:18.487Z"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:18.487Z",
+            "detail": "The store opened a PayPal order for $124.00."
+          },
+          {
+            "paypalOrderId": "13P26574VS308262T",
+            "decline": false,
+            "status": 200,
+            "orderStatus": "APPROVED",
+            "kind": "card",
+            "at": "2026-10-04T15:54:19.755Z"
+          },
+          {
+            "status": 200,
+            "storeOrderId": "LL-10004",
+            "captureId": "1L33319099149112T",
+            "shipped": true,
+            "paypalOrderId": "13P26574VS308262T",
+            "answer": "paid",
+            "kind": "capture",
+            "at": "2026-10-04T15:54:22.662Z"
+          },
+          {
+            "orderId": "LL-10004",
+            "found": true,
+            "status": "fulfilled",
+            "fulfillmentCount": 1,
+            "amountCents": 12400,
+            "currency": "USD",
+            "paypalOrderId": "13P26574VS308262T",
+            "captureId": "1L33319099149112T",
+            "capturedCents": 12400,
+            "shipments": [
+              {
+                "source": "checkout",
+                "valueCents": 12400
+              }
+            ],
+            "deliveries": [],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:22.674Z"
+          },
+          {
+            "paypalOrderId": "13P26574VS308262T",
+            "found": true,
+            "status": "COMPLETED",
+            "captures": [
+              {
+                "id": "1L33319099149112T",
+                "status": "COMPLETED",
+                "amountCents": 12400,
+                "currency": "USD"
+              }
+            ],
+            "kind": "paypal-order",
+            "at": "2026-10-04T15:54:23.968Z"
+          }
+        ]
+      },
+      {
+        "scenario": "cart-shuffler.swap-after-approval",
+        "persona": "cart-shuffler",
+        "entries": [
+          {
+            "lines": [
+              {
+                "sku": "LL-SOCK-2",
+                "qty": 1
+              }
+            ],
+            "email": "customer-b6faa50f@example.com",
+            "status": 201,
+            "storeOrderId": "LL-10005",
+            "paypalOrderId": "7AM165507H937700L",
+            "amountCents": 1800,
+            "currency": "USD",
+            "reused": false,
+            "kind": "checkout",
+            "at": "2026-10-04T15:54:25.009Z"
+          },
+          {
+            "paypalOrderId": "7AM165507H937700L",
+            "decline": false,
+            "status": 200,
+            "orderStatus": "APPROVED",
+            "kind": "card",
+            "at": "2026-10-04T15:54:26.879Z"
+          },
+          {
+            "status": 200,
+            "storeOrderId": "LL-10005",
+            "captureId": "7AN719016X092153L",
+            "shipped": true,
+            "paypalOrderId": "7AM165507H937700L",
+            "lines": [
+              {
+                "sku": "LL-PNR-PR",
+                "qty": 2
+              }
+            ],
+            "answer": "paid",
+            "kind": "capture",
+            "at": "2026-10-04T15:54:30.022Z"
+          },
+          {
+            "orderId": "LL-10005",
+            "found": true,
+            "status": "fulfilled",
+            "fulfillmentCount": 1,
+            "amountCents": 1800,
+            "currency": "USD",
+            "paypalOrderId": "7AM165507H937700L",
+            "captureId": "7AN719016X092153L",
+            "capturedCents": 1800,
+            "shipments": [
+              {
+                "source": "checkout",
+                "valueCents": 1800
+              }
+            ],
+            "deliveries": [],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:30.033Z"
+          },
+          {
+            "paypalOrderId": "7AM165507H937700L",
+            "found": true,
+            "status": "COMPLETED",
+            "captures": [
+              {
+                "id": "7AN719016X092153L",
+                "status": "COMPLETED",
+                "amountCents": 1800,
+                "currency": "USD"
+              }
+            ],
+            "kind": "paypal-order",
+            "at": "2026-10-04T15:54:30.992Z"
+          }
+        ]
+      },
+      {
+        "scenario": "echo.unsigned-event",
+        "persona": "echo",
+        "entries": [
+          {
+            "orderId": "LL-10006",
+            "captureId": "CAP-LL-10006",
+            "amountCents": 1800,
+            "currency": "USD",
+            "kind": "order-opened",
+            "at": "2026-10-04T15:54:31.904Z"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:31.904Z",
+            "detail": "Order LL-10006 is awaiting payment for 18.00 USD."
+          },
+          {
+            "signed": false,
+            "status": 400,
+            "accepted": false,
+            "kind": "delivery",
+            "at": "2026-10-04T15:54:31.911Z",
+            "eventId": "WH-FD472F9DC978",
+            "eventType": "PAYMENT.CAPTURE.COMPLETED",
+            "createTime": "2026-10-04T15:54:31.904Z",
+            "orderId": "LL-10006"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:31.911Z",
+            "detail": "Delivered WH-FD472F9DC978 without a signature; the listener answered 400."
+          },
+          {
+            "orderId": "LL-10006",
+            "found": true,
+            "status": "awaiting_payment",
+            "fulfillmentCount": 0,
+            "amountCents": 1800,
+            "currency": "USD",
+            "paypalOrderId": "7D741181JR5526224",
+            "captureId": null,
+            "capturedCents": 0,
+            "shipments": [],
+            "deliveries": [
+              {
+                "eventId": "WH-FD472F9DC978",
+                "outcome": "rejected"
+              }
+            ],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:31.916Z"
+          }
+        ]
+      },
+      {
+        "scenario": "echo.duplicate-event",
+        "persona": "echo",
+        "entries": [
+          {
+            "orderId": "LL-10007",
+            "captureId": "CAP-LL-10007",
+            "amountCents": 1800,
+            "currency": "USD",
+            "kind": "order-opened",
+            "at": "2026-10-04T15:54:32.996Z"
+          },
+          {
+            "signed": false,
+            "status": 400,
+            "accepted": false,
+            "kind": "delivery",
+            "at": "2026-10-04T15:54:33.004Z",
+            "eventId": "WH-C9AF5021FE22",
+            "eventType": "PAYMENT.CAPTURE.COMPLETED",
+            "createTime": "2026-10-04T15:54:32.997Z",
+            "orderId": "LL-10007"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:33.004Z",
+            "detail": "Delivered WH-C9AF5021FE22."
+          },
+          {
+            "signed": false,
+            "status": 400,
+            "accepted": false,
+            "kind": "delivery",
+            "at": "2026-10-04T15:54:33.010Z",
+            "eventId": "WH-C9AF5021FE22",
+            "eventType": "PAYMENT.CAPTURE.COMPLETED",
+            "createTime": "2026-10-04T15:54:32.997Z",
+            "orderId": "LL-10007"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:33.010Z",
+            "detail": "Delivered WH-C9AF5021FE22 again, byte for byte."
+          },
+          {
+            "orderId": "LL-10007",
+            "found": true,
+            "status": "awaiting_payment",
+            "fulfillmentCount": 0,
+            "amountCents": 1800,
+            "currency": "USD",
+            "paypalOrderId": "39470938659137229",
+            "captureId": null,
+            "capturedCents": 0,
+            "shipments": [],
+            "deliveries": [
+              {
+                "eventId": "WH-C9AF5021FE22",
+                "outcome": "rejected"
+              },
+              {
+                "eventId": "WH-C9AF5021FE22",
+                "outcome": "rejected"
+              }
+            ],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:33.019Z"
+          }
+        ]
+      },
+      {
+        "scenario": "echo.out-of-order-event",
+        "persona": "echo",
+        "entries": [
+          {
+            "orderId": "LL-10008",
+            "captureId": "CAP-LL-10008",
+            "amountCents": 1800,
+            "currency": "USD",
+            "kind": "order-opened",
+            "at": "2026-10-04T15:54:34.217Z"
+          },
+          {
+            "signed": false,
+            "status": 400,
+            "accepted": false,
+            "kind": "delivery",
+            "at": "2026-10-04T15:54:34.225Z",
+            "eventId": "WH-94FE0F9E3980",
+            "eventType": "PAYMENT.CAPTURE.COMPLETED",
+            "createTime": "2026-10-04T15:54:34.218Z",
+            "orderId": "LL-10008"
+          },
+          {
+            "orderId": "LL-10008",
+            "found": true,
+            "status": "awaiting_payment",
+            "fulfillmentCount": 0,
+            "amountCents": 1800,
+            "currency": "USD",
+            "paypalOrderId": "04667133NM211414X",
+            "captureId": null,
+            "capturedCents": 0,
+            "shipments": [],
+            "deliveries": [
+              {
+                "eventId": "WH-94FE0F9E3980",
+                "outcome": "rejected"
+              }
+            ],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:34.234Z"
+          },
+          {
+            "signed": false,
+            "status": 400,
+            "accepted": false,
+            "kind": "delivery",
+            "at": "2026-10-04T15:54:34.239Z",
+            "eventId": "WH-EDFC0FE7703D",
+            "eventType": "PAYMENT.CAPTURE.REFUNDED",
+            "createTime": "2026-10-04T15:55:34.218Z",
+            "orderId": "LL-10008"
+          },
+          {
+            "orderId": "LL-10008",
+            "found": true,
+            "status": "awaiting_payment",
+            "fulfillmentCount": 0,
+            "amountCents": 1800,
+            "currency": "USD",
+            "paypalOrderId": "04667133NM211414X",
+            "captureId": null,
+            "capturedCents": 0,
+            "shipments": [],
+            "deliveries": [
+              {
+                "eventId": "WH-94FE0F9E3980",
+                "outcome": "rejected"
+              },
+              {
+                "eventId": "WH-EDFC0FE7703D",
+                "outcome": "rejected"
+              }
+            ],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:34.246Z"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:34.246Z",
+            "detail": "Order LL-10008 is refunded."
+          },
+          {
+            "signed": false,
+            "status": 400,
+            "accepted": false,
+            "kind": "delivery",
+            "at": "2026-10-04T15:54:34.250Z",
+            "eventId": "WH-E8317FD35BD3",
+            "eventType": "PAYMENT.CAPTURE.COMPLETED",
+            "createTime": "2026-10-04T15:54:34.218Z",
+            "orderId": "LL-10008"
+          },
+          {
+            "kind": "note",
+            "at": "2026-10-04T15:54:34.250Z",
+            "detail": "Redelivered the payment event as WH-E8317FD35BD3, stamped before the refund."
+          },
+          {
+            "orderId": "LL-10008",
+            "found": true,
+            "status": "awaiting_payment",
+            "fulfillmentCount": 0,
+            "amountCents": 1800,
+            "currency": "USD",
+            "paypalOrderId": "04667133NM211414X",
+            "captureId": null,
+            "capturedCents": 0,
+            "shipments": [],
+            "deliveries": [
+              {
+                "eventId": "WH-94FE0F9E3980",
+                "outcome": "rejected"
+              },
+              {
+                "eventId": "WH-EDFC0FE7703D",
+                "outcome": "rejected"
+              },
+              {
+                "eventId": "WH-E8317FD35BD3",
+                "outcome": "rejected"
+              }
+            ],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:34.256Z"
+          }
+        ]
+      },
+      {
+        "scenario": "bouncer.declined-card",
+        "persona": "bouncer",
+        "entries": [
+          {
+            "lines": [
+              {
+                "sku": "LL-BTL-750",
+                "qty": 1
+              }
+            ],
+            "email": "customer-e082a933@example.com",
+            "status": 201,
+            "storeOrderId": "LL-10009",
+            "paypalOrderId": "9NG68041EH718864X",
+            "amountCents": 3600,
+            "currency": "USD",
+            "reused": false,
+            "kind": "checkout",
+            "at": "2026-10-04T15:54:35.045Z"
+          },
+          {
+            "paypalOrderId": "9NG68041EH718864X",
+            "decline": true,
+            "status": 200,
+            "orderStatus": "APPROVED",
+            "kind": "card",
+            "at": "2026-10-04T15:54:36.429Z"
+          },
+          {
+            "status": 402,
+            "storeOrderId": "LL-10009",
+            "error": "The payment did not go through.",
+            "paypalOrderId": "9NG68041EH718864X",
+            "answer": "declined",
+            "kind": "capture",
+            "at": "2026-10-04T15:54:39.683Z"
+          },
+          {
+            "orderId": "LL-10009",
+            "found": true,
+            "status": "declined",
+            "fulfillmentCount": 0,
+            "amountCents": 3600,
+            "currency": "USD",
+            "paypalOrderId": "9NG68041EH718864X",
+            "captureId": "9GX83483EA786110J",
+            "capturedCents": 0,
+            "shipments": [],
+            "deliveries": [],
+            "refunds": [],
+            "escalations": [],
+            "kind": "probe",
+            "at": "2026-10-04T15:54:39.695Z"
+          },
+          {
+            "paypalOrderId": "9NG68041EH718864X",
+            "found": true,
+            "status": "CREATED",
+            "captures": [
+              {
+                "id": "9GX83483EA786110J",
+                "status": "DECLINED",
+                "amountCents": 3600,
+                "currency": "USD"
+              }
+            ],
+            "kind": "paypal-order",
+            "at": "2026-10-04T15:54:40.725Z"
+          }
+        ]
+      }
+    ]
+  }
+}

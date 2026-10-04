@@ -294,12 +294,24 @@ importers:
 
   apps/web:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: 0.131.0
+        version: 0.131.0(zod@4.6.5)
+      '@electric-sql/pglite':
+        specifier: 0.5.8
+        version: 0.5.8
       '@next/env':
         specifier: 16.3.8
         version: 16.3.8
+      '@shakedown/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@shakedown/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@shakedown/paypal':
+        specifier: workspace:*
+        version: link:../../packages/paypal
       '@shakedown/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
@@ -312,9 +324,15 @@ importers:
       ag-studio-react:
         specifier: 3.0.0
         version: 3.0.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      drizzle-orm:
+        specifier: 0.45.3
+        version: 0.45.3(@electric-sql/pglite@0.5.8)(@opentelemetry/api@1.9.0)(postgres@3.4.9)
       next:
         specifier: 16.3.8
         version: 16.3.8(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.0)(@playwright/test@1.63.0)(@types/node@26.6.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
       react:
         specifier: 19.3.0
         version: 19.3.0

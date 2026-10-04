@@ -34,13 +34,23 @@ test('a customer buys a bottle by card in the sandbox, and it ships once', async
       expect(await landed()).toBe(value)
     }).toPass({ timeout: 30_000 })
   }
-  await type('Number', '4012888888881881')
-  await type('Expiry', '1230')
-  await type('Cvv', '123')
-  await type('Name', 'Playwright Customer', false)
-  // The store enables the button only once PayPal reports the card fields valid.
+  const fill = async () => {
+    await type('Number', '4012888888881881')
+    await type('Expiry', '1230')
+    await type('Cvv', '123')
+    await type('Name', 'Playwright Customer', false)
+    // Leave the last field, as a customer heading for the Pay button does.
+    await page.frameLocator(card('Name')).locator('input').press('Tab')
+  }
+  await fill()
+  // The store enables the button only once PayPal reports the card fields valid. Right after a
+  // fresh build the sandbox SDK can still be starting up while the fields are typed into; if it
+  // has not reported them valid after a while, check the fields again, as a customer would.
   const pay = page.getByRole('button', { name: /Pay \$36\.00 by card/ })
-  await expect(pay).toBeEnabled()
+  await expect(async () => {
+    if (!(await pay.isEnabled())) await fill()
+    await expect(pay).toBeEnabled({ timeout: 15_000 })
+  }).toPass({ timeout: 60_000 })
   await pay.click()
 
   await expect(page).toHaveURL(/\/orders\/LL-\d+\?placed=1/, { timeout: 60_000 })

@@ -1,12 +1,24 @@
+import type { StoreMode } from '../mode'
 import type { CampaignResult } from '../runner'
 import type { Database } from './client'
 import { campaigns, findings, invariantResults, ledgerEntries, scenarioRuns } from './schema'
+
+export interface SaveCampaignOptions {
+  /** Where the run came from. Default `'live'`. */
+  source?: 'live' | 'cli' | 'recorded'
+  /** A demo store's switches for this campaign, when a campaign token set them. */
+  switches?: StoreMode
+}
 
 /**
  * Writes a finished campaign in one transaction. The ledger keeps its order, and every
  * finding points at the scenario run whose entries it was graded from.
  */
-export async function saveCampaign(db: Database, result: CampaignResult): Promise<void> {
+export async function saveCampaign(
+  db: Database,
+  result: CampaignResult,
+  options: SaveCampaignOptions = {},
+): Promise<void> {
   await db.transaction(async (tx) => {
     await tx.insert(campaigns).values({
       id: result.campaignId,
@@ -17,6 +29,8 @@ export async function saveCampaign(db: Database, result: CampaignResult): Promis
       stoppedEarly: result.stoppedEarly ?? null,
       merchantLeakCents: result.merchantLeakCents,
       customerHarmCents: result.customerHarmCents,
+      source: options.source ?? 'live',
+      switches: options.switches ?? null,
     })
 
     for (const [position, outcome] of result.outcomes.entries()) {
@@ -29,6 +43,7 @@ export async function saveCampaign(db: Database, result: CampaignResult): Promis
           title: outcome.title,
           plan: [...outcome.plan],
           error: outcome.error ?? null,
+          skipped: outcome.skipped ?? null,
           position,
         })
         .returning({ id: scenarioRuns.id })
