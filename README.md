@@ -37,7 +37,19 @@ the reports and CI. Always use the scoped name: `npx shakedown` is someone else'
 
 Under active development for the PayPal AI Hackathon (2026). Built so far: the engine, Leaky Llama,
 the Double-Clicker, the Cart Shuffler, the Echo, the Bouncer, the Policy Lawyer, the CLI with its
-reports and CI, and the console. The Second Opinion is still to come.
+reports and CI, the console, and the site with its docs. The Second Opinion is still to come.
+
+## The site
+
+`apps/web` serves the landing page at `/`, the docs at `/docs` and the console at `/app`.
+
+- The hero receipt replays a **recorded** sandbox run against Leaky Llama, then seals it to $0.00
+  in under five seconds, and says it is a recording. Every ID and amount on the page comes from the
+  runs committed in `apps/web/fixtures/recorded`. A unit test and an end-to-end test check that.
+- **Run the demo shakedown** sends the four free customers at the local Leaky Llama and prints the
+  receipt as PayPal's ledger confirms each leak. If no store is answering, it offers the recording.
+- With reduced motion, the hero shows the before and after receipts side by side, still.
+- Lighthouse (mobile): performance 96 and accessibility 100 on `/`; 98 and 100 on `/docs`.
 
 ## The console
 
@@ -71,7 +83,12 @@ pnpm dev                     # web on :3000 (console at /app), demo store on :31
 pnpm check                   # lint + typecheck
 pnpm test
 pnpm build
+pnpm --filter @shakedown/web e2e          # the site, against a production build
+pnpm --filter @shakedown/leaky-llama e2e  # the store, including a sandbox card payment
 ```
+
+The share image (`apps/web/public/og.png`) is a screenshot of the `/og-card` page. Regenerate it
+with `pnpm --filter @shakedown/web og` while the web app is running.
 
 Send the four free customers at Leaky Llama as it ships (the store must be running on :3100):
 
@@ -103,7 +120,8 @@ Every pull request runs the same thing in CI and posts the scoreboard as a comme
 ## Responsible use
 
 Shakedown only talks to the PayPal **sandbox** and refuses live hosts. Point it only at integrations you own.
-See [SECURITY.md](SECURITY.md).
+[RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) lists each rule and the code that enforces it; see also
+[SECURITY.md](SECURITY.md).
 
 Shakedown is an independent project and is not affiliated with or endorsed by PayPal or AG Grid.
 

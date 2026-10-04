@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LIVE_CAST, runLabel } from '../../lib/console/labels'
 import type { LiveEvent } from '../../lib/console/live'
 import type { CampaignRow, CheckRow, ConsoleTables } from '../../lib/console/rows'
-import { ThemeToggle } from '../preview/theme-toggle'
+import { ThemeToggle } from '../_components/theme-toggle'
 import { PocketReceipt } from './pocket-receipt'
 import { DAY, NIGHT } from './studio/theme'
 

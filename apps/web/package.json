@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "og": "tsx scripts/og.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.131.0",
@@ -22,15 +24,18 @@
     "ag-studio": "3.0.0",
     "ag-studio-react": "3.0.0",
     "drizzle-orm": "0.45.3",
+    "lucide-react": "1.52.0",
     "next": "16.3.8",
     "postgres": "3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "tailwindcss": "4.3.3"
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15"
   }
 }

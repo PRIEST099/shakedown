@@ -1,28 +1,65 @@
-import Link from 'next/link'
+import type { Metadata } from 'next'
+import { exhibit, goldenRun } from '../lib/golden-run'
+import { landingSnippets } from '../lib/landing-snippets'
+import { AiVsCode } from './_landing/ai-vs-code'
+import { CastSection } from './_landing/cast-section'
+import { CliSection } from './_landing/cli-section'
+import { DemoProvider } from './_landing/demo-context'
+import { DemoSection } from './_landing/demo-section'
+import { Hero } from './_landing/hero'
+import { HowItWorks } from './_landing/how-it-works'
+import { Judges } from './_landing/judges'
+import { Problem } from './_landing/problem'
+import { ResponsibleUse } from './_landing/responsible-use'
+import { SiteFooter } from './_landing/site-footer'
+import { SiteHeader } from './_landing/site-header'
+import './_components/site.css'
+import './_landing/landing.css'
+
+const DESCRIPTION =
+  'Six test customers run your own PayPal sandbox checkout. You get a receipt for every dollar that would have leaked, plus the fix.'
+
+export const metadata: Metadata = {
+  title: 'Shakedown: customers from hell for your PayPal sandbox',
+  description: DESCRIPTION,
+  openGraph: {
+    title: 'Shakedown: customers from hell. Sandbox only.',
+    description: DESCRIPTION,
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: 'A Shakedown receipt: $491.00 would have leaked, then $0.00, stamped SEALED.',
+      },
+    ],
+  },
+  twitter: { card: 'summary_large_image' },
+}
+
+// Built once: every number on the page comes from recorded runs committed with the code.
+export const dynamic = 'force-static'
 
 export default function Home() {
+  const run = goldenRun()
   return (
-    <main className="mx-auto max-w-[1200px] px-4 py-20 sm:px-6 sm:py-28">
-      <p className="label">
-        Sandbox-only QA for <span className="mark-paypal">PayPal</span> checkouts and AI support
-        agents
-      </p>
-      <h1 className="display-xl mt-4 max-w-[14ch]">
-        Meet your <span className="swipe">customers from hell.</span> In the sandbox.
-      </h1>
-      <p className="mt-6 max-w-[60ch] text-lg text-muted">
-        Six test customers run your own PayPal sandbox checkout and AI support agent. You get a
-        receipt for every dollar that would have leaked, read from PayPal’s sandbox ledger, plus the
-        fix. Shakedown is being built right now.
-      </p>
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/preview" className="btn btn-primary">
-          See the design preview
-        </Link>
-      </div>
-      <p className="mt-16 text-sm text-subtle">
-        Shakedown is an independent project and is not affiliated with or endorsed by PayPal.
-      </p>
-    </main>
+    <DemoProvider>
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+      <SiteHeader />
+      <main id="main">
+        <Hero run={run} />
+        <Problem />
+        <CastSection />
+        <HowItWorks />
+        <DemoSection recorded={run} />
+        <CliSection snippets={landingSnippets()} />
+        <AiVsCode exhibit={exhibit()} />
+        <ResponsibleUse />
+        <Judges />
+      </main>
+      <SiteFooter />
+    </DemoProvider>
   )
 }

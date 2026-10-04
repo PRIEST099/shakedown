@@ -22,6 +22,13 @@ const config: NextConfig = {
   // PGlite ships Postgres as WebAssembly; load it from node_modules rather than bundling it.
   serverExternalPackages: ['@electric-sql/pglite'],
   poweredByHeader: false,
+  async redirects() {
+    return [
+      { source: '/console', destination: '/app', permanent: false },
+      { source: '/demo', destination: '/app', permanent: false },
+      { source: '/judges', destination: '/#judges', permanent: false },
+    ]
+  },
 }
 
 export default config

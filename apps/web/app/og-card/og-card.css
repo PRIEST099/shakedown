@@ -1,0 +1,52 @@
+.og {
+  display: grid;
+  grid-template-columns: 1fr 440px;
+  align-items: center;
+  gap: 48px;
+  width: 1200px;
+  height: 630px;
+  padding: 56px 72px;
+  overflow: hidden;
+  background: #f4efe6;
+  color: #12100d;
+}
+.og__brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  font-family: var(--sd-font-display);
+  font-size: 84px;
+  font-weight: 800;
+  font-variation-settings:
+    "wdth" 80,
+    "opsz" 96;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.og__tagline {
+  margin: 28px 0 0;
+  font-family: var(--sd-font-display);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.05;
+}
+.og__sub {
+  margin: 20px 0 0;
+  max-width: 30ch;
+  color: #57514a;
+  font-size: 24px;
+  line-height: 1.4;
+}
+.og__tape .sd-tape {
+  width: 100%;
+}
+.og__was {
+  margin: 0 0 12px;
+  color: #57514a;
+  font: 600 20px var(--sd-font-mono);
+  text-align: center;
+}
+.og__was s {
+  color: #b42318;
+}

@@ -41,7 +41,11 @@ export function getDb(): Promise<StoreDb> {
     holder.__leakyLlamaDb = url
       ? createPostgresDb(url)
       : // One PGlite directory per server process: two servers must never share one.
-        createPgliteDb(path.resolve(process.env.STORE_DATA_DIR?.trim() || '.data/pglite'))
+        createPgliteDb(
+          path.resolve(
+            /* turbopackIgnore: true */ process.env.STORE_DATA_DIR?.trim() || '.data/pglite',
+          ),
+        )
     holder.__leakyLlamaDb.catch(() => {
       holder.__leakyLlamaDb = undefined
     })

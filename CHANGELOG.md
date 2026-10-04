@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Phase 9: the site and docs (2026-10-04)
+
+- The landing page at `/`, per DESIGN_SPEC.md: hero, problem, the cast, how it works, the live
+  demo, CLI and CI, "AI decides vs code decides", responsible use, the judges' tour and the footer.
+- The hero receipt replays a recorded sandbox run and seals it to $0.00 in under five seconds.
+  Every ID and amount comes from the recorded runs, checked by a unit test and an end-to-end test.
+  With reduced motion it shows the before and after receipts, still.
+- The live demo sends the four free customers at the local Leaky Llama and prints each leak as
+  PayPal's ledger confirms it, then "Apply fixes and re-run". The cast cards show each result.
+- `/docs`: quick start, what your store answers, config, CI, the console, how it decides, and how
+  each responsible-use rule is enforced. `RESPONSIBLE_USE.md` at the repository root.
+- A favicon and touch icon from the logo mark, and a share image that is a screenshot of the
+  real receipt components (`/og-card`).
+- The display face is one instance of Bricolage Grotesque (weight 800, optical size 96, width
+  75–100): 40 KB instead of 131 KB. Lighthouse mobile: performance 96, accessibility 100.
+- `/console` and `/demo` redirect to `/app`, and `/judges` to the tour. The `/preview` and
+  `/spikes` pages, which showed placeholder data, are gone.
+- `pnpm --filter @shakedown/web e2e`: the site's own end-to-end checks.
+
 ### Phase 8: the console (2026-10-04)
 
 - `/app`: an AG Studio 3 console over Shakedown's campaign store (PGlite locally, Postgres when

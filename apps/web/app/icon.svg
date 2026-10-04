@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <title>Shakedown</title>
+  <style>
+    .ink { fill: #12100d; stroke: #12100d; }
+    .paper { fill: #f4efe6; }
+    .total { stroke: #b42318; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #f4efe6; stroke: #f4efe6; }
+      .paper { fill: #12100d; }
+      .total { stroke: #ff6b5e; }
+    }
+  </style>
+  <path class="ink" d="M5.5 5.5 L4.6 1.8 L8.6 5 Z M18.5 5.5 L19.4 1.8 L15.4 5 Z" stroke-width="0" />
+  <path class="ink paper" d="M5 5 H19 V20 L17 22 L15 20 L13 22 L11 20 L9 22 L7 20 L5 22 Z" stroke-width="1.8" stroke-linejoin="round" />
+  <path class="ink" d="M8 9 H16 M8 12 H13.5" fill="none" stroke-width="1.6" stroke-linecap="round" />
+  <path class="total" d="M8 16 H16" fill="none" stroke-width="2" stroke-linecap="round" />
+</svg>
