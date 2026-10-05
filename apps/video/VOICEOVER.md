@@ -29,7 +29,7 @@ in order with a one-second pause between them, so they can be cut apart cleanly.
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
 | 1 | Shakedown is named for the shakedown cruise, a ship’s test voyage before passengers board. |  | 5.2 s | 0:22.4 |
-| 2 | It sends customers from hell through your own PayPal checkout, in the sandbox. |  | 4.3 s | 0:27.9 |
+| 2 | It sends customers from hell through your own PayPal checkout, in the sandbox. |  | 4.2 s | 0:27.9 |
 
 ## 4. The cast (`04-cast.wav`, 20 s)
 
@@ -47,8 +47,8 @@ in order with a one-second pause between them, so they can be cut apart cleanly.
 |---|---|---|---|---|
 | 1 | Here is a live run against Leaky Llama, our deliberately leaky demo store. |  | 4.6 s | 0:54.9 |
 | 2 | Each leak prints as PayPal’s sandbox confirms it. |  | 3.0 s | 0:59.8 |
-| 3 | Charged twice and shipped twice. |  | 1.8 s | 1:03.1 |
-| 4 | Goods shipped for more than PayPal captured. |  | 2.2 s | 1:09.9 |
+| 3 | Charged twice and shipped twice. |  | 1.8 s | 1:03.0 |
+| 4 | Goods shipped for more than PayPal captured. |  | 2.1 s | 1:09.9 |
 | 5 | An unsigned “paid” event that released the goods. |  | 2.5 s | 1:13.6 |
 | 6 | A declined card, and the order shipped anyway. |  | 2.6 s | 1:17.7 |
 | 7 | 8 leaks in all. | eight leaks in all. | 1.0 s | 1:20.6 |
@@ -57,8 +57,8 @@ in order with a one-second pause between them, so they can be cut apart cleanly.
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | Every finding quotes PayPal’s own sandbox records: the same capture IDs, the same amounts. |  | 6.2 s | 1:24.9 |
-| 2 | Look the order up in PayPal’s dashboard, and there it is: the same $18.00 capture. | Look the order up in PayPal’s dashboard, and there it is: the same eighteen dollars capture. | 5.4 s | 1:33.7 |
+| 1 | Every finding quotes PayPal’s own sandbox records: the same capture IDs, the same amounts. |  | 6.1 s | 1:24.9 |
+| 2 | Look the order up in PayPal’s dashboard, and there it is: the same $18.00 capture. | Look the order up in PayPal’s dashboard, and there it is: the same eighteen dollars capture. | 5.1 s | 1:33.7 |
 
 ## 7. AI decides vs code decides (`07-ai-vs-code.wav`, 17 s)
 
@@ -81,6 +81,6 @@ in order with a one-second pause between them, so they can be cut apart cleanly.
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | Built on PayPal’s sandbox APIs, with Claude playing the customers and deterministic code keeping score. |  | 6.8 s | 2:20.9 |
+| 1 | Built on PayPal’s sandbox APIs, with Claude playing the customers and deterministic code keeping score. |  | 6.6 s | 2:20.9 |
 | 2 | Shakedown: let the customers from hell find your leaks before your real customers do. |  | 4.8 s | 2:30.5 |
 

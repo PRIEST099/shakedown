@@ -40,7 +40,7 @@
       },
       {
         "text": "It sends customers from hell through your own PayPal checkout, in the sandbox.",
-        "seconds": 4.314
+        "seconds": 4.164
       }
     ],
     "cast": [
@@ -72,7 +72,7 @@
       },
       {
         "text": "Each leak prints as PayPal’s sandbox confirms it.",
-        "seconds": 3.044
+        "seconds": 2.966
       },
       {
         "text": "Charged twice and shipped twice.",
@@ -80,7 +80,7 @@
       },
       {
         "text": "Goods shipped for more than PayPal captured.",
-        "seconds": 2.175
+        "seconds": 2.064
       },
       {
         "text": "An unsigned “paid” event that released the goods.",
@@ -98,11 +98,11 @@
     "proof": [
       {
         "text": "Every finding quotes PayPal’s own sandbox records: the same capture IDs, the same amounts.",
-        "seconds": 6.207
+        "seconds": 6.083
       },
       {
         "text": "Look the order up in PayPal’s dashboard, and there it is: the same $18.00 capture.",
-        "seconds": 5.353
+        "seconds": 5.128
       }
     ],
     "ai-vs-code": [
@@ -140,7 +140,7 @@
     "close": [
       {
         "text": "Built on PayPal’s sandbox APIs, with Claude playing the customers and deterministic code keeping score.",
-        "seconds": 6.848
+        "seconds": 6.597
       },
       {
         "text": "Shakedown: let the customers from hell find your leaks before your real customers do.",

@@ -54,3 +54,14 @@ export function spoken(text: string) {
   // Initialisms (AI, CI, IDs) need no help: the voice already reads them letter by letter.
   return out.replace(/\b\d{1,6}\b/g, (n) => numberWords(Number(n)))
 }
+
+/**
+ * Respellings only the synthetic voice needs. Kokoro's pronouncer splits camel case into two
+ * stressed words ("PayPal" comes out "Pay. Pal."), but reads "Paypal" as one: PAY-pal.
+ */
+const RESPELL: [RegExp, string][] = [[/\bPayPal/g, 'Paypal']]
+
+/** The text the scratch voice reads: `spoken`, plus the respellings above. */
+export function voiced(text: string) {
+  return RESPELL.reduce((out, [from, to]) => out.replace(from, to), spoken(text))
+}

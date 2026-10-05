@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { numberWords, spoken } from './spoken'
+import { numberWords, spoken, voiced } from './spoken'
 
 describe('the script as it is said', () => {
   it('says amounts the way a person reads them', () => {
@@ -18,5 +18,15 @@ describe('the script as it is said', () => {
     expect(spoken('8 leaks in all.')).toBe('eight leaks in all.')
     expect(numberWords(2026)).toBe('two thousand twenty-six')
     expect(numberWords(40)).toBe('forty')
+  })
+})
+
+describe('the scratch voice', () => {
+  it('reads PayPal as one word, without changing how people see it written', () => {
+    expect(voiced('as PayPal’s sandbox confirms it')).toBe('as Paypal’s sandbox confirms it')
+    expect(voiced('more than PayPal captured $18.00')).toBe(
+      'more than Paypal captured eighteen dollars',
+    )
+    expect(spoken('PayPal’s')).toBe('PayPal’s')
   })
 })

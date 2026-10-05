@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import path from 'node:path'
 import { KokoroTTS, TextSplitterStream } from 'kokoro-js'
 import { SCENES, sentences } from '../src/script'
-import { spoken } from '../src/spoken'
+import { voiced } from '../src/spoken'
 import { integratedLoudness, limit } from './loudness'
 import { decode, floatWav, RATE } from './wav'
 
@@ -34,7 +34,7 @@ if (process.argv.includes('--probe')) {
   for (const text of process.argv.slice(2).filter((a) => !a.startsWith('--'))) {
     const splitter = new TextSplitterStream()
     const stream = tts.stream(splitter)
-    splitter.push(spoken(text))
+    splitter.push(voiced(text))
     splitter.close()
     for await (const chunk of stream) console.log(`${text}  →  ${chunk.phonemes}`)
   }
@@ -72,7 +72,7 @@ async function speak() {
     mkdirSync(dir, { recursive: true })
     const said: Take[] = []
     for (const [i, sentence] of sentences(scene.vo).entries()) {
-      const audio = await tts.generate(spoken(sentence), { voice: VOICE })
+      const audio = await tts.generate(voiced(sentence), { voice: VOICE })
       const speech = trim(audio.audio, audio.sampling_rate)
       // ffmpeg resamples the model's 24 kHz to 48 kHz stereo; the line is then levelled.
       const raw = path.join(dir, `.${i}.raw.wav`)
