@@ -1,7 +1,7 @@
 import type { AgReportState } from 'ag-studio'
 
 /**
- * The console as it opens: three pages on a 24-column grid. Shakedown's widgets carry the story
+ * The console as it opens: three pages on a 24-column grid of 16 px rows. Shakedown's widgets carry the story
  * (the Tape, the cast, the waterfall, the finding, the ledger); AG Studio's own grid, charts and
  * filters sit beside them, so every view can be reshaped in the editor or by the agents.
  */
@@ -53,11 +53,11 @@ export const INITIAL_STATE = {
       },
       widgetLayout: {
         runFilter: { xTrack: 0, yTrack: 0, xSpan: 24, ySpan: 6 },
-        runTape: { xTrack: 0, yTrack: 6, xSpan: 7, ySpan: 22 },
+        runTape: { xTrack: 0, yTrack: 6, xSpan: 7, ySpan: 34 },
         runCast: { xTrack: 7, yTrack: 6, xSpan: 10, ySpan: 10 },
-        runWaterfall: { xTrack: 7, yTrack: 16, xSpan: 10, ySpan: 12 },
-        runFinding: { xTrack: 17, yTrack: 6, xSpan: 7, ySpan: 22 },
-        runLeaks: { xTrack: 0, yTrack: 28, xSpan: 24, ySpan: 10 },
+        runWaterfall: { xTrack: 7, yTrack: 16, xSpan: 10, ySpan: 24 },
+        runFinding: { xTrack: 17, yTrack: 6, xSpan: 7, ySpan: 34 },
+        runLeaks: { xTrack: 0, yTrack: 40, xSpan: 24, ySpan: 12 },
       },
     },
     {
@@ -87,9 +87,9 @@ export const INITIAL_STATE = {
       },
       widgetLayout: {
         ledgerFilter: { xTrack: 0, yTrack: 0, xSpan: 24, ySpan: 6 },
-        ledgerTape: { xTrack: 0, yTrack: 6, xSpan: 14, ySpan: 28 },
+        ledgerTape: { xTrack: 0, yTrack: 6, xSpan: 14, ySpan: 34 },
         ledgerCast: { xTrack: 14, yTrack: 6, xSpan: 10, ySpan: 10 },
-        ledgerEntries: { xTrack: 14, yTrack: 16, xSpan: 10, ySpan: 18 },
+        ledgerEntries: { xTrack: 14, yTrack: 16, xSpan: 10, ySpan: 24 },
       },
     },
     {
@@ -130,10 +130,10 @@ export const INITIAL_STATE = {
         },
       },
       widgetLayout: {
-        trendByRun: { xTrack: 0, yTrack: 0, xSpan: 16, ySpan: 14 },
-        trendMerchant: { xTrack: 16, yTrack: 0, xSpan: 8, ySpan: 7 },
-        trendLeaks: { xTrack: 16, yTrack: 7, xSpan: 8, ySpan: 7 },
-        trendRuns: { xTrack: 0, yTrack: 14, xSpan: 24, ySpan: 10 },
+        trendByRun: { xTrack: 0, yTrack: 0, xSpan: 16, ySpan: 22 },
+        trendMerchant: { xTrack: 16, yTrack: 0, xSpan: 8, ySpan: 11 },
+        trendLeaks: { xTrack: 16, yTrack: 11, xSpan: 8, ySpan: 11 },
+        trendRuns: { xTrack: 0, yTrack: 22, xSpan: 24, ySpan: 12 },
       },
     },
   ],

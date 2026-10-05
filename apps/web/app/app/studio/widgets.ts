@@ -3,6 +3,7 @@
 import type { AgDefaultRegistry, AgWidgetsConfig } from 'ag-studio'
 import { type AgWidgetDefinition, createWidgets } from 'ag-studio-react'
 import { CastLineupWidget } from './widgets/cast-lineup'
+import { EXPAND, expandable } from './widgets/expand'
 import { FindingDetailWidget } from './widgets/finding-detail'
 import { LeakWaterfallWidget } from './widgets/leak-waterfall'
 import { LedgerTapeWidget } from './widgets/ledger-tape'
@@ -20,6 +21,9 @@ const icon = (path: string) =>
 const noSetup = (params: Parameters<AgWidgetDefinition['form']>[0]) =>
   params.createDefaults({ dataMappingItems: [] })
 
+/** Expand opens a widget large; Studio's Duplicate is left off, since its icon reads as "zoom". */
+const toolbar: AgWidgetDefinition['toolbar'] = [EXPAND, 'delete']
+
 export const SHAKEDOWN_WIDGETS = [
   {
     id: 'sd-scoreboard',
@@ -28,7 +32,8 @@ export const SHAKEDOWN_WIDGETS = [
       '<path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6"/>',
     ),
     form: noSetup,
-    comp: ScoreboardWidget,
+    comp: expandable(ScoreboardWidget, 'Scoreboard', 'zoom'),
+    toolbar,
     defaultSize: { width: 340, height: 520 },
     minSize: { width: 260, height: 300 },
     ai: {
@@ -45,7 +50,8 @@ export const SHAKEDOWN_WIDGETS = [
       '<circle cx="7" cy="9" r="3"/><circle cx="17" cy="9" r="3"/><path d="M2 20c1-3 3-5 5-5s4 2 5 5M12 20c1-3 3-5 5-5s4 2 5 5"/>',
     ),
     form: noSetup,
-    comp: CastLineupWidget,
+    comp: expandable(CastLineupWidget, 'The cast', 'zoom'),
+    toolbar,
     defaultSize: { width: 640, height: 220 },
     minSize: { width: 380, height: 180 },
     ai: {
@@ -60,7 +66,8 @@ export const SHAKEDOWN_WIDGETS = [
     label: 'Leak waterfall',
     icon: icon('<path d="M4 20V14M9 20V10M14 20V6M19 20V4"/><path d="M3 20h18"/>'),
     form: noSetup,
-    comp: LeakWaterfallWidget,
+    comp: expandable(LeakWaterfallWidget, 'Where it would have gone', 'fill'),
+    toolbar,
     defaultSize: { width: 640, height: 300 },
     minSize: { width: 380, height: 220 },
     ai: {
@@ -75,7 +82,8 @@ export const SHAKEDOWN_WIDGETS = [
     label: 'Finding detail',
     icon: icon('<circle cx="10" cy="10" r="6"/><path d="M15 15l5 5M8 10h4"/>'),
     form: noSetup,
-    comp: FindingDetailWidget,
+    comp: expandable(FindingDetailWidget, 'Finding', 'zoom'),
+    toolbar,
     defaultSize: { width: 380, height: 520 },
     minSize: { width: 280, height: 300 },
     ai: {
@@ -90,7 +98,8 @@ export const SHAKEDOWN_WIDGETS = [
     label: 'Ledger tape',
     icon: icon('<path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
     form: noSetup,
-    comp: LedgerTapeWidget,
+    comp: expandable(LedgerTapeWidget, 'Ledger tape', 'zoom'),
+    toolbar,
     defaultSize: { width: 640, height: 520 },
     minSize: { width: 360, height: 260 },
     ai: {

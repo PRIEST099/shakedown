@@ -3,7 +3,9 @@
 import type { PersonaId } from '@shakedown/core'
 import { getPersona } from '@shakedown/core/cast'
 import type { AgWidgetParams } from 'ag-studio'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { latest, readTable, usd, useWidgetData } from '../table-data'
+import { layoutWaterfall, type WaterfallStep } from './waterfall-layout'
 
 interface Finding extends Record<string, unknown> {
   campaign_id: string
@@ -16,22 +18,31 @@ interface CastRow extends Record<string, unknown> {
   persona_no: number
 }
 
-interface Step {
-  id: PersonaId | 'total'
-  label: string
-  merchant: number
-  customer: number
-  start: number
+/** Its box's size, as the browser lays it out: the chart is drawn for exactly that. */
+function useSize<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [size, setSize] = useState<{ width: number; height: number }>()
+  useLayoutEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      const width = Math.floor(entry.contentRect.width)
+      const height = Math.floor(entry.contentRect.height)
+      setSize((now) => (now?.width === width && now.height === height ? now : { width, height }))
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  return [ref, size] as const
 }
-
-const W = 640
-const H = 280
-const PAD = { top: 28, right: 12, bottom: 42, left: 52 }
 
 /**
  * Where the money would have gone: each customer's leak steps the total up, merchant leak in red
  * ink and customer harm in highlighter, ending on the run's total. Drawn by hand so it carries
- * the receipt's look, and so a sealed run reads as what it is: a flat line at $0.00.
+ * the receipt's look, and so a sealed run reads as what it is: a flat line at $0.00. It is laid
+ * out for the size of its box (`waterfall-layout.ts`), so it stays readable small and grows when
+ * expanded.
  */
 export function LeakWaterfallWidget(params: AgWidgetParams) {
   const data = useWidgetData(
@@ -53,7 +64,7 @@ export function LeakWaterfallWidget(params: AgWidgetParams) {
       const order = [...(cast ?? [])].sort((a, b) => Number(a.persona_no) - Number(b.persona_no))
       const mine = (findings ?? []).filter((f) => f.campaign_id === run.campaign_id)
       let running = 0
-      const steps: Step[] = []
+      const steps: WaterfallStep[] = []
       for (const { persona_id: id } of order) {
         const own = mine.filter((f) => f.persona_id === id)
         const merchant = own.reduce((sum, f) => sum + Number(f.merchant_leak_usd), 0)
@@ -70,101 +81,118 @@ export function LeakWaterfallWidget(params: AgWidgetParams) {
   )
   if (!data) return null
 
-  const { steps, total } = data
-  const top = Math.max(total, 1)
-  const plotH = H - PAD.top - PAD.bottom
-  const y = (value: number) => PAD.top + plotH - (value / top) * plotH
-  const slot = (W - PAD.left - PAD.right) / steps.length
-  const bar = Math.min(56, slot * 0.62)
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * top)
-
   return (
     <div className="sd-widget sd-waterfall">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Would have leaked: ${usd(total)}`}>
-        <title>{`Leak waterfall: ${usd(total)} would have leaked`}</title>
-        {ticks.map((tick) => (
-          <g key={tick}>
-            <line
-              className="sd-waterfall__grid"
-              x1={PAD.left}
-              x2={W - PAD.right}
-              y1={y(tick)}
-              y2={y(tick)}
-            />
-            <text className="sd-waterfall__axis" x={PAD.left - 6} y={y(tick) + 4} textAnchor="end">
-              {total === 0 ? (tick === 0 ? '$0' : '') : `$${Math.round(tick)}`}
-            </text>
-          </g>
-        ))}
-        {steps.map((step, i) => {
-          const x = PAD.left + i * slot + (slot - bar) / 2
-          const isTotal = step.id === 'total'
-          const base = step.start
-          const merchantTop = base + step.merchant
-          const amount = step.merchant + step.customer
-          const next = steps[i + 1]
-          return (
-            <g key={step.id} className={isTotal ? 'is-total' : undefined}>
-              {step.merchant > 0 ? (
-                <rect
-                  className="sd-waterfall__merchant"
-                  x={x}
-                  width={bar}
-                  y={y(merchantTop)}
-                  height={Math.max(1, y(base) - y(merchantTop))}
-                />
-              ) : null}
-              {step.customer > 0 ? (
-                <rect
-                  className="sd-waterfall__customer"
-                  x={x}
-                  width={bar}
-                  y={y(merchantTop + step.customer)}
-                  height={Math.max(1, y(merchantTop) - y(merchantTop + step.customer))}
-                />
-              ) : null}
-              {amount === 0 ? (
-                <line
-                  className="sd-waterfall__zero"
-                  x1={x}
-                  x2={x + bar}
-                  y1={y(base)}
-                  y2={y(base)}
-                />
-              ) : null}
-              {next && next.id !== 'total' ? (
-                <line
-                  className="sd-waterfall__connector"
-                  x1={x + bar}
-                  x2={x + slot}
-                  y1={y(base + amount)}
-                  y2={y(base + amount)}
-                />
-              ) : null}
-              <text
-                className={amount > 0 ? 'sd-waterfall__value is-leak' : 'sd-waterfall__value'}
-                x={x + bar / 2}
-                y={y(base + amount) - 6}
-                textAnchor="middle"
-              >
-                {amount > 0 ? `−${usd(amount)}` : '✓'}
-              </text>
-              <text
-                className="sd-waterfall__label"
-                x={x + bar / 2}
-                y={H - PAD.bottom + 18}
-                textAnchor="middle"
-              >
-                {step.label}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
+      <Plot steps={data.steps} total={data.total} />
       <p className="sd-waterfall__legend">
         <span className="sd-key sd-key--merchant" /> Merchant leak
         <span className="sd-key sd-key--customer" /> Customer harm
       </p>
+    </div>
+  )
+}
+
+function Plot({ steps, total }: { steps: WaterfallStep[]; total: number }) {
+  const [ref, size] = useSize<HTMLDivElement>()
+  const layout =
+    size && size.width > 0 && size.height > 0
+      ? layoutWaterfall(steps, total, size.width, size.height)
+      : undefined
+  return (
+    <div ref={ref} className="sd-waterfall__plot">
+      {layout ? (
+        <svg
+          width={layout.width}
+          height={layout.height}
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          role="img"
+          aria-label={`Would have leaked: ${usd(total)}`}
+        >
+          <title>{`Leak waterfall: ${usd(total)} would have leaked`}</title>
+          {layout.ticks.map((tick) => (
+            <g key={tick.y}>
+              <line
+                className="sd-waterfall__grid"
+                x1={layout.grid.x1}
+                x2={layout.grid.x2}
+                y1={tick.y}
+                y2={tick.y}
+              />
+              <text
+                className="sd-waterfall__axis"
+                style={{ fontSize: layout.font.axis }}
+                x={layout.grid.x1 - 8}
+                y={tick.y + layout.font.axis / 3}
+                textAnchor="end"
+              >
+                {tick.text}
+              </text>
+            </g>
+          ))}
+          {layout.bars.map((bar) => (
+            <g key={bar.id} className={bar.total ? 'is-total' : undefined}>
+              {bar.merchant ? (
+                <rect
+                  className="sd-waterfall__merchant"
+                  x={bar.x}
+                  width={bar.width}
+                  y={bar.merchant.y}
+                  height={bar.merchant.height}
+                />
+              ) : null}
+              {bar.customer ? (
+                <rect
+                  className="sd-waterfall__customer"
+                  x={bar.x}
+                  width={bar.width}
+                  y={bar.customer.y}
+                  height={bar.customer.height}
+                />
+              ) : null}
+              {bar.zeroY === undefined ? null : (
+                <line
+                  className="sd-waterfall__zero"
+                  x1={bar.x}
+                  x2={bar.x + bar.width}
+                  y1={bar.zeroY}
+                  y2={bar.zeroY}
+                />
+              )}
+              {bar.connector ? (
+                <line
+                  className="sd-waterfall__connector"
+                  x1={bar.connector.x1}
+                  x2={bar.connector.x2}
+                  y1={bar.connector.y}
+                  y2={bar.connector.y}
+                />
+              ) : null}
+              <text
+                className={bar.value.leak ? 'sd-waterfall__value is-leak' : 'sd-waterfall__value'}
+                style={{ fontSize: layout.font.value }}
+                x={bar.value.x}
+                y={bar.value.y}
+                textAnchor="middle"
+              >
+                {bar.value.text}
+              </text>
+              <text
+                className="sd-waterfall__label"
+                style={{ fontSize: layout.font.label }}
+                x={bar.label.x}
+                y={bar.label.y}
+                textAnchor="middle"
+              >
+                {bar.label.lines.map((line, i) => (
+                  <tspan key={line} x={bar.label.x} dy={i === 0 ? 0 : layout.font.label + 3}>
+                    {line}
+                  </tspan>
+                ))}
+              </text>
+            </g>
+          ))}
+        </svg>
+      ) : null}
     </div>
   )
 }

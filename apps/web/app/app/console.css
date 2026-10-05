@@ -277,10 +277,16 @@
   flex-direction: column;
   padding: 4px 8px 8px;
 }
-.sd-waterfall svg {
+/* The chart is drawn for this box's exact size (waterfall-layout.ts); the svg sits on top of it
+   so drawing it can never change the size it was drawn for. */
+.sd-waterfall__plot {
+  position: relative;
   flex: 1;
   min-height: 0;
-  width: 100%;
+}
+.sd-waterfall__plot > svg {
+  position: absolute;
+  inset: 0;
 }
 .sd-waterfall__grid {
   stroke: var(--sd-rule);
@@ -481,4 +487,79 @@
   margin-left: 6px;
   font: 12px var(--sd-font-mono);
   color: var(--sd-text-muted);
+}
+
+/* ---- Expand: a widget opened large, over the console ---- */
+.sd-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(18 16 13 / 0.55);
+}
+.sd-expanded__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(1180px, 100%);
+  height: min(820px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--sd-border-ui);
+  border-radius: 14px;
+  background: var(--sd-surface);
+  box-shadow: 0 24px 60px rgb(18 16 13 / 0.35);
+}
+.sd-expanded__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--sd-rule);
+}
+.sd-expanded__title {
+  margin: 0;
+  color: var(--sd-text);
+  font: 800 24px / 1.1 var(--sd-font-display);
+}
+.sd-expanded__close {
+  padding: 8px 16px;
+  border: 1px solid var(--sd-border-ui);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sd-text);
+  font: 600 14px / 1 var(--sd-font-ui);
+  cursor: pointer;
+}
+.sd-expanded__close:hover {
+  background: var(--sd-bg);
+}
+.sd-expanded__close:focus-visible {
+  outline: 2px solid var(--sd-focus);
+  outline-offset: 2px;
+}
+.sd-expanded__body {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 20px 20px;
+}
+/* A chart takes the whole box and lays itself out for it. */
+.sd-expanded__body--fill {
+  display: flex;
+  flex-direction: column;
+}
+.sd-expanded__body--fill > .sd-widget {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+/* Words are drawn larger instead, and the box scrolls if they need it. */
+.sd-expanded__body--zoom {
+  overflow: auto;
+}
+.sd-expanded__body--zoom > .sd-widget {
+  height: auto;
+  overflow: visible;
+  zoom: 1.3;
 }
