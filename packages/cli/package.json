@@ -11,7 +11,7 @@
   "homepage": "https://github.com/PRIEST099/shakedown#readme",
   "type": "module",
   "bin": {
-    "shakedown": "./dist/index.js"
+    "shakedown": "dist/index.js"
   },
   "exports": {
     ".": {
