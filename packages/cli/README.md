@@ -46,7 +46,7 @@ in the current folder (`--env-file` picks another). It never prints them.
 
 ### What your store needs to answer
 
-Shakedown speaks to your store over HTTP. [Leaky Llama](https://github.com/shakedown-dev/shakedown/tree/main/apps/leaky-llama)
+Shakedown speaks to your store over HTTP. [Leaky Llama](https://github.com/PRIEST099/shakedown/tree/main/apps/leaky-llama)
 is the reference implementation.
 
 | Route | For |
@@ -155,7 +155,7 @@ steps:
       GITHUB_TOKEN: ${{ github.token }}
 ```
 
-Shakedown's own repository runs [this workflow](https://github.com/shakedown-dev/shakedown/blob/main/.github/workflows/shakedown.yml)
+Shakedown's own repository runs [this workflow](https://github.com/PRIEST099/shakedown/blob/main/.github/workflows/shakedown.yml)
 against its demo store on every pull request.
 
 ## Responsible use
