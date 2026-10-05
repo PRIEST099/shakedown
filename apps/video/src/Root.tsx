@@ -1,5 +1,6 @@
 import { Composition, Still } from 'remotion'
 import { Demo } from './Demo'
+import { DevpostThumbnail } from './DevpostThumbnail'
 import { DEMO_FRAMES, FPS } from './script'
 import { TEASER_FRAMES, Teaser } from './Teaser'
 import { Thumbnail } from './Thumbnail'
@@ -27,6 +28,8 @@ export function Root() {
         height={1920}
       />
       <Still id="Thumbnail" component={Thumbnail} width={1920} height={1080} />
+      {/* Devpost's project thumbnail: 3:2, as its form asks. */}
+      <Still id="DevpostThumbnail" component={DevpostThumbnail} width={1500} height={1000} />
     </>
   )
 }

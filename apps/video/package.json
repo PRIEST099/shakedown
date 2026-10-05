@@ -16,6 +16,7 @@
     "teaser": "remotion render src/index.ts Teaser out/shakedown-teaser.mp4 && tsx scripts/master.ts out/shakedown-teaser.mp4",
     "master": "tsx scripts/master.ts",
     "thumbnail": "remotion still src/index.ts Thumbnail out/shakedown-thumbnail.png --scale=2",
+    "thumbnail:devpost": "remotion still src/index.ts DevpostThumbnail out/shakedown-devpost-thumbnail.png --scale=2",
     "sheet": "tsx scripts/contact-sheet.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"

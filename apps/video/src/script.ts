@@ -11,7 +11,7 @@ import vo from './data/vo.json'
 
 export const FPS = 30
 
-const money = (cents: number) =>
+export const money = (cents: number) =>
   `${cents < 0 ? '−' : ''}$${(Math.abs(cents) / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
 
 export const TOTAL = money(-runs.checkout.totalCents)

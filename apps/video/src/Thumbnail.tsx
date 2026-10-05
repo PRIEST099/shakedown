@@ -5,7 +5,7 @@ import { Wordmark } from './kit'
 import { TOTAL } from './script'
 import { C, FONT, Stage } from './theme'
 
-/** The YouTube thumbnail and Devpost cover: the total, the hook, the receipt. Legible at 320 px. */
+/** The YouTube thumbnail: the total, the hook, the receipt. Legible at 320 px. */
 export function Thumbnail() {
   const leaked = runs.hero.before.reduce((sum, line) => sum + line.amountCents, 0)
   return (

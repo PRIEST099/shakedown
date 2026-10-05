@@ -1,6 +1,6 @@
 # @shakedown/video
 
-The hackathon video, its vertical teaser and its thumbnail, made in [Remotion](https://remotion.dev)
+The hackathon video, its vertical teaser and its thumbnails, made in [Remotion](https://remotion.dev)
 from real footage of the product and the same components the site uses. The plan, the research
 and the scene list are in `docs/video/VIDEO_PIPELINE.md` (in the workspace, beside the repo).
 
@@ -8,7 +8,8 @@ and the scene list are in `docs/video/VIDEO_PIPELINE.md` (in the workspace, besi
 |---|---|---|
 | `out/shakedown-animatic.mp4`: the 16:9 cut with the voiceover as captions | `Demo` | `pnpm animatic` |
 | `out/shakedown-teaser.mp4`: 40 s, 1080×1920, loops | `Teaser` | `pnpm teaser` |
-| `out/shakedown-thumbnail.png`: 3840×2160 | `Thumbnail` | `pnpm thumbnail` |
+| `out/shakedown-thumbnail.png`: 3840×2160, for YouTube | `Thumbnail` | `pnpm thumbnail` |
+| `out/shakedown-devpost-thumbnail.png`: 3000×2000 (3:2), for Devpost | `DevpostThumbnail` | `pnpm thumbnail:devpost` |
 
 Run them with `pnpm --filter @shakedown/video <command>`, or `pnpm studio` to scrub the timeline.
 For the final 16:9 cut, render `Demo` with `--props='{"captions":false}' --scale=2`: the final ships
