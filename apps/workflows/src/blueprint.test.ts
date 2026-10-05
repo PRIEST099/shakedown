@@ -30,7 +30,7 @@ interface Service {
 interface Blueprint {
   envVarGroups: { name: string; envVars: EnvVar[] }[]
   services: Service[]
-  databases: { name: string; ipAllowList?: unknown[] }[]
+  databases: { name: string; ipAllowList?: unknown[]; diskSizeGB?: number }[]
 }
 
 const root = path.resolve(import.meta.dirname, '../../..')
@@ -80,6 +80,24 @@ describe('the Render Blueprints', () => {
         expect(env.value, env.key).toBeUndefined()
         expect(env.sync === false || env.generateValue === true, env.key).toBe(true)
       }
+    }
+  })
+
+  it('put every typed-in secret where Render will ask for it: on a service, never in a group', () => {
+    // Render ignores `sync: false` inside an environment group, so it would never prompt for it.
+    for (const blueprint of [dev, judge]) {
+      for (const group of blueprint.envVarGroups) {
+        expect(
+          group.envVars.filter((e) => e.sync === false).map((e) => e.key),
+          group.name,
+        ).toEqual([])
+      }
+    }
+  })
+
+  it('size the database at 1 GB, not the 15 GB a Basic plan defaults to', () => {
+    for (const blueprint of [dev, judge]) {
+      for (const db of blueprint.databases) expect(db.diskSizeGB, db.name).toBe(1)
     }
   })
 

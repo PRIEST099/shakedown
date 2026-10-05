@@ -6,8 +6,9 @@ Two Blueprints describe the hosted demo:
 - **`render.judge.yaml`**: the frozen copy for judging. It has its own services and database,
   deploys from the `judge` branch, and a push never redeploys it.
 
-Both are checked against Render's schema and against each other by
-`apps/workflows/src/blueprint.test.ts`.
+`apps/workflows/src/blueprint.test.ts` checks them against each other and against Render's rules
+(no committed secret, no prompted secret inside a group, a 1 GB database). Both also validate
+against Render's published schema, https://render.com/schema/render.yaml.json.
 
 ## What it creates
 
@@ -16,10 +17,15 @@ Both are checked against Render's schema and against each other by
 | `shakedown-web` | The site, `/docs` and the console | Starter | $7 a month |
 | `shakedown-store` | Leaky Llama, the demo store, with a 1 GB disk for its database | Starter | $7 a month, plus $0.25 for the disk |
 | `shakedown-runs` | The Render Workflows service that runs campaigns | Billed per second | Under a cent per run |
-| `shakedown-db` | Postgres for the console: runs, jobs, their progress, Triage's spend | basic-256mb | $6 a month |
+| `shakedown-db` | Postgres for the console: runs, jobs, their progress, Triage's spend | basic-256mb, 1 GB of storage | $6 a month, plus $0.30 for the storage |
 
-That's about $20 a month per environment. Paid instances don't sleep, so judges never wait for
-a cold start, and the database never expires.
+That's about $20.55 a month per environment, plus a few cents of Workflows time (October 2026
+prices). Paid instances don't sleep, so judges never wait for a cold start, and the database
+never expires. Render renamed its plans in August 2026 (Starter is now `0.5c-512mb`, basic-256mb
+is `0.1c-256mb`); the old names still work in Blueprints.
+
+The database's storage is set to 1 GB on purpose: left out, a Basic database gets 15 GB ($4.50 a
+month), and storage can grow later but never shrink.
 
 ## How a hosted run works
 
@@ -44,7 +50,8 @@ probe secret never crosses the internet, and the database accepts no outside con
 
 ## Before you start
 
-- **A Render account.** Claim the hackathon credits there.
+- **A Render account,** with a payment card on file (paid instances need one). Claim the
+  hackathon's Render credits there first.
 - **This repository on GitHub,** connected to Render. Render deploys from the repository.
 - **Your PayPal sandbox app's** client ID and secret. Sandbox only: Shakedown refuses any other
   host.
@@ -59,14 +66,19 @@ probe secret never crosses the internet, and the database accepts no outside con
 
 1. **Create the Blueprint.** In the Render Dashboard, choose **New → Blueprint** and pick the
    repository. Render reads `render.yaml`.
-2. **Type in the secrets** when Render asks. You don't type the probe secret: Render generates it.
+2. **Type in the secrets** when Render asks. It asks only now, while the Blueprint is created;
+   later, you change them on each service's **Environment** page. You don't type the probe
+   secret: Render generates it.
 
    | Secret | Where | Needed? |
    |---|---|---|
-   | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | the `shakedown-sandbox` group | Required |
+   | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | `shakedown-web`, `shakedown-store` and `shakedown-runs` (the same two values, three times) | Required |
    | `RENDER_API_KEY` | `shakedown-web` | Required |
    | `ANTHROPIC_API_KEY`, `ANTHROPIC_WORKSPACE_ID` | `shakedown-web` and `shakedown-store` | Optional; leave blank to switch Triage and Lulu off |
    | `NEXT_PUBLIC_AG_STUDIO_LICENSE_KEY` | `shakedown-web` | Optional; blank shows AG Studio's watermark |
+
+   The PayPal keys sit on each service rather than in the shared `shakedown-sandbox` group
+   because Render never prompts for a secret inside a group.
 3. **Apply.** Render creates the database and the three services and deploys them.
 4. **Check the web service is ready.** Open `https://<shakedown-web URL>/api/console/status`. It
    should say `"live": true` and `"runner": "render-workflows"`. If it says `"live": false`, the
@@ -94,7 +106,19 @@ is kept in Postgres, and Lulu's on the store's disk.
 4. **Check its `/api/console/status`, then run the demo once.** Put its address in the Devpost
    testing instructions.
 5. **Leave it alone until judging ends (December 15).** Its services never redeploy on a push.
-   Then delete it and rotate its keys.
+   To change one of its settings, save the change and then deploy by hand (**Manual Deploy →
+   Deploy latest commit**).
+
+## Clean up afterwards
+
+Render recreates any Blueprint-managed resource you delete while the Blueprint still lists it, so
+take them down in this order:
+
+1. **Disconnect the Blueprint** (its Settings page). That stops the syncing; it deletes nothing.
+2. **Delete each service.**
+3. **Delete the database** (its Info page). Render keeps no backup after that.
+4. **Revoke the Render API key** in Account Settings, and the PayPal sandbox app's secret if you
+   no longer need it.
 
 ## Run the workflow locally
 
