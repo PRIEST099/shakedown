@@ -24,6 +24,7 @@ interface Service {
   branch?: string
   autoDeployTrigger?: string
   startCommand: string
+  buildCommand: string
   disk?: { mountPath: string }
   envVars: EnvVar[]
 }
@@ -91,6 +92,16 @@ describe('the Render Blueprints', () => {
           group.envVars.filter((e) => e.sync === false).map((e) => e.key),
           group.name,
         ).toEqual([])
+      }
+    }
+  })
+
+  it('build with the pinned pnpm, never a global install, and only the service’s own slice', () => {
+    // Render's Node image keeps its global packages on a read-only file system (EROFS).
+    for (const blueprint of [dev, judge]) {
+      for (const s of blueprint.services) {
+        expect(s.buildCommand, s.name).not.toMatch(/install (-g|--global)/)
+        expect(s.buildCommand, s.name).toMatch(/^npx --yes pnpm@\d+\.\d+\.\d+ install --frozen-lockfile --filter /)
       }
     }
   })

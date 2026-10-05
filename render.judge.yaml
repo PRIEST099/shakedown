@@ -23,7 +23,10 @@ services:
     region: oregon
     branch: judge
     autoDeployTrigger: "off"
-    buildCommand: npm install -g pnpm@12.8.1 && pnpm install --frozen-lockfile && pnpm --filter @shakedown/web build
+    # Render's own pnpm sits in a read-only folder, so the pinned pnpm runs through npx. The
+    # install takes only this service's slice of the workspace, plus the root for TypeScript:
+    # none of apps/video's tooling.
+    buildCommand: 'npx --yes pnpm@12.8.1 install --frozen-lockfile --filter "@shakedown/web..." --filter "{.}" && npx --yes pnpm@12.8.1 --filter @shakedown/web build'
     startCommand: cd apps/web && ./node_modules/.bin/next start --port $PORT
     healthCheckPath: /api/health
     buildFilter:
@@ -82,7 +85,10 @@ services:
     region: oregon
     branch: judge
     autoDeployTrigger: "off"
-    buildCommand: npm install -g pnpm@12.8.1 && pnpm install --frozen-lockfile && pnpm --filter @shakedown/leaky-llama build
+    # Render's own pnpm sits in a read-only folder, so the pinned pnpm runs through npx. The
+    # install takes only this service's slice of the workspace, plus the root for TypeScript:
+    # none of apps/video's tooling.
+    buildCommand: 'npx --yes pnpm@12.8.1 install --frozen-lockfile --filter "@shakedown/leaky-llama..." --filter "{.}" && npx --yes pnpm@12.8.1 --filter @shakedown/leaky-llama build'
     startCommand: cd apps/leaky-llama && ./node_modules/.bin/next start --port $PORT
     healthCheckPath: /api/health
     # The store keeps its orders, and Lulu's spend log, on its own disk.
@@ -130,7 +136,10 @@ services:
     region: oregon
     branch: judge
     autoDeployTrigger: "off"
-    buildCommand: npm install -g pnpm@12.8.1 && pnpm install --frozen-lockfile && pnpm --filter @shakedown/workflows build
+    # Render's own pnpm sits in a read-only folder, so the pinned pnpm runs through npx. The
+    # install takes only this service's slice of the workspace, plus the root for TypeScript:
+    # none of apps/video's tooling.
+    buildCommand: 'npx --yes pnpm@12.8.1 install --frozen-lockfile --filter "@shakedown/workflows..." --filter "{.}" && npx --yes pnpm@12.8.1 --filter @shakedown/workflows build'
     startCommand: node apps/workflows/dist/index.js
     buildFilter:
       paths:
