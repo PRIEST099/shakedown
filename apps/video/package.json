@@ -17,6 +17,8 @@
     "master": "tsx scripts/master.ts",
     "thumbnail": "remotion still src/index.ts Thumbnail out/shakedown-thumbnail.png --scale=2",
     "thumbnail:devpost": "remotion still src/index.ts DevpostThumbnail out/shakedown-devpost-thumbnail.png --scale=2",
+    "gallery:shots": "tsx scripts/gallery-shots.ts",
+    "gallery": "tsx scripts/gallery.ts",
     "sheet": "tsx scripts/contact-sheet.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"

@@ -1,6 +1,8 @@
 import { Composition, Still } from 'remotion'
 import { Demo } from './Demo'
 import { DevpostThumbnail } from './DevpostThumbnail'
+import { Gallery } from './Gallery'
+import { SLIDES } from './gallery-slides'
 import { DEMO_FRAMES, FPS } from './script'
 import { TEASER_FRAMES, Teaser } from './Teaser'
 import { Thumbnail } from './Thumbnail'
@@ -30,6 +32,15 @@ export function Root() {
       <Still id="Thumbnail" component={Thumbnail} width={1920} height={1080} />
       {/* Devpost's project thumbnail: 3:2, as its form asks. */}
       <Still id="DevpostThumbnail" component={DevpostThumbnail} width={1500} height={1000} />
+      {/* Devpost's image gallery, 3:2: one frame per slide, rendered as an image sequence. */}
+      <Composition
+        id="Gallery"
+        component={Gallery}
+        durationInFrames={SLIDES.length}
+        fps={FPS}
+        width={1500}
+        height={1000}
+      />
     </>
   )
 }

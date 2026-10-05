@@ -27,6 +27,8 @@ spikes/results
 apps/video/out
 apps/video/public/footage
 apps/video/public/audio
+# The gallery's raw screenshots (regenerate: gallery:shots)
+apps/video/public/gallery
 
 # Local app data (webhook inbox, etc.)
 .data
