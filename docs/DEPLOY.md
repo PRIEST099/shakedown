@@ -88,6 +88,10 @@ probe secret never crosses the internet, and the database accepts no outside con
    **If a service was created after the Blueprint itself** (say, a first sync stopped partway),
    Render never asks for its secrets. Type them in on that service's **Environment** page, and
    save with **Save, rebuild, and deploy**.
+
+   **A workflow version keeps the environment it was released with.** After changing a variable
+   `shakedown-runs` reads, or its environment group, release a new version:
+   `render workflows versions release <workflow ID> --commit <full commit hash> --wait`.
 3. **Apply.** Render creates the database and the three services and deploys them.
 4. **Check the web service is ready.** Open `https://<shakedown-web URL>/api/console/status`. It
    should say `"live": true` and `"runner": "render-workflows"`. If it says `"live": false`, the
