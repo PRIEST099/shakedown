@@ -14,6 +14,10 @@ envVarGroups:
       # Shared by the store and whatever tests it: signs campaign tokens, opens the probe API.
       - key: SHAKEDOWN_PROBE_SECRET
         generateValue: true
+      # The store serves it at /.well-known/shakedown.txt; the runners check it before testing the
+      # store, whose private-network name Shakedown can't tell is private on its own.
+      - key: SHAKEDOWN_VERIFICATION_TOKEN
+        generateValue: true
 
 services:
   - type: web

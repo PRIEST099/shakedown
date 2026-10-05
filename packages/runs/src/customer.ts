@@ -27,6 +27,8 @@ export interface RunEnvironment {
   storeUrl: string
   /** Shared with the store: it signs the campaign token and opens the store's probe API. */
   probeSecret: string
+  /** Shared with the store, which serves it at /.well-known/shakedown.txt to prove it's ours. */
+  verificationToken?: string
   paypal?: { clientId: string; clientSecret: string }
 }
 
@@ -56,11 +58,23 @@ export function runEnvironment(source: Record<string, string | undefined> = proc
   return {
     storeUrl: storeUrl(source),
     probeSecret: env.SHAKEDOWN_PROBE_SECRET,
+    verificationToken: env.SHAKEDOWN_VERIFICATION_TOKEN,
     paypal:
       env.PAYPAL_CLIENT_ID && env.PAYPAL_CLIENT_SECRET
         ? { clientId: env.PAYPAL_CLIENT_ID, clientSecret: env.PAYPAL_CLIENT_SECRET }
         : undefined,
   } satisfies RunEnvironment
+}
+
+/**
+ * Which store a hosted runner may test. A local or private-network address needs no proof. On
+ * Render, though, the store's private-network name (`shakedown-store`) isn't recognisably
+ * private, so the runner allow-lists that one host, read from its own environment and never from
+ * a job, and the store must serve the token both share before the first request.
+ */
+export function storePolicy(env: Pick<RunEnvironment, 'storeUrl' | 'verificationToken'>) {
+  if (!env.verificationToken) return undefined
+  return { allowHosts: [new URL(env.storeUrl).hostname], verificationToken: env.verificationToken }
 }
 
 export const storeMode = (switches: Switches): StoreMode =>
@@ -76,6 +90,7 @@ async function demoStore(job: CampaignJob, env: RunEnvironment): Promise<TargetA
     baseUrl: env.storeUrl,
     probeSecret: env.probeSecret,
     campaignToken: token,
+    policy: storePolicy(env),
   }).catch((error: Error) => {
     // The address stays in the server log: on Render it names a host on the private network.
     console.error(`[runs] the demo store at ${env.storeUrl} is not answering: ${error.message}`)

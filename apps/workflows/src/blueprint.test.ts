@@ -129,7 +129,13 @@ describe('the Render Blueprints', () => {
     const web = service(dev, '-web')
     const store = service(dev, '-store')
     const runs = service(dev, '-runs')
-    const shared = ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'SHAKEDOWN_PROBE_SECRET']
+    const shared = [
+      'PAYPAL_CLIENT_ID',
+      'PAYPAL_CLIENT_SECRET',
+      'SHAKEDOWN_PROBE_SECRET',
+      // The store proves it's ours with it; the runners check it before the first request.
+      'SHAKEDOWN_VERIFICATION_TOKEN',
+    ]
     for (const s of [web, store, runs])
       expect(keysOf(dev, s)).toEqual(expect.arrayContaining(shared))
     expect(keysOf(dev, web)).toEqual(

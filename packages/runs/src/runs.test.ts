@@ -14,7 +14,7 @@ import { drizzle } from 'drizzle-orm/pglite'
 import { migrate } from 'drizzle-orm/pglite/migrator'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { runJob } from './campaign'
-import { type CustomerDeps, runCustomer, storeUrl } from './customer'
+import { type CustomerDeps, runCustomer, storePolicy, storeUrl } from './customer'
 import { type CampaignJob, newJob } from './job'
 import { BusyError, type CampaignRunner, dispatch, renderWorkflowsRunner } from './runners'
 import { eventLog, jobStore, STALE_AFTER_MS } from './store'
@@ -266,5 +266,21 @@ describe('the job argument', () => {
     const streams: RandomStreams = { rng: 1, findings: 2 }
     expect(JSON.parse(JSON.stringify(streams))).toEqual(streams)
     expect(job.id).toMatch(/^CMP-[0-9A-F]{12}$/)
+  })
+})
+
+describe('which store a hosted runner may test', () => {
+  it('allow-lists only the store its own environment names, and only with the shared token', () => {
+    // On Render the store is reached by its private-network name, which isn't an IP or localhost.
+    const env = {
+      storeUrl: 'http://shakedown-store:10000',
+      verificationToken: 'a-token-of-16-chars',
+    }
+    expect(storePolicy(env)).toEqual({
+      allowHosts: ['shakedown-store'],
+      verificationToken: 'a-token-of-16-chars',
+    })
+    // Without the token there's nothing to prove ownership with: no host is allow-listed.
+    expect(storePolicy({ storeUrl: env.storeUrl })).toBeUndefined()
   })
 })
