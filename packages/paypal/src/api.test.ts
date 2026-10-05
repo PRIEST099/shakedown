@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  captureOrder,
+  createOrder,
+  refundCapture,
   TRANSMISSION_HEADERS,
   transmissionHeadersOf,
+  usd,
   verifySignatureBody,
   verifyWebhookSignature,
 } from './api'
@@ -91,5 +95,21 @@ describe('transmissionHeadersOf', () => {
     const read = transmissionHeadersOf(new Headers({ ...headers, cookie: 'nope' }))
     expect(Object.keys(read).sort()).toEqual([...TRANSMISSION_HEADERS].sort())
     expect(read['paypal-transmission-id']).toBe('tx-1')
+  })
+})
+
+describe('the calls whose responses Shakedown reads', () => {
+  it('ask PayPal for the whole resource, not the minimal id-and-status form', async () => {
+    const request = vi.fn(async (..._args: unknown[]) => ({ status: 201, data: {} }))
+    const client = { request } as unknown as PayPalSandboxClient
+    await createOrder(client, { intent: 'CAPTURE' }, { requestId: 'create-1' })
+    await captureOrder(client, 'ORDER-1', { requestId: 'capture-1' })
+    await refundCapture(client, 'CAPTURE-1', usd(5), { requestId: 'refund-1' })
+    expect(request).toHaveBeenCalledTimes(3)
+    for (const call of request.mock.calls) {
+      expect(call[2]).toMatchObject({ prefer: 'return=representation' })
+    }
+    // The caller's own options still win, the idempotency key included.
+    expect(request.mock.calls[0]?.[2]).toMatchObject({ requestId: 'create-1' })
   })
 })

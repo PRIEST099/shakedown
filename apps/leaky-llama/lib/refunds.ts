@@ -42,7 +42,12 @@ export async function recordRefund(
   return { refundedCents }
 }
 
-/** Refund through PayPal, then record it. One request ID per refund, so a retry can't pay twice. */
+/**
+ * Refund through PayPal, then record it. One request ID per refund, so a retry can't pay twice.
+ * The ID is built on PayPal's capture ID, unique across every store and database, never on the
+ * store's own order number: PayPal keeps refund keys for 45 days (APIMatic's PayPal SDK
+ * reference), and a fresh database numbers its orders from 1 again.
+ */
 export async function issueRefund(
   deps: StoreDeps,
   order: Order,
@@ -54,8 +59,13 @@ export async function issueRefund(
   const refund = await deps.paypal.refundCapture(
     order.captureId,
     { currency_code: order.currency, value: toDecimal(amountCents) },
-    `refund-${order.id}-${existing.length + 1}`,
+    `refund-${order.captureId}-${existing.length + 1}`,
   )
+  // A refund can come back FAILED or CANCELLED (or PENDING, which still completes): only money
+  // that is on its way back is booked as refunded.
+  if (refund.status === 'FAILED' || refund.status === 'CANCELLED') {
+    throw new Error(`PayPal reports the refund as ${refund.status.toLowerCase()}.`)
+  }
   await recordRefund(deps.db, order, {
     paypalRefundId: refund.id,
     amountCents,

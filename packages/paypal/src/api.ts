@@ -62,12 +62,19 @@ export const usd = (value: number | string): Money => ({
   value: typeof value === 'number' ? value.toFixed(2) : value,
 })
 
+/**
+ * Ask for the whole resource back. What we read from these responses (the captures in a capture
+ * call, a refund's status) is absent from PayPal's minimal form (APIMatic's PayPal SDK reference:
+ * "A minimal response includes the id, status and HATEOAS links").
+ */
+const FULL = { prefer: 'return=representation' } as const
+
 export function createOrder(
   client: PayPalSandboxClient,
   body: Record<string, unknown>,
   options?: RequestOptions,
 ) {
-  return client.request<Order>('POST', '/v2/checkout/orders', { ...options, body })
+  return client.request<Order>('POST', '/v2/checkout/orders', { ...FULL, ...options, body })
 }
 
 export function getOrder(client: PayPalSandboxClient, orderId: string) {
@@ -83,6 +90,7 @@ export function captureOrder(
     'POST',
     `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,
     {
+      ...FULL,
       ...options,
       body: options?.body ?? {},
     },
@@ -102,7 +110,7 @@ export function refundCapture(
   return client.request<Refund>(
     'POST',
     `/v2/payments/captures/${encodeURIComponent(captureId)}/refund`,
-    { ...options, body: amount ? { amount } : {} },
+    { ...FULL, ...options, body: amount ? { amount } : {} },
   )
 }
 

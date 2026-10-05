@@ -63,6 +63,36 @@ describe('supportStore', () => {
     expect(order).toMatchObject({ refundedCents: 1800, status: 'partially_refunded' })
   })
 
+  it('keys each refund on PayPal’s capture ID, which no fresh database can reuse', async () => {
+    const { deps, paypal, number, id } = await paidOrder()
+    await supportStore(deps).requestRefund({
+      orderNumber: number,
+      email,
+      amountCents: 1800,
+      reason: 'Scuffed',
+    })
+    const [order] = await db.select().from(orders).where(eq(orders.id, id))
+    const call = paypal.calls.find((c) => c.method === 'refundCapture')
+    expect(order?.captureId).toBeTruthy()
+    expect(call?.requestId).toBe(`refund-${order?.captureId}-1`)
+  })
+
+  it('never books a refund that PayPal reports as failed', async () => {
+    const { deps, paypal, number, id } = await paidOrder()
+    paypal.refundCapture = async () => ({ id: 'REFUND-FAILED', status: 'FAILED' })
+    await expect(
+      supportStore(deps).requestRefund({
+        orderNumber: number,
+        email,
+        amountCents: 1800,
+        reason: 'Scuffed',
+      }),
+    ).rejects.toThrow(/failed/)
+    const [order] = await db.select().from(orders).where(eq(orders.id, id))
+    expect(order).toMatchObject({ refundedCents: 0 })
+    expect(await db.select().from(refunds).where(eq(refunds.orderId, id))).toHaveLength(0)
+  })
+
   it('escalates a refund above the self-serve limit without paying anything', async () => {
     const { deps, paypal, number } = await paidOrder()
     const outcome = await supportStore(deps).requestRefund({

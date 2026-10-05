@@ -1,6 +1,6 @@
 # Evaluation: the checkout cast, switch by switch
 
-Measured by `pnpm eval:checkout` on 2026-10-04, against Leaky Llama
+Measured by `pnpm eval:checkout` on 2026-10-05, against Leaky Llama
 and the PayPal sandbox, seed 2026. Nothing here is estimated, and nothing here uses Claude.
 
 Leaky Llama has one switch per customer. Each row below is one run of the four checkout

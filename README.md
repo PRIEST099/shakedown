@@ -216,6 +216,10 @@ the demo's HTTP API: the store's checkout, probe and webhook routes, and the con
 - **AG Studio 3 by AG Grid,** for the console. Its widgets are Shakedown's own, and Triage is a
   custom agent on its Agent Framework.
 - **Render,** to host the demo: a Blueprint, Render Workflows for runs, and Render Postgres.
+- **APIMatic's PayPal Context Plugin** (`acp-paypal`) in Claude Code. We used it to check our
+  PayPal calls against the PayPal Server SDK's contracts; it led to three fixes
+  ([docs/APIMATIC.md](docs/APIMATIC.md)).
+- **Postman:** a collection of the demo's API, 13 requests, in [docs/postman](docs/postman).
 - **The stack:** Next.js 16, React 19, TypeScript, Drizzle ORM with PGlite and Postgres,
   Turborepo and pnpm, Vitest, Playwright with axe, and Biome.
 - **Built with Claude Code.**

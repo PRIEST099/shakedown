@@ -21,6 +21,11 @@ export interface RequestOptions {
    * operation needs its own key (create and capture are different operations).
    */
   requestId?: string
+  /**
+   * How much PayPal sends back: the whole resource, or only its id, status and links. The SDK
+   * documents both for create, capture and refund, but not which one an omitted header gets.
+   */
+  prefer?: 'return=minimal' | 'return=representation'
   /** PayPal negative testing, e.g. 'INSTRUMENT_DECLINED'. Honored by the sandbox only. */
   mock?: string
   /** PayPal-Auth-Assertion JWT, for sandbox calls made on a buyer's behalf. */
@@ -100,6 +105,7 @@ export class PayPalSandboxClient {
       requestId = options.requestId ?? crypto.randomUUID()
       headers['PayPal-Request-Id'] = requestId
     }
+    if (options.prefer) headers.Prefer = options.prefer
     if (options.mock) {
       headers['PayPal-Mock-Response'] = JSON.stringify({ mock_application_codes: options.mock })
     }
