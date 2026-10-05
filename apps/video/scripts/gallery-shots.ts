@@ -94,6 +94,8 @@ try {
   }
 
   if (want('console', 'finding')) {
+    // The console's run page is taller than the site's sections: a laptop-height window shows it.
+    await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`${SITE}/app`, { waitUntil: 'networkidle' })
     await page.locator('.sd-console__laying').waitFor({ state: 'detached', timeout: 60_000 })
     await page.waitForTimeout(1500)

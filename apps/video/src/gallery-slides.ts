@@ -67,10 +67,10 @@ export const SLIDES: Slide[] = [
     name: 'console',
     headline: 'The console, built on AG Studio',
     caption:
-      'Every run in one place: the scoreboard, where the money would have gone, and the worst finding with its proof.',
+      'Every run in one place: the scoreboard, where the money would have gone, and the worst finding with its proof and its fix. Expand opens any of them large.',
     shot: 'console',
     url: 'shakedown-web.onrender.com/app',
-    crop: { x: 0, y: 64, width: 1440, height: 676 },
+    crop: { x: 0, y: 64, width: 1440, height: 696 },
   },
   {
     name: 'terminal',
