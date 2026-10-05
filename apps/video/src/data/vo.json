@@ -67,8 +67,8 @@
     ],
     "live": [
       {
-        "text": "Here is a live run against Leaky Llama, our deliberately leaky demo store.",
-        "seconds": 4.556
+        "text": "Here is a live run against Leaky Llama, my deliberately leaky demo store.",
+        "seconds": 4.509
       },
       {
         "text": "Each leak prints as PayPal’s sandbox confirms it.",

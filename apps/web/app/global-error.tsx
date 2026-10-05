@@ -17,7 +17,7 @@ export default function GlobalError({ reset }: { error: Error; reset: () => void
       >
         <main style={{ maxWidth: 480, padding: 24 }}>
           <h1 style={{ margin: 0, fontSize: 28 }}>Shakedown didn’t load.</h1>
-          <p>Something went wrong on our side. Try again in a moment.</p>
+          <p>Something went wrong on Shakedown’s side. Try again in a moment.</p>
           <button
             type="button"
             onClick={reset}

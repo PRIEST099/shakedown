@@ -1,13 +1,13 @@
 # APIMatic's PayPal Context Plugin
 
 Shakedown calls PayPal's REST API through its own small client (`packages/paypal`), not the PayPal
-Server SDK. On October 5, 2026, we checked that client against the SDK's contracts with
+Server SDK. On October 5, 2026, I checked that client against the SDK's contracts with
 [APIMatic's](https://www.apimatic.io) PayPal Context Plugin (`acp-paypal`, from
 [apimatic/plugin-marketplace](https://github.com/apimatic/plugin-marketplace)), installed in
 Claude Code for this project. Its MCP server answers from the SDK's endpoints, parameters and models.
 It led to three fixes and one queued change.
 
-## What we asked, and what it said
+## What I asked, and what it said
 
 | Tool | Query | What came back |
 |---|---|---|
@@ -29,7 +29,7 @@ It led to three fixes and one queued change.
 2. **A refund PayPal reports as `FAILED` or `CANCELLED` was booked as done.** It no longer is; the
    support assistant gets the failure instead of telling the customer they're refunded.
 3. **Create, capture and refund now send `Prefer: return=representation`** (`packages/paypal/src/api.ts`).
-   We read the captures and the refund's status from these responses, and the minimal form
+   Shakedown reads the captures and the refund's status from these responses, and the minimal form
    leaves both out. It worked before only because the default happened to be the full form.
 
 All three are covered by tests. Afterwards, the checkout eval (`docs/EVAL-CHECKOUT.md`) was
@@ -50,12 +50,12 @@ flagged.
 ## How it went
 
 - **What worked:** precise answers in seconds, straight from the SDK's contract: key lifetimes,
-  status values, the `Prefer` forms, error codes per endpoint. Several were details we had only
-  seen in our own sandbox spikes, and one, the 45-day refund-key lifetime, turned a quiet bug
+  status values, the `Prefer` forms, error codes per endpoint. Several were details I had only
+  seen in my own sandbox spikes, and one, the 45-day refund-key lifetime, turned a quiet bug
   into a real one.
 - **What didn't:**
-  - The plugin's bundled agents couldn't reach its MCP tools in our setup, so we queried the tools
+  - The plugin's bundled agents couldn't reach its MCP tools in my setup, so I queried the tools
     directly.
   - `ask` couldn't say what a retry with the same key returns.
   - The SDK has no webhook endpoints, so `verify-webhook-signature` had nothing to be checked
-    against. There we still rely on our own sandbox spike (`docs/SPIKES.md`, S3).
+    against. There I still rely on my own sandbox spike (`docs/SPIKES.md`, S3).

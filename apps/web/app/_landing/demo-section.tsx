@@ -6,10 +6,10 @@ export function DemoSection({ recorded }: { recorded: RecordedRun }) {
     <section id="demo" className="section" aria-labelledby="demo-title">
       <p className="label">Live demo</p>
       <h2 id="demo-title" className="display-l section__title">
-        Run it on our leakiest store.
+        Run it on my leakiest store.
       </h2>
       <p className="section__lede">
-        Leaky Llama Supply Co. is a demo store we wrote with classic integration mistakes. Unleash
+        Leaky Llama Supply Co. is a demo store I wrote with classic integration mistakes. Unleash
         the cast and watch the receipt print as PayPal’s sandbox confirms each leak. Then apply the
         fixes and run it again with the same seed.
       </p>

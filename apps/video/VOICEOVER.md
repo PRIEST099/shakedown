@@ -45,8 +45,8 @@ in order with a one-second pause between them, so they can be cut apart cleanly.
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | Here is a live run against Leaky Llama, our deliberately leaky demo store. |  | 4.6 s | 0:54.9 |
-| 2 | Each leak prints as PayPal’s sandbox confirms it. |  | 3.0 s | 0:59.8 |
+| 1 | Here is a live run against Leaky Llama, my deliberately leaky demo store. |  | 4.5 s | 0:54.9 |
+| 2 | Each leak prints as PayPal’s sandbox confirms it. |  | 3.0 s | 0:59.7 |
 | 3 | Charged twice and shipped twice. |  | 1.8 s | 1:03.0 |
 | 4 | Goods shipped for more than PayPal captured. |  | 2.1 s | 1:09.9 |
 | 5 | An unsigned “paid” event that released the goods. |  | 2.5 s | 1:13.6 |

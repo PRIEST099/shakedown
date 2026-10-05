@@ -40,7 +40,7 @@ export const SLIDES: Slide[] = [
     name: 'every-leak',
     headline: 'Every leak, to the cent',
     caption:
-      'A live run against Leaky Llama, our deliberately leaky demo shop: 8 leaks, $491.00. Each line names the PayPal record that proves it.',
+      'A live run against Leaky Llama, the deliberately leaky demo shop I built: 8 leaks, $491.00. Each line names the PayPal record that proves it.',
     shot: 'run',
     url: 'shakedown-web.onrender.com/#demo',
     crop: { x: 120, y: 28, width: 1200, height: 530 },

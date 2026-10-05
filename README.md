@@ -14,7 +14,7 @@ so a leak can't quietly come back.
 1. **The receipt at the top of the site.** In five seconds it replays a recorded sandbox run:
    four test customers, −$491.00 that would have leaked, then the fixed store sealed to $0.00.
    It is labelled as a recording, because it is one.
-2. **Run the demo shakedown.** The same four customers go to Leaky Llama, our deliberately leaky
+2. **Run the demo shakedown.** The same four customers go to Leaky Llama, my deliberately leaky
    demo store, in the PayPal sandbox, live. Each leak prints as PayPal's ledger confirms it, with
    the sandbox ID behind it. Then press **Apply fixes and re-run** and watch it seal. Seed 2026
    gives the same 8 leaks every time, in the CLI, the site and the console alike: $467.00 the
@@ -216,7 +216,7 @@ the demo's HTTP API: the store's checkout, probe and webhook routes, and the con
 - **AG Studio 3 by AG Grid,** for the console. Its widgets are Shakedown's own, and Triage is a
   custom agent on its Agent Framework.
 - **Render,** to host the demo: a Blueprint, Render Workflows for runs, and Render Postgres.
-- **APIMatic's PayPal Context Plugin** (`acp-paypal`) in Claude Code. We used it to check our
+- **APIMatic's PayPal Context Plugin** (`acp-paypal`) in Claude Code. I used it to check my
   PayPal calls against the PayPal Server SDK's contracts; it led to three fixes
   ([docs/APIMATIC.md](docs/APIMATIC.md)).
 - **Postman:** a collection of the demo's API, 13 requests, in [docs/postman](docs/postman).

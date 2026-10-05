@@ -359,7 +359,7 @@ export function DemoRunner({ recorded }: { recorded: RecordedRun }) {
           </p>
         ) : null}
         <p className="demo__note">
-          Runs go to Leaky Llama Supply Co., our deliberately leaky demo store, in the PayPal
+          Runs go to Leaky Llama Supply Co., my deliberately leaky demo store, in the PayPal
           sandbox. The Policy Lawyer talks to an AI support assistant, so it runs from the CLI with
           a budget.
         </p>

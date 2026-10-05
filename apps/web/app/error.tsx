@@ -20,7 +20,7 @@ export default function ErrorPage({
       <div className="status-slip">
         <p className="status-slip__header">Shakedown · error</p>
         <p className="status-slip__meta">
-          Something went wrong on our side{error.digest ? ` · ref ${error.digest}` : ''}
+          Something went wrong on Shakedown’s side{error.digest ? ` · ref ${error.digest}` : ''}
         </p>
         <hr />
         <h1 className="display-l">This page didn’t print.</h1>

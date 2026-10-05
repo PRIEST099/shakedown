@@ -84,7 +84,7 @@ export const SCENES = [
     title: 'A live run',
     seconds: 30,
     source: 'LIVE',
-    vo: `Here is a live run against Leaky Llama, our deliberately leaky demo store. Each leak prints as PayPal’s sandbox confirms it. Charged twice and shipped twice. Goods shipped for more than PayPal captured. An unsigned “paid” event that released the goods. A declined card, and the order shipped anyway. ${LEAKS} leaks in all.`,
+    vo: `Here is a live run against Leaky Llama, my deliberately leaky demo store. Each leak prints as PayPal’s sandbox confirms it. Charged twice and shipped twice. Goods shipped for more than PayPal captured. An unsigned “paid” event that released the goods. A declined card, and the order shipped anyway. ${LEAKS} leaks in all.`,
   },
   {
     id: 'proof',

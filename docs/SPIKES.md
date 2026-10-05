@@ -1,6 +1,6 @@
 # Phase 1: sandbox spikes
 
-Before building on a PayPal capability, we prove it works in the sandbox. Each spike is a script in
+Before building on a PayPal capability, I prove it works in the sandbox. Each spike is a script in
 [`spikes/src`](../spikes/src). Run it with `pnpm --filter @shakedown/spikes s<N>`. Full evidence is
 written to `spikes/results/` on the machine that ran it; that folder is kept out of git. IDs below are
 shortened sandbox IDs.
@@ -32,9 +32,9 @@ Run on **2026-10-02 and 2026-10-03** against a US sandbox business app.
 
 **S3: webhooks.**
 - A webhook registered by API received a **real `PAYMENT.CAPTURE.COMPLETED`**, delivered **42 s** after the payment.
-- `verify-webhook-signature` returned `SUCCESS` when it was sent the event's **raw bytes**. We build the request body around the raw body; it is never parsed and re-serialized.
+- `verify-webhook-signature` returned `SUCCESS` when it was sent the event's **raw bytes**. Shakedown builds the request body around the raw body; it is never parsed and re-serialized.
 - A copy with one amount changed (`"12.00"` → `"1.00"`) returned `FAILURE`. *Implication (the Echo):* altered notifications are detectable, and stores must verify every event.
-- **Correction to our research:** events from the webhook **simulator**, sent to a registered `webhook_id`, are **signed and pass verification**. *Implication:* the Echo can use PayPal's own simulator to send genuinely signed duplicate and out-of-order events. That tests de-duplication and the order state machine, not just signature checks.
+- **Correction to my research:** events from the webhook **simulator**, sent to a registered `webhook_id`, are **signed and pass verification**. *Implication:* the Echo can use PayPal's own simulator to send genuinely signed duplicate and out-of-order events. That tests de-duplication and the order state machine, not just signature checks.
 - The temporary webhook registration was deleted afterwards and the tunnel was closed.
 
 **S4: declines, plus a real integration trap.**
@@ -60,14 +60,14 @@ Run on **2026-10-02 and 2026-10-03** against a US sandbox business app.
 - *Implication (the Second Opinion):* a dispute on an already-refunded order can be created on demand. A store that concedes without checking the 10.00 it already refunded pays twice.
 
 **S7a: AG Studio 3.0.0.**
-- `<AgStudio data={{ sources: [...] }} mode="edit" />` renders inside Next 16 / React 19 and picks up our columns.
-- It is browser-only, so we load it with `next/dynamic` and `ssr: false`.
+- `<AgStudio data={{ sources: [...] }} mode="edit" />` renders inside Next 16 / React 19 and picks up Shakedown's columns.
+- It is browser-only, so the console loads it with `next/dynamic` and `ssr: false`.
 - Without a key it logs a license notice and shows a watermark. All features stay unlocked for the trial.
 
 **S7b: Remotion 4.0.532.**
 - `@shakedown/ui`'s `<Tape>`, driven by `useCurrentFrame()`, rendered to an MP4 on Node 26 using Remotion's bundled FFmpeg: H.264, 1920×1080, 30 fps, 177 frames.
 - The video uses the product's real components.
-- To do: load the brand fonts in Remotion (it falls back to a serif). Remotion also warns that our zod 4.6 is newer than its optional zod-types expect; this is harmless because we don't use them.
+- To do: load the brand fonts in Remotion (it falls back to a serif). Remotion also warns that the project's zod 4.6 is newer than its optional zod-types expect; this is harmless because Shakedown doesn't use them.
 
 ## Still open
 
