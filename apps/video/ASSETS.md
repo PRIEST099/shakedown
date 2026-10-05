@@ -11,8 +11,9 @@ Every file the video is made of, where it came from, and the terms it is used un
 | `public/fonts/public-sans-latin.woff2` | Public Sans, variable weight, Latin subset | Google Fonts ([uswds/public-sans](https://github.com/uswds/public-sans)), the file `next/font/google` serves the site | SIL OFL 1.1 | Copyright 2015 The Public Sans Project Authors (https://github.com/uswds/public-sans) | 2026-10-05 |
 | `public/fonts/ibm-plex-mono-400-latin.woff2` | IBM Plex Mono Regular, Latin subset | Google Fonts ([IBM/plex](https://github.com/IBM/plex)), via `next/font/google` | SIL OFL 1.1 | Copyright 2017 IBM Corp. All rights reserved. | 2026-10-05 |
 | `public/fonts/ibm-plex-mono-600-latin.woff2` | IBM Plex Mono SemiBold, Latin subset | as above | SIL OFL 1.1 | as above | 2026-10-05 |
+| `public/audio/vo/<scene>/<n>.wav` | The **scratch** voiceover, for timing the animatic only: one take per sentence | Generated locally by `scripts/voice.ts` with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) v1.0 (the ONNX build, [onnx-community/Kokoro-82M-v1.0-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX), fp32), voice `af_heart`, through [kokoro-js](https://github.com/hexgrad/kokoro) 1.2.1 | Apache-2.0 (model weights and library) | An AI voice: say so wherever a cut with it is shown. It is replaced by your own voice before anything is published. | 2026-10-05 |
 
-The attributions are copied from each file's name table, which also carries the license URL.
+The fonts' attributions are copied from each file's name table, which also carries the license URL.
 The fonts are unmodified apart from the Bricolage instancing. OFL fonts may be embedded in and
 used to make videos; the font files themselves are not sold or renamed.
 
@@ -37,7 +38,6 @@ the customers; no Anthropic logo appears either.
 
 | What | Plan | Terms to check before it goes in |
 |---|---|---|
-| Scratch voiceover | Kokoro-82M run locally (`kokoro-js`), voice `af_heart` | Apache-2.0 weights; the download needs your approval first. Never macOS system voices. |
 | Final voiceover | Your own voice, recorded to the script in `src/script.ts` | Yours. |
 | Closed captions (`shakedown-demo.en.srt`) | whisper.cpp over the final voiceover stem, checked by hand | whisper.cpp is MIT; the model download needs approval. |
 | PayPal sandbox dashboard footage (S6) | You sign in and record it (VIDEO_PIPELINE §3.5) | Your own sandbox account; check that nothing personal is on screen. |

@@ -31,14 +31,21 @@ closed captions as an SRT file instead of burning them in.
    Use `--scale=2` for the final cut: 4K frames stay sharp when the camera zooms in.
 3. **`pnpm conform`** turns each take's frames into 30 fps video (`public/footage/<take>.mp4`)
    beside its event log.
-4. **`pnpm compose`** writes the score and the teaser's score (`public/audio`), synthesised in
-   code. Their LEAK and SEALED sounds land on the frames where the footage prints and seals.
-5. **Render.** `pnpm animatic` and `pnpm teaser` end with **`pnpm master`**, which takes the
+4. **`pnpm voice`** records the scratch voiceover: each sentence of `src/script.ts` read by
+   Kokoro-82M (Apache-2.0), run locally, never a macOS system voice. It writes one take per
+   sentence to `public/audio/vo` and each take's length to `src/data/vo.json`, and the cut is timed
+   from those lengths. `--scene=<id>` re-records one scene. The first run downloads the model
+   (about 330 MB). **`pnpm vo-sheet`** then writes [VOICEOVER.md](VOICEOVER.md), the script to
+   record your own voice from.
+5. **`pnpm compose`** writes the score and the teaser's score (`public/audio`), synthesised in
+   code. Their LEAK and SEALED sounds land on the frames where the footage prints and seals. In
+   the film, the music dips 10 dB under every voiceover line.
+6. **Render.** `pnpm animatic` and `pnpm teaser` end with **`pnpm master`**, which takes the
    render's sound to the platform level, −14 LUFS with true peaks under −1.5 dBTP, and copies the
    picture untouched. Remotion's ffmpeg has no limiter, so `scripts/loudness.ts` is one: a
    BS.1770-4 loudness meter and a look-ahead true-peak limiter. ffmpeg's own meter checks every
    master, and a file that misses the target is left as it was.
-6. **Check** the result with **`pnpm sheet <video> <dir> <seconds…>`**, which makes contact sheets
+7. **Check** the result with **`pnpm sheet <video> <dir> <seconds…>`**, which makes contact sheets
    of stills (`--portrait` for the teaser).
 
 `src/timeline.ts` works out every cut from the takes' event logs: the speed-ramped segments, the
@@ -56,6 +63,6 @@ timed from it, so picture and sound can't drift apart.
 
 ## Still to come
 
-- The voiceover: a scratch track (Kokoro, after you approve the download), then your own voice.
+- Your own voice, recorded from [VOICEOVER.md](VOICEOVER.md), in place of the scratch takes.
 - The PayPal sandbox dashboard shot in scene 6, which only you can record.
 - Closed captions from the final voiceover.

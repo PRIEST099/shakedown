@@ -1,0 +1,151 @@
+{
+  "source": "onnx-community/Kokoro-82M-v1.0-ONNX (fp32), voice af_heart",
+  "lines": {
+    "hook": [
+      {
+        "text": "Every happy-path test passes.",
+        "seconds": 1.785
+      },
+      {
+        "text": "Then the customers from hell show up.",
+        "seconds": 1.776
+      }
+    ],
+    "problem": [
+      {
+        "text": "Real customers double-click.",
+        "seconds": 1.714
+      },
+      {
+        "text": "They change the cart after approving it.",
+        "seconds": 2.122
+      },
+      {
+        "text": "Payment events arrive twice, late, or unsigned.",
+        "seconds": 2.899
+      },
+      {
+        "text": "And they argue with your AI support agent.",
+        "seconds": 2.329
+      },
+      {
+        "text": "Happy-path tests never meet them.",
+        "seconds": 1.832
+      }
+    ],
+    "meet": [
+      {
+        "text": "Shakedown is named for the shakedown cruise, a ship’s test voyage before passengers board.",
+        "seconds": 5.244
+      },
+      {
+        "text": "It sends customers from hell through your own PayPal checkout, in the sandbox.",
+        "seconds": 4.314
+      }
+    ],
+    "cast": [
+      {
+        "text": "The Double-Clicker presses Pay twice.",
+        "seconds": 2.017
+      },
+      {
+        "text": "The Cart Shuffler changes the cart after approval.",
+        "seconds": 2.837
+      },
+      {
+        "text": "The Echo replays payment events.",
+        "seconds": 1.755
+      },
+      {
+        "text": "The Bouncer pays with a card that bounces.",
+        "seconds": 2.259
+      },
+      {
+        "text": "And the Policy Lawyer talks your AI support agent past your refund policy.",
+        "seconds": 4.473
+      }
+    ],
+    "live": [
+      {
+        "text": "Here is a live run against Leaky Llama, our deliberately leaky demo store.",
+        "seconds": 4.556
+      },
+      {
+        "text": "Each leak prints as PayPal’s sandbox confirms it.",
+        "seconds": 3.044
+      },
+      {
+        "text": "Charged twice and shipped twice.",
+        "seconds": 1.76
+      },
+      {
+        "text": "Goods shipped for more than PayPal captured.",
+        "seconds": 2.175
+      },
+      {
+        "text": "An unsigned “paid” event that released the goods.",
+        "seconds": 2.519
+      },
+      {
+        "text": "A declined card, and the order shipped anyway.",
+        "seconds": 2.584
+      },
+      {
+        "text": "8 leaks in all.",
+        "seconds": 1.031
+      }
+    ],
+    "proof": [
+      {
+        "text": "Every finding quotes PayPal’s own sandbox records: the same capture IDs, the same amounts.",
+        "seconds": 6.207
+      },
+      {
+        "text": "Look the order up in PayPal’s dashboard, and there it is: the same $18.00 capture.",
+        "seconds": 5.353
+      }
+    ],
+    "ai-vs-code": [
+      {
+        "text": "The AI plays the customers.",
+        "seconds": 1.767
+      },
+      {
+        "text": "Plain code keeps the score.",
+        "seconds": 1.47
+      },
+      {
+        "text": "Ask the support agent for a refund in two parts, and it says “All set.”",
+        "seconds": 4.103
+      },
+      {
+        "text": "The ledger says $34.00 went past the written policy.",
+        "seconds": 3.587
+      }
+    ],
+    "fix": [
+      {
+        "text": "Every finding comes with its fix.",
+        "seconds": 1.865
+      },
+      {
+        "text": "Apply the fixes, re-run with the same seed, and the receipt seals at zero.",
+        "seconds": 4.681
+      },
+      {
+        "text": "Put it in CI, and a leak can’t come back.",
+        "seconds": 2.457
+      }
+    ],
+    "close": [
+      {
+        "text": "Built on PayPal’s sandbox APIs, with Claude playing the customers and deterministic code keeping score.",
+        "seconds": 6.848
+      },
+      {
+        "text": "Shakedown: let the customers from hell find your leaks before your real customers do.",
+        "seconds": 4.793
+      }
+    ]
+  }
+}

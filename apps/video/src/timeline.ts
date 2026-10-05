@@ -4,7 +4,7 @@
  * scenes draw from these and scripts/compose.ts scores from them, so picture and sound agree.
  * Plain TypeScript: no React, no Remotion.
  */
-import { FPS } from './script'
+import { FPS, lines, SCENES, type SceneId, START } from './script'
 
 export interface Box {
   x: number
@@ -202,4 +202,50 @@ export function teaserCut(take: Take) {
     endAt,
     frames: endAt + 7 * FPS,
   }
+}
+
+// ---------- the voiceover's place in the cut ----------
+
+/**
+ * S6 cuts from the console to the dashboard shot by this frame; S8 holds the sealed receipt this
+ * long before cutting to CI; S9's end card comes in at this frame.
+ */
+export const PROOF_DASHBOARD = Math.round(8.7 * FPS)
+export const FIX_HOLD = 2 * FPS
+export const CLOSE_CARD = Math.round(9.7 * FPS)
+
+/**
+ * The moments some sentences wait for, in seconds into their scene: in S5 each customer's line
+ * as its leak prints, in S6 the dashboard shot, in S8 the CI shot, in S9 the end card. The scenes and the score's ducking
+ * both read these.
+ */
+export function anchorsFor(id: SceneId, take?: Take): Partial<Record<number, number>> {
+  if (id === 'live' && take) {
+    const { leaks, end } = liveCut(take)
+    const first = (persona: string) =>
+      (leaks.find((leak) => leak.persona === persona)?.frame ?? 0) / FPS
+    return {
+      2: first('double-clicker') + 0.4,
+      3: first('cart-shuffler'),
+      4: first('echo'),
+      5: first('bouncer'),
+      6: end / FPS + 0.8,
+    }
+  }
+  if (id === 'proof') return { 1: PROOF_DASHBOARD / FPS + 0.5 }
+  if (id === 'fix' && take) return { 2: (fixCut(take).end + FIX_HOLD) / FPS + 0.3 }
+  if (id === 'close') return { 1: CLOSE_CARD / FPS + 0.3 }
+  return {}
+}
+
+/** Every recorded voiceover line in the film, as frames, for ducking the score under them. */
+export function voiceSpans(take: Take | undefined) {
+  return SCENES.flatMap((scene) =>
+    lines(scene, { anchors: anchorsFor(scene.id, take) })
+      .filter((line) => line.recorded)
+      .map((line) => ({
+        from: START[scene.id] + Math.round(line.start * FPS),
+        to: START[scene.id] + Math.round((line.start + line.seconds) * FPS),
+      })),
+  )
 }

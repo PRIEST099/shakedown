@@ -4,11 +4,23 @@ import type { ReactNode } from 'react'
 import { AbsoluteFill, Freeze, Sequence, useCurrentFrame } from 'remotion'
 import runs from './data/runs.json'
 import { type CameraKey, Footage, Highlight, useTake } from './footage'
-import { Callout, Captions, Line, Mark, Placeholder, Swipe, Wordmark } from './kit'
-import { framesOf, LEAKS, POLICY_EXCESS, SCENES, type SceneId, sentenceAt, TOTAL } from './script'
+import { Callout, Line, Mark, Placeholder, Swipe, Voiceover, Wordmark } from './kit'
+import {
+  framesOf,
+  LEAKS,
+  POLICY_EXCESS,
+  SCENES,
+  type SceneId,
+  sentenceAt,
+  TOTAL,
+  WORST,
+} from './script'
 import { C, FONT, presence, ramp, Stage } from './theme'
 import {
+  anchorsFor,
   type Box,
+  CLOSE_CARD,
+  FIX_HOLD,
   fixCut,
   hookCut,
   leaksOf,
@@ -17,6 +29,7 @@ import {
   markAt,
   markOf,
   type Placed,
+  PROOF_DASHBOARD,
   type Take,
   type TakeName,
 } from './timeline'
@@ -238,7 +251,7 @@ export function Hook() {
           </Line>
         </div>
       </Panel>
-      <Captions scene={hook} />
+      <Voiceover scene={hook} />
     </Stage>
   )
 }
@@ -326,7 +339,7 @@ export function Problem() {
           </Swipe>
         </Line>
       </AbsoluteFill>
-      <Captions scene={problem} tone="paper" />
+      <Voiceover scene={problem} tone="paper" />
     </Stage>
   )
 }
@@ -371,7 +384,7 @@ export function Meet() {
           cursor={false}
         />
       </Sequence>
-      <Captions scene={meet} />
+      <Voiceover scene={meet} />
     </Stage>
   )
 }
@@ -459,7 +472,7 @@ export function Cast() {
           {CAST[current]?.line}
         </div>
       </AbsoluteFill>
-      <Captions scene={cast} />
+      <Voiceover scene={cast} />
     </Stage>
   )
 }
@@ -553,15 +566,6 @@ export function Live() {
   const split = cut[1]?.start ?? s(4)
   const camera: CameraKey[] = view ? [{ ...view, at: split, frames: 22 }] : []
   const live = scene('live')
-  const first = (persona: string) =>
-    (leaks.find((leak) => leak.persona === persona)?.frame ?? 0) / FPS
-  const anchors = {
-    2: first('double-clicker') + 0.4,
-    3: first('cart-shuffler'),
-    4: first('echo'),
-    5: first('bouncer'),
-    6: end / FPS + 0.8,
-  }
   const allLeaks = leaksOf(take)
   return (
     <Stage>
@@ -601,7 +605,7 @@ export function Live() {
           />
         </Panel>
       </Sequence>
-      <Captions scene={live} anchors={anchors} />
+      <Voiceover scene={live} anchors={anchorsFor('live', take)} />
     </Stage>
   )
 }
@@ -616,20 +620,7 @@ export function Proof() {
   const to = Math.min(take.durationMs / 1000 - 0.1, from + 9)
   const finding = markOf(take, 'finding')
   const at = finding ? s(finding.t / 1000 - from) + 6 : s(4)
-  // The console opens on the run's worst leak; the dashboard shot looks up the same order.
-  const worst = Object.values(runs.checkout.findingsByPersona)
-    .flat()
-    .reduce<(typeof runs.checkout.findingsByPersona)['cart-shuffler'][number] | undefined>(
-      (top, f) =>
-        !top ||
-        Number(f.merchantLeakCents) + Number(f.customerHarmCents) >
-          Number(top.merchantLeakCents) + Number(top.customerHarmCents)
-          ? f
-          : top,
-      undefined,
-    )
-  const fact = (label: string) => worst?.evidence.find((e) => e.label === label)?.value ?? ''
-  const length = s(to - from)
+  const length = Math.min(s(to - from), PROOF_DASHBOARD)
   return (
     <Stage>
       <Sequence durationInFrames={length}>
@@ -644,10 +635,10 @@ export function Proof() {
       <Sequence from={length}>
         <Placeholder
           title="The same order in your PayPal sandbox dashboard"
-          detail={`You sign in and record this (VIDEO_PIPELINE §3.5): PayPal order ${fact('PayPal order')}, captured ${fact('Captured at PayPal')}, as in the finding.`}
+          detail={`You sign in and record this (VIDEO_PIPELINE §3.5): PayPal order ${WORST.order}, the ${WORST.captured} capture ${WORST.captureId}, as in the finding.`}
         />
       </Sequence>
-      <Captions scene={scene('proof')} />
+      <Voiceover scene={scene('proof')} anchors={anchorsFor('proof')} />
     </Stage>
   )
 }
@@ -701,7 +692,7 @@ export function AiVsCode() {
         y={736}
         width={1040}
       />
-      <Captions scene={vo} />
+      <Voiceover scene={vo} />
     </Stage>
   )
 }
@@ -763,7 +754,7 @@ export function Fix() {
   const tape = markOf(take, 'rerun-sealed')?.box ?? markOf(take, 'run-done')?.box
   const view = tape ? receiptView(tape) : undefined
   const split = cut[1]?.start ?? s(1.9)
-  const hold = s(2)
+  const hold = FIX_HOLD
   const ciAt = end + hold
   const ciFrom = 1.0
   const terminal = markOf(ci, 'terminal')?.box
@@ -819,7 +810,7 @@ export function Fix() {
           tag="LIVE · the Shakedown site"
         />
       </Sequence>
-      <Captions scene={fix} anchors={{ 2: ciAt / FPS + 0.3 }} />
+      <Voiceover scene={fix} anchors={anchorsFor('fix', take)} />
     </Stage>
   )
 }
@@ -838,7 +829,7 @@ const NODES = [
 export function Close() {
   const frame = useCurrentFrame()
   const close = scene('close')
-  const card = s(9.7)
+  const card = CLOSE_CARD
   const width = 300
   const gap = 56
   const left = (1920 - (NODES.length * width + (NODES.length - 1) * gap)) / 2
@@ -1004,7 +995,7 @@ export function Close() {
           </div>
         </AbsoluteFill>
       </Sequence>
-      <Captions scene={close} anchors={{ 1: card / FPS + 0.3 }} />
+      <Voiceover scene={close} anchors={anchorsFor('close')} />
     </Stage>
   )
 }

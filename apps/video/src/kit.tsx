@@ -1,6 +1,6 @@
 import { type CSSProperties, createContext, type ReactNode, useContext } from 'react'
-import { AbsoluteFill, useCurrentFrame } from 'remotion'
-import { type Cue, cues, type Scene } from './script'
+import { AbsoluteFill, Audio, Sequence, staticFile, useCurrentFrame } from 'remotion'
+import { type Cue, cues, FPS, lines, type Scene } from './script'
 import { C, FONT, presence, ramp } from './theme'
 
 /** The horned receipt, as on the site (DESIGN_SPEC §2.5). */
@@ -245,6 +245,38 @@ export function Captions({
         ))}
       </div>
     </AbsoluteFill>
+  )
+}
+
+/**
+ * A scene's voiceover: each recorded line (public/audio/vo/<scene>/<n>.wav) played where its
+ * sentence goes, with the captions over it. Lines not recorded yet show as captions only.
+ */
+export function Voiceover({
+  scene,
+  tone,
+  anchors,
+}: {
+  scene: Scene
+  tone?: 'ink' | 'paper'
+  anchors?: Partial<Record<number, number>>
+}) {
+  return (
+    <>
+      {lines(scene, { anchors })
+        .filter((line) => line.recorded)
+        .map((line) => (
+          <Sequence
+            key={line.sentence}
+            from={Math.round(line.start * FPS)}
+            durationInFrames={Math.ceil(line.seconds * FPS) + 1}
+            name={`Voice: ${line.text.slice(0, 32)}`}
+          >
+            <Audio src={staticFile(`audio/vo/${scene.id}/${line.sentence}.wav`)} />
+          </Sequence>
+        ))}
+      <Captions scene={scene} tone={tone} anchors={anchors} />
+    </>
   )
 }
 

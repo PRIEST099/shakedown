@@ -7,6 +7,7 @@
  * the animatic shows it as captions.
  */
 import runs from './data/runs.json'
+import vo from './data/vo.json'
 
 export const FPS = 30
 
@@ -17,6 +18,26 @@ export const TOTAL = money(-runs.checkout.totalCents)
 export const MERCHANT = money(runs.checkout.merchantLeakCents)
 export const CUSTOMER = money(runs.checkout.customerHarmCents)
 export const POLICY_EXCESS = runs.exhibit.verdict.atRisk
+
+/** The run's worst leak: the finding the console opens on, and the order the dashboard shot finds. */
+const worst = Object.values(runs.checkout.findingsByPersona)
+  .flat()
+  .reduce<(typeof runs.checkout.findingsByPersona)['cart-shuffler'][number] | undefined>(
+    (top, f) =>
+      !top ||
+      Number(f.merchantLeakCents) + Number(f.customerHarmCents) >
+        Number(top.merchantLeakCents) + Number(top.customerHarmCents)
+        ? f
+        : top,
+    undefined,
+  )
+const fact = (label: string) => worst?.evidence.find((e) => e.label === label)?.value ?? ''
+export const WORST = {
+  order: fact('PayPal order'),
+  /** "$18.00 (4G3057903W918205K)": the amount PayPal captured, and the capture's ID. */
+  captured: fact('Captured at PayPal').split(' ')[0] ?? '',
+  captureId: /\(([A-Z0-9]+)\)/.exec(fact('Captured at PayPal'))?.[1] ?? '',
+}
 export const LEAKS = runs.checkout.findings
 
 export type Source = 'LIVE' | 'MG' | 'HYBRID'
@@ -70,7 +91,7 @@ export const SCENES = [
     title: 'Proof: PayPal’s ledger keeps score',
     seconds: 18,
     source: 'LIVE',
-    vo: 'Every finding quotes PayPal’s own sandbox records: the same capture IDs and the same amounts that PayPal’s dashboard shows.',
+    vo: `Every finding quotes PayPal’s own sandbox records: the same capture IDs, the same amounts. Look the order up in PayPal’s dashboard, and there it is: the same ${WORST.captured} capture.`,
   },
   {
     id: 'ai-vs-code',
@@ -191,42 +212,78 @@ function split(text: string, max: number): string[] {
   return (best ?? halve(text)).flatMap((half) => split(half, max))
 }
 
+export interface Timing {
+  /** Seconds before the first word. */
+  lead?: number
+  /** Sentences held back until a moment in the scene (seconds), so words land with pictures. */
+  anchors?: Partial<Record<number, number>>
+}
+
+/** A sentence of the voiceover, placed: where it starts in the scene and how long it runs. */
+export interface Line {
+  sentence: number
+  text: string
+  start: number
+  seconds: number
+  /** Timed from a recorded take (src/data/vo.json) rather than estimated from its words. */
+  recorded: boolean
+}
+
+type Recorded = Record<string, { text: string; seconds: number }[] | undefined>
+
+/** The recorded lines of a scene, if they are takes of the script's sentences as written now. */
+function recorded(scene: Scene) {
+  const takes = (vo.lines as Recorded)[scene.id]
+  const said = sentences(scene.vo)
+  if (!takes || takes.length !== said.length) return undefined
+  return takes.every((take, i) => take.text === said[i]) ? takes : undefined
+}
+
 /**
- * The voiceover as caption cues, a sentence at a time. Cues follow each other at a speaking
- * pace of about 150 words a minute; an anchor holds a sentence back until a moment in the scene
- * (seconds), so the words land with the pictures. Without anchors, a scene whose words run
- * long is spoken a little faster to fit.
+ * Where each sentence of a scene's voiceover goes. Recorded lines run their real length;
+ * otherwise the words are timed at about 150 a minute (and a scene whose words run long, with no
+ * anchors, is spoken a little faster to fit). Each sentence follows the last after a breath, and
+ * an anchor holds one back until its moment; it never makes words overlap.
  */
-export function cues(
-  scene: Scene,
-  options: { lead?: number; anchors?: Partial<Record<number, number>> } = {},
-): Cue[] {
-  const lead = options.lead ?? 0.4
-  const anchors = options.anchors ?? {}
-  const pieces = sentences(scene.vo).flatMap((sentence, index) =>
-    split(sentence, CUE_MAX).map((text, k, all) => ({
-      text,
-      sentence: index,
-      first: k === 0,
-      breath: k === all.length - 1 ? BREATH.sentence : BREATH.clause,
-    })),
-  )
-  const natural = pieces.reduce((sum, p) => sum + spokenWords(p.text) * PACE + p.breath, 0)
+export function lines(scene: Scene, timing: Timing = {}): Line[] {
+  const lead = timing.lead ?? 0.4
+  const anchors = timing.anchors ?? {}
+  const said = sentences(scene.vo)
+  const takes = recorded(scene)
+  const estimate = (text: string) =>
+    spokenWords(text) * PACE + (split(text, CUE_MAX).length - 1) * BREATH.clause
+  const natural = said.reduce((sum, text) => sum + estimate(text) + BREATH.sentence, 0)
   const room = scene.seconds - lead - 0.3
-  const squeeze = Object.keys(anchors).length === 0 && natural > room ? room / natural : 1
+  const squeeze = !takes && Object.keys(anchors).length === 0 && natural > room ? room / natural : 1
   let at = lead
-  const timed = pieces.map((piece) => {
-    // An anchor holds a sentence back until its moment; it never makes words overlap.
-    const pinned = piece.first ? anchors[piece.sentence] : undefined
+  return said.map((text, sentence) => {
+    const pinned = anchors[sentence]
     if (pinned !== undefined) at = Math.max(at, pinned)
-    const length = spokenWords(piece.text) * PACE * squeeze
-    const cue = { ...piece, start: at, length }
-    at += length + piece.breath * squeeze
-    return cue
+    const seconds = takes?.[sentence]?.seconds ?? estimate(text) * squeeze
+    const line = { sentence, text, start: at, seconds, recorded: Boolean(takes) }
+    at += seconds + BREATH.sentence * squeeze
+    return line
+  })
+}
+
+/**
+ * The voiceover as caption cues: each sentence's time shared among its cues by their words. A
+ * cue stays up a little past its last word and comes down before the next one.
+ */
+export function cues(scene: Scene, timing: Timing = {}): Cue[] {
+  const timed = lines(scene, timing).flatMap((line) => {
+    const pieces = split(line.text, CUE_MAX)
+    const total = pieces.reduce((sum, piece) => sum + spokenWords(piece), 0)
+    let at = line.start
+    return pieces.map((text) => {
+      const length = (spokenWords(text) / total) * line.seconds
+      const cue = { text, sentence: line.sentence, start: at, length }
+      at += length
+      return cue
+    })
   })
   return timed.map((cue, i) => {
     const next = timed[i + 1]?.start ?? scene.seconds - 0.2
-    // A cue stays up a little past its last word, and comes down before the next one.
     const until = Math.min(cue.start + cue.length + 0.5, next - 0.07, scene.seconds - 0.2)
     return {
       from: Math.round(cue.start * FPS),
@@ -239,8 +296,8 @@ export function cues(
 }
 
 /** The frame where a sentence of a scene's voiceover starts. */
-export const sentenceAt = (scene: Scene, sentence: number, options?: Parameters<typeof cues>[1]) =>
-  cues(scene, options).find((cue) => cue.sentence === sentence)?.from ?? 0
+export const sentenceAt = (scene: Scene, sentence: number, timing?: Timing) =>
+  Math.round((lines(scene, timing)[sentence]?.start ?? 0) * FPS)
 
 /** How long a scene's words take at the natural pace, for checking the script against the cut. */
 export const spokenSeconds = (scene: Scene) =>

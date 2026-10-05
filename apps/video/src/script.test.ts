@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cues, DEMO_FRAMES, FPS, framesOf, SCENES, sentences, spokenSeconds } from './script'
+import { cues, DEMO_FRAMES, FPS, framesOf, lines, SCENES, sentences, spokenSeconds } from './script'
 
 describe('the script', () => {
   it('stays under the hackathon’s three minutes, with room to spare', () => {
@@ -9,6 +9,15 @@ describe('the script', () => {
   it('gives every scene time to say its words at a natural pace', () => {
     for (const scene of SCENES) {
       expect(spokenSeconds(scene) + 0.4, scene.id).toBeLessThanOrEqual(scene.seconds)
+    }
+  })
+
+  it('fits every scene’s voiceover, recorded or estimated, inside the scene', () => {
+    for (const scene of SCENES) {
+      const last = lines(scene).at(-1)
+      expect((last?.start ?? 0) + (last?.seconds ?? 0), scene.id).toBeLessThanOrEqual(
+        scene.seconds - 0.2,
+      )
     }
   })
 })

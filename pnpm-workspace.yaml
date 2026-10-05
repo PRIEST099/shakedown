@@ -4,6 +4,12 @@ packages:
   - "spikes"
 allowBuilds:
   esbuild: true
+  # Kokoro's dependencies (apps/video's scratch voiceover). None needs its script on macOS:
+  # onnxruntime-node ships its Mac binaries and only downloads CUDA builds for Linux; sharp
+  # uses its prebuilt @img package; protobufjs's script only prints a notice.
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
 minimumReleaseAgeExclude:
   - "@turbo/darwin-64@2.11.7"
   - "@turbo/darwin-arm64@2.11.7"

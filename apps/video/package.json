@@ -10,6 +10,8 @@
     "capture": "tsx scripts/capture.ts",
     "conform": "tsx scripts/conform.ts",
     "compose": "tsx scripts/compose.ts",
+    "voice": "tsx scripts/voice.ts",
+    "vo-sheet": "tsx scripts/vo-sheet.ts",
     "animatic": "remotion render src/index.ts Demo out/shakedown-animatic.mp4 && tsx scripts/master.ts out/shakedown-animatic.mp4",
     "teaser": "remotion render src/index.ts Teaser out/shakedown-teaser.mp4 && tsx scripts/master.ts out/shakedown-teaser.mp4",
     "master": "tsx scripts/master.ts",
@@ -31,6 +33,7 @@
     "@playwright/test": "1.63.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "kokoro-js": "1.2.1",
     "tsx": "4.23.15"
   }
 }

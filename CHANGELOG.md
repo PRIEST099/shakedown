@@ -13,6 +13,9 @@
   - The voiceover is scripted in `src/script.ts`. Until it's recorded, the animatic shows it as
     captions, at most two lines of about 42 characters.
 - **A 40-second vertical teaser** that loops, and **a 4K thumbnail**.
+- **A scratch voiceover,** read by Kokoro-82M (Apache-2.0), run locally: one take per sentence,
+  with the cut timed from each take's real length and the music ducked 10 dB under it.
+  `VOICEOVER.md` is the script for recording your own voice in its place.
 - **An original score, composed in code** from oscillators and seeded noise (no samples). Its LEAK
   and SEALED sounds land on the frames where the receipt prints and seals.
 - **Mastering to the platform level:** −14 LUFS, true peak under −1.5 dBTP, with a BS.1770-4 meter
