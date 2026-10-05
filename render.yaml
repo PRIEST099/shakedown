@@ -93,7 +93,7 @@ services:
     buildCommand: 'npx --yes pnpm@12.8.1 install --frozen-lockfile --filter "@shakedown/leaky-llama..." --filter "{.}" && npx --yes pnpm@12.8.1 --filter @shakedown/leaky-llama build'
     startCommand: cd apps/leaky-llama && ./node_modules/.bin/next start --port $PORT
     healthCheckPath: /api/health
-    # The store keeps its orders, and Lulu's spend log, on its own disk.
+    # The store keeps Lulu's spend log on its own disk; its orders are in Postgres.
     disk:
       name: store-data
       mountPath: /var/data
@@ -118,8 +118,16 @@ services:
       # Public for judges: checkouts, test deliveries and chat are limited per visitor.
       - key: SHAKEDOWN_JUDGE_MODE
         value: "1"
-      - key: STORE_DATA_DIR
-        value: /var/data/pglite
+      # The store's orders live in Render Postgres, in a database of their own (leaky_llama)
+      # that the store creates in the console's instance on first start. PGlite, the
+      # in-process Postgres used locally, needs about 900 MB: more than a Starter instance has.
+      - key: STORE_DATABASE_URL
+        fromDatabase:
+          name: shakedown-db
+          property: connectionString
+      - key: STORE_DATABASE_NAME
+        value: leaky_llama
+      # Lulu's spend log stays on the disk.
       - key: SHAKEDOWN_DATA_DIR
         value: /var/data/shakedown
       # Lulu, the store's support assistant. Optional; capped like every Claude call.

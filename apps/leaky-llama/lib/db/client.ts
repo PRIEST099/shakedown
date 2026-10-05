@@ -11,7 +11,8 @@ import { schema } from './schema'
 
 /**
  * The store runs on Postgres. With STORE_DATABASE_URL unset it uses PGlite, a real Postgres
- * compiled to WebAssembly that runs in-process, so local development needs no Docker.
+ * compiled to WebAssembly that runs in-process, so local development needs no Docker. Hosted, it
+ * uses Render Postgres: PGlite needs about 900 MB of memory, more than a Starter instance has.
  */
 export type StoreDb = PgDatabase<PgQueryResultHKT, typeof schema>
 
@@ -32,14 +33,42 @@ async function createPostgresDb(url: string): Promise<StoreDb> {
   return db as unknown as StoreDb
 }
 
+const DATABASE_NAME = /^[a-z_][a-z0-9_]{0,62}$/
+
+/**
+ * The store's own database inside the Postgres instance `url` points at, created on first start.
+ * Hosted, one Render Postgres instance serves both the console and the store: in separate
+ * databases, their tables and migration histories never mix. Returns the store's own URL.
+ */
+export async function ensureDatabase(url: string, name: string): Promise<string> {
+  if (!DATABASE_NAME.test(name)) throw new Error(`STORE_DATABASE_NAME is not a plain name: ${name}`)
+  const target = new URL(url)
+  if (target.pathname === `/${name}`) return url
+  const admin = postgres(url, { max: 1 })
+  try {
+    const found = await admin`select 1 from pg_database where datname = ${name}`
+    if (found.length === 0) {
+      await admin.unsafe(`create database ${name}`).catch((error: { code?: string }) => {
+        // Another process got there first: the database exists, which is all we need.
+        if (error.code !== '42P04') throw error
+      })
+    }
+  } finally {
+    await admin.end()
+  }
+  target.pathname = `/${name}`
+  return target.toString()
+}
+
 // One database per server process. Next's dev server reloads modules, so keep it on globalThis.
 const holder = globalThis as unknown as { __leakyLlamaDb?: Promise<StoreDb> }
 
 export function getDb(): Promise<StoreDb> {
   if (!holder.__leakyLlamaDb) {
     const url = process.env.STORE_DATABASE_URL?.trim()
+    const name = process.env.STORE_DATABASE_NAME?.trim()
     holder.__leakyLlamaDb = url
-      ? createPostgresDb(url)
+      ? (name ? ensureDatabase(url, name) : Promise.resolve(url)).then(createPostgresDb)
       : // One PGlite directory per server process: two servers must never share one.
         createPgliteDb(
           path.resolve(

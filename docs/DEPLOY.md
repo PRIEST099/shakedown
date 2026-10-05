@@ -15,7 +15,7 @@ against Render's published schema, https://render.com/schema/render.yaml.json.
 | Resource | What it is | Plan | List price |
 |---|---|---|---|
 | `shakedown-web` | The site, `/docs` and the console | Starter | $7 a month |
-| `shakedown-store` | Leaky Llama, the demo store, with a 1 GB disk for its database | Starter | $7 a month, plus $0.25 for the disk |
+| `shakedown-store` | Leaky Llama, the demo store: its orders in a database of their own (`leaky_llama`) inside `shakedown-db`, and a 1 GB disk for Lulu's spend log | Starter | $7 a month, plus $0.25 for the disk |
 | `shakedown-runs` | The Render Workflows service that runs campaigns | Billed per second | Under a cent per run |
 | `shakedown-db` | Postgres for the console: runs, jobs, their progress, Triage's spend | basic-256mb, 1 GB of storage | $6 a month, plus $0.30 for the storage |
 
@@ -26,6 +26,11 @@ is `0.1c-256mb`); the old names still work in Blueprints.
 
 The database's storage is set to 1 GB on purpose: left out, a Basic database gets 15 GB ($4.50 a
 month), and storage can grow later but never shrink.
+
+Locally the store runs on PGlite, a Postgres that runs inside the app. Hosted, it can't: PGlite
+needs about 900 MB of memory and a Starter instance has 512 MB. So the store creates its own
+`leaky_llama` database inside the console's Postgres on its first start, keeping its tables and
+migrations apart at no extra cost, and runs in under 200 MB.
 
 ## How a hosted run works
 
@@ -79,6 +84,10 @@ probe secret never crosses the internet, and the database accepts no outside con
 
    The PayPal keys sit on each service rather than in the shared `shakedown-sandbox` group
    because Render never prompts for a secret inside a group.
+
+   **If a service was created after the Blueprint itself** (say, a first sync stopped partway),
+   Render never asks for its secrets. Type them in on that service's **Environment** page, and
+   save with **Save, rebuild, and deploy**.
 3. **Apply.** Render creates the database and the three services and deploys them.
 4. **Check the web service is ready.** Open `https://<shakedown-web URL>/api/console/status`. It
    should say `"live": true` and `"runner": "render-workflows"`. If it says `"live": false`, the

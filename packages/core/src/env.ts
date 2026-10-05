@@ -38,6 +38,13 @@ export const envSchema = z.object({
     blankToUndefined,
     z.url({ error: 'Must be a valid URL.' }).optional(),
   ),
+  STORE_DATABASE_NAME: z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .regex(/^[a-z_][a-z0-9_]{0,62}$/, { error: 'Use lowercase letters, digits and _.' })
+      .optional(),
+  ),
   PAYPAL_WEBHOOK_ID: optionalString,
   SHAKEDOWN_VERIFICATION_TOKEN: z.preprocess(
     blankToUndefined,

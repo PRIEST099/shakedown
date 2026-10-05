@@ -145,6 +145,13 @@ describe('the Render Blueprints', () => {
     for (const s of [web, store]) {
       expect(envOf(dev, s).find((e) => e.key === 'SHAKEDOWN_JUDGE_MODE')?.value, s.name).toBe('1')
     }
+    // The store runs on Render Postgres, in its own database: PGlite needs more memory than a
+    // Starter instance has.
+    const storeDb = envOf(dev, store).find((e) => e.key === 'STORE_DATABASE_URL')
+    expect(storeDb?.fromDatabase).toEqual({ name: 'shakedown-db', property: 'connectionString' })
+    expect(envOf(dev, store).find((e) => e.key === 'STORE_DATABASE_NAME')?.value).toBe(
+      'leaky_llama',
+    )
     expect(keysOf(dev, runs)).toEqual(
       expect.arrayContaining(['CONSOLE_DATABASE_URL', 'LEAKY_LLAMA_HOSTPORT']),
     )
@@ -154,13 +161,13 @@ describe('the Render Blueprints', () => {
       type: 'workflow',
       property: 'slug',
     })
-    // The store's database and spend log live on its disk, so they survive a deploy.
+    // Lulu's spend log lives on the store's disk, so it survives a deploy; the orders are in
+    // Postgres, so nothing points the in-process database at the disk any more.
     const mount = store.disk?.mountPath ?? '(no disk)'
-    for (const key of ['STORE_DATA_DIR', 'SHAKEDOWN_DATA_DIR']) {
-      expect(String(envOf(dev, store).find((e) => e.key === key)?.value)).toMatch(
-        new RegExp(`^${mount}/`),
-      )
-    }
+    expect(String(envOf(dev, store).find((e) => e.key === 'SHAKEDOWN_DATA_DIR')?.value)).toMatch(
+      new RegExp(`^${mount}/`),
+    )
+    expect(keysOf(dev, store)).not.toContain('STORE_DATA_DIR')
   })
 
   it('start the workflow from the bundle tsup writes', () => {
