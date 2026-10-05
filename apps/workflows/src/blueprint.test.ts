@@ -101,7 +101,9 @@ describe('the Render Blueprints', () => {
     for (const blueprint of [dev, judge]) {
       for (const s of blueprint.services) {
         expect(s.buildCommand, s.name).not.toMatch(/install (-g|--global)/)
-        expect(s.buildCommand, s.name).toMatch(/^npx --yes pnpm@\d+\.\d+\.\d+ install --frozen-lockfile --filter /)
+        expect(s.buildCommand, s.name).toMatch(
+          /^npx --yes pnpm@\d+\.\d+\.\d+ install --frozen-lockfile --filter /,
+        )
       }
     }
   })
