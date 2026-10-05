@@ -23,8 +23,10 @@ next-env.d.ts
 # Spike evidence (sandbox IDs; kept local)
 spikes/results
 
-# Rendered video output
+# Rendered video output, and the footage it is cut from (regenerate: capture, then conform)
 apps/video/out
+apps/video/public/footage
+apps/video/public/audio
 
 # Local app data (webhook inbox, etc.)
 .data

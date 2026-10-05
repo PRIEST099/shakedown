@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Phase 12: the video, first cut (2026-10-05)
+
+- **An animatic of the hackathon video** (`apps/video`, 2:40), in Remotion, from real footage:
+  - Playwright records the site and the console frame by frame, logging the cursor, the clicks,
+    and a mark for every receipt line as it prints, all on one clock.
+  - The cut is worked out from those marks: footage at real speed for the clicks and ramped up
+    while the receipt prints, each segment tagged with its speed; the camera eases in on what
+    matters; and beside the receipt, an ink panel says each leak in plain words as it prints.
+  - The voiceover is scripted in `src/script.ts`. Until it's recorded, the animatic shows it as
+    captions, at most two lines of about 42 characters.
+- **A 40-second vertical teaser** that loops, and **a 4K thumbnail**.
+- **An original score, composed in code** from oscillators and seeded noise (no samples). Its LEAK
+  and SEALED sounds land on the frames where the receipt prints and seals.
+- **Mastering to the platform level:** −14 LUFS, true peak under −1.5 dBTP, with a BS.1770-4 meter
+  and a true-peak limiter written for it, since Remotion's ffmpeg has no limiter.
+- **An asset ledger** (`apps/video/ASSETS.md`): the four OFL fonts, with the attributions from their
+  name tables, and everything made for the project.
+- **Fixed: shared components lost their fonts outside the site.** `tokens.css` builds the font
+  stacks from variables that only exist inside the page, so the video now sets the stacks too.
+
 ### Phase 11: hardening, evals and credibility (2026-10-05)
 
 - **Security review.** The new [threat model](docs/THREAT_MODEL.md) ties each threat to the code

@@ -1,18 +1,32 @@
-import { HERO_TIMING } from '@shakedown/ui'
-import { Composition } from 'remotion'
-import { TapeSpike } from './TapeSpike'
-
-const FPS = 30
+import { Composition, Still } from 'remotion'
+import { Demo } from './Demo'
+import { DEMO_FRAMES, FPS } from './script'
+import { TEASER_FRAMES, Teaser } from './Teaser'
+import { Thumbnail } from './Thumbnail'
 
 export function Root() {
   return (
-    <Composition
-      id="TapeSpike"
-      component={TapeSpike}
-      durationInFrames={Math.ceil((HERO_TIMING.endMs / 1000) * FPS) + FPS}
-      fps={FPS}
-      width={1920}
-      height={1080}
-    />
+    <>
+      {/* The hackathon video: 1920×1080 at 30 fps; final renders use --scale=2 for 4K. */}
+      <Composition
+        id="Demo"
+        component={Demo}
+        durationInFrames={DEMO_FRAMES}
+        fps={FPS}
+        width={1920}
+        height={1080}
+        defaultProps={{ captions: true }}
+      />
+      {/* The 40-second vertical cut for Shorts, Reels and TikTok. */}
+      <Composition
+        id="Teaser"
+        component={Teaser}
+        durationInFrames={TEASER_FRAMES}
+        fps={FPS}
+        width={1080}
+        height={1920}
+      />
+      <Still id="Thumbnail" component={Thumbnail} width={1920} height={1080} />
+    </>
   )
 }

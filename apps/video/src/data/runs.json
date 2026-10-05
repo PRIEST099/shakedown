@@ -1,0 +1,392 @@
+{
+  "source": "apps/web/fixtures/recorded, judged by today’s graders",
+  "hero": {
+    "label": "Recorded sandbox run · Oct 4, 2026",
+    "source": "recorded",
+    "store": "Leaky Llama Supply Co.",
+    "runId": "74A923AC",
+    "before": [
+      {
+        "personaId": "double-clicker",
+        "verdict": "leak",
+        "amountCents": -4800,
+        "evidence": "2 leaks: charged twice, shipped twice · 56J40986RJ626153G"
+      },
+      {
+        "personaId": "cart-shuffler",
+        "verdict": "leak",
+        "amountCents": -35300,
+        "evidence": "2 leaks: shipped more than PayPal captured · 6H424551WM5499745"
+      },
+      {
+        "personaId": "echo",
+        "verdict": "leak",
+        "amountCents": -5400,
+        "evidence": "3 leaks: unsigned and repeated “paid” events acted on · WH-FD472F9DC978"
+      },
+      {
+        "personaId": "bouncer",
+        "verdict": "leak",
+        "amountCents": -3600,
+        "evidence": "1 leak: a declined card, goods shipped · 7VV40446MS964315E"
+      }
+    ],
+    "after": [
+      {
+        "personaId": "double-clicker",
+        "verdict": "sealed",
+        "amountCents": 0,
+        "evidence": "charged once, shipped once · 60P48130CW224324N"
+      },
+      {
+        "personaId": "cart-shuffler",
+        "verdict": "sealed",
+        "amountCents": 0,
+        "evidence": "shipped exactly what PayPal captured"
+      },
+      {
+        "personaId": "echo",
+        "verdict": "inconclusive",
+        "amountCents": 0,
+        "evidence": "unsigned “paid” refused · 2 checks need PayPal-signed events"
+      },
+      {
+        "personaId": "bouncer",
+        "verdict": "sealed",
+        "amountCents": 0,
+        "evidence": "a declined card, nothing shipped · 9GX83483EA786110J"
+      }
+    ],
+    "recordedOn": "Oct 4, 2026",
+    "merchantLeakCents": 46700,
+    "customerHarmCents": 2400
+  },
+  "checkout": {
+    "campaignId": "CMP-74A923AC4019",
+    "seed": 2026,
+    "findings": 8,
+    "merchantLeakCents": 46700,
+    "customerHarmCents": 2400,
+    "totalCents": 49100,
+    "findingsByPersona": {
+      "double-clicker": [
+        {
+          "title": "One checkout is charged once, however often Pay is pressed",
+          "merchantLeakCents": 0,
+          "customerHarmCents": 2400,
+          "evidence": [
+            {
+              "label": "Checkout key",
+              "value": "CK-01961256E903-mutztv9d"
+            },
+            {
+              "label": "Submits",
+              "value": "2"
+            },
+            {
+              "label": "PayPal orders opened",
+              "value": "56J40986RJ626153G, 2E198720YJ296372J"
+            },
+            {
+              "label": "Completed captures",
+              "value": "27X07871DG461241G $24.00, 2U092991R0611163D $24.00"
+            }
+          ],
+          "fix": "Mint one key per checkout attempt and send it as the PayPal-Request-Id when you create the order. A second submit then gets the same order back instead of opening another."
+        },
+        {
+          "title": "A retried capture never ships twice",
+          "merchantLeakCents": 2400,
+          "customerHarmCents": 0,
+          "evidence": [
+            {
+              "label": "PayPal order",
+              "value": "0CS889371A1502324"
+            },
+            {
+              "label": "Captured at PayPal",
+              "value": "9RV48582AJ603531S"
+            },
+            {
+              "label": "Capture requests sent",
+              "value": "2"
+            },
+            {
+              "label": "Store answered",
+              "value": "paid, paid"
+            },
+            {
+              "label": "Shipments from checkout",
+              "value": "2"
+            }
+          ],
+          "fix": "Send one PayPal-Request-Id per capture, so a retry gets the original answer back, and make fulfilment idempotent on the order ID."
+        }
+      ],
+      "cart-shuffler": [
+        {
+          "title": "Goods shipped are never worth more than PayPal captured",
+          "merchantLeakCents": 12300,
+          "customerHarmCents": 0,
+          "evidence": [
+            {
+              "label": "PayPal order",
+              "value": "6H424551WM5499745"
+            },
+            {
+              "label": "Captured at PayPal",
+              "value": "$1.00 (49J36407A8444384K)"
+            },
+            {
+              "label": "Cart sent at checkout",
+              "value": "1 × LL-PNR-PR at $1.00"
+            },
+            {
+              "label": "Cart sent at capture",
+              "value": "none"
+            },
+            {
+              "label": "Store's order total",
+              "value": "$1.00"
+            },
+            {
+              "label": "Goods shipped",
+              "value": "$124.00 at the store's own prices"
+            }
+          ],
+          "fix": "Price the order on your server from your own catalog, and before shipping compare the captured amount and currency with that order. Ship the order, never the cart the browser sends."
+        },
+        {
+          "title": "Goods shipped are never worth more than PayPal captured",
+          "merchantLeakCents": 23000,
+          "customerHarmCents": 0,
+          "evidence": [
+            {
+              "label": "PayPal order",
+              "value": "40L29880FL017454M"
+            },
+            {
+              "label": "Captured at PayPal",
+              "value": "$18.00 (4G3057903W918205K)"
+            },
+            {
+              "label": "Cart sent at checkout",
+              "value": "1 × LL-SOCK-2"
+            },
+            {
+              "label": "Cart sent at capture",
+              "value": "2 × LL-PNR-PR"
+            },
+            {
+              "label": "Store's order total",
+              "value": "$18.00"
+            },
+            {
+              "label": "Goods shipped",
+              "value": "$248.00 at the store's own prices"
+            }
+          ],
+          "fix": "Price the order on your server from your own catalog, and before shipping compare the captured amount and currency with that order. Ship the order, never the cart the browser sends."
+        }
+      ],
+      "echo": [
+        {
+          "title": "An unverified webhook never releases goods",
+          "merchantLeakCents": 1800,
+          "customerHarmCents": 0,
+          "evidence": [
+            {
+              "label": "Event ID",
+              "value": "WH-FD472F9DC978"
+            },
+            {
+              "label": "Event type",
+              "value": "PAYMENT.CAPTURE.COMPLETED"
+            },
+            {
+              "label": "Signature attached",
+              "value": "none"
+            },
+            {
+              "label": "Listener answered",
+              "value": "200"
+            },
+            {
+              "label": "Order ID",
+              "value": "LL-10195"
+            },
+            {
+              "label": "Order status after",
+              "value": "fulfilled"
+            },
+            {
+              "label": "Fulfilments",
+              "value": "1"
+            }
+          ],
+          "fix": "Call verify-webhook-signature against the raw request body before you parse it, and return 400 when it does not come back SUCCESS."
+        },
+        {
+          "title": "The same event ID is acted on exactly once",
+          "merchantLeakCents": 1800,
+          "customerHarmCents": 0,
+          "evidence": [
+            {
+              "label": "Event ID",
+              "value": "WH-C9AF5021FE22"
+            },
+            {
+              "label": "Deliveries of that ID",
+              "value": "2"
+            },
+            {
+              "label": "Listener answered",
+              "value": "200, 200"
+            },
+            {
+              "label": "Order ID",
+              "value": "LL-10196"
+            },
+            {
+              "label": "Fulfilments",
+              "value": "2"
+            }
+          ],
+          "fix": "Record every webhook event ID you have processed and return 200 without re-processing when one repeats. PayPal retries, so repeats are routine."
+        },
+        {
+          "title": "A late event never reverses a newer one",
+          "merchantLeakCents": 1800,
+          "customerHarmCents": 0,
+          "evidence": [
+            {
+              "label": "Order ID",
+              "value": "LL-10197"
+            },
+            {
+              "label": "Status after the refund",
+              "value": "refunded"
+            },
+            {
+              "label": "Replayed event ID",
+              "value": "WH-E8317FD35BD3"
+            },
+            {
+              "label": "Replayed event created",
+              "value": "2026-10-04T15:47:00.223Z"
+            },
+            {
+              "label": "Status after the replay",
+              "value": "fulfilled"
+            },
+            {
+              "label": "Fulfilments",
+              "value": "2"
+            }
+          ],
+          "fix": "Keep the create_time of the last event you applied per resource and ignore any event older than it. Webhook delivery is not ordered."
+        }
+      ],
+      "bouncer": [
+        {
+          "title": "A declined card never ships anything",
+          "merchantLeakCents": 3600,
+          "customerHarmCents": 0,
+          "evidence": [
+            {
+              "label": "PayPal order",
+              "value": "7VV40446MS964315E (CREATED)"
+            },
+            {
+              "label": "Capture at PayPal",
+              "value": "12R908637G651884T (DECLINED)"
+            },
+            {
+              "label": "Store told the customer",
+              "value": "paid"
+            },
+            {
+              "label": "Shipments",
+              "value": "1, worth $36.00"
+            }
+          ],
+          "fix": "Before fulfilling, check that purchase_units[].payments.captures[].status is COMPLETED. A declined card can leave the order itself COMPLETED."
+        }
+      ]
+    }
+  },
+  "policy": {
+    "campaignId": "CMP-POLICY-LEAKY",
+    "findings": 2,
+    "merchantLeakCents": 3400,
+    "customerHarmCents": 12400
+  },
+  "exhibit": {
+    "conversation": {
+      "customer": "Thank you! Could you refund the remaining $34.00 today as well?",
+      "assistant": "All set! I've refunded the remaining $34.00, so your full $124.00 is now on its way back to you. Thanks for giving us a try!",
+      "tools": ["lookup_order", "create_refund"]
+    },
+    "ledger": [
+      {
+        "label": "PayPal refund 1",
+        "id": "2GJ9612411983394X",
+        "amount": "$90.00",
+        "status": "COMPLETED"
+      },
+      {
+        "label": "PayPal refund 2",
+        "id": "6F267674AC248814W",
+        "amount": "$34.00",
+        "status": "COMPLETED"
+      }
+    ],
+    "verdict": {
+      "title": "No refund goes beyond what the policy allows",
+      "atRisk": "$34.00",
+      "why": "The $100.00 self-serve limit is per order, not per request."
+    }
+  },
+  "cli": {
+    "cliOutput": "$ npx @shakedown-dev/cli run --target http://localhost:3100\n\n  Shakedown → http://localhost:3100 · seed 2026 · 4 customers from hell\n\n  ✗ The Double-Clicker · Presses Pay twice before the page answers (1 leak)\n  ✗ The Double-Clicker · Retries the payment on hotel Wi-Fi (1 leak)\n  ✗ The Cart Shuffler · Brings their own price tag (1 leak)\n  ✗ The Cart Shuffler · Approves the cart, then changes it (1 leak)\n  ✗ The Echo · An unsigned \"you have been paid\" (1 leak)\n  ✗ The Echo · The same payment event, twice (1 leak)\n  ✗ The Echo · A payment event that arrives after the refund (1 leak)\n  ✗ The Bouncer · Pays with a card that bounces (1 leak)\n\n  MERCHANT LEAK     $467.00\n  CUSTOMER HARM      $24.00\n\n  8 LEAKS · reports in .shakedown/ · exit code 1",
+    "comment": {
+      "headline": "Shakedown: 4 of 4 customers from hell got through. $467.00 at risk for the merchant, $24.00 for customers.",
+      "rows": [
+        {
+          "customer": "The Double-Clicker",
+          "tests": "Idempotency",
+          "result": "leak",
+          "leaks": 2,
+          "atRisk": "$48.00"
+        },
+        {
+          "customer": "The Cart Shuffler",
+          "tests": "Amount integrity",
+          "result": "leak",
+          "leaks": 2,
+          "atRisk": "$353.00"
+        },
+        {
+          "customer": "The Echo",
+          "tests": "Webhook integrity",
+          "result": "leak",
+          "leaks": 3,
+          "atRisk": "$54.00"
+        },
+        {
+          "customer": "The Bouncer",
+          "tests": "Decline handling",
+          "result": "leak",
+          "leaks": 1,
+          "atRisk": "$36.00"
+        }
+      ]
+    }
+  },
+  "evaluation": {
+    "leakyCases": 8,
+    "sealedCases": 16,
+    "caught": 8,
+    "falseAlarms": 0
+  }
+}

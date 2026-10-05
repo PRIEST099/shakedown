@@ -6,8 +6,17 @@
   "description": "Remotion compositions for the Shakedown explainer and demo videos. Reuses @shakedown/ui.",
   "scripts": {
     "studio": "remotion studio src/index.ts",
-    "render:spike": "remotion render src/index.ts TapeSpike out/tape-spike.mp4",
-    "typecheck": "tsc -p tsconfig.json"
+    "data": "cd ../web && tsx ../video/scripts/data.ts",
+    "capture": "tsx scripts/capture.ts",
+    "conform": "tsx scripts/conform.ts",
+    "compose": "tsx scripts/compose.ts",
+    "animatic": "remotion render src/index.ts Demo out/shakedown-animatic.mp4 && tsx scripts/master.ts out/shakedown-animatic.mp4",
+    "teaser": "remotion render src/index.ts Teaser out/shakedown-teaser.mp4 && tsx scripts/master.ts out/shakedown-teaser.mp4",
+    "master": "tsx scripts/master.ts",
+    "thumbnail": "remotion still src/index.ts Thumbnail out/shakedown-thumbnail.png --scale=2",
+    "sheet": "tsx scripts/contact-sheet.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
   },
   "dependencies": {
     "@remotion/cli": "4.0.532",
@@ -19,7 +28,9 @@
     "remotion": "4.0.532"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0"
+    "@types/react-dom": "19.3.0",
+    "tsx": "4.23.15"
   }
 }
