@@ -206,6 +206,9 @@ the demo's HTTP API: the store's checkout, probe and webhook routes, and the con
   - the JavaScript SDK v6 card fields in the demo store's checkout;
   - the [PayPal Agent Toolkit](https://github.com/paypal/agent-toolkit), wired into the demo
     support assistant to show what an unguarded refund tool does.
+    Testing it, I reproduced its open issue #98 (no `PayPal-Request-Id` on create and capture) and
+    sent a fix with the package's first tests:
+    [paypal/agent-toolkit#108](https://github.com/paypal/agent-toolkit/pull/108).
 - **Claude (Anthropic API, Haiku 4.5)** through the official TypeScript SDK:
   - the Policy Lawyer;
   - Lulu, the demo store's support assistant;
