@@ -13,8 +13,26 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { DEMO_FRAMES, FPS, framesOf, SCENES, type SceneId, START, sentenceAt } from '../src/script'
-import { fixCut, hookCut, liveCut, stings, type Take, teaserCut } from '../src/timeline'
+import {
+  DEMO_FRAMES,
+  FPS,
+  framesOf,
+  phraseAt,
+  SCENES,
+  type SceneId,
+  START,
+  sentenceAt,
+} from '../src/script'
+import {
+  anchorsFor,
+  fixCut,
+  hookCut,
+  liveCut,
+  stings,
+  storeCut,
+  type Take,
+  teaserCut,
+} from '../src/timeline'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const RATE = 48_000
@@ -224,6 +242,12 @@ function scoreFilm() {
   for (let i = 0; i < 5; i += 1)
     add(said('cast', i), pluck((D_MINOR[i % D_MINOR.length] ?? 0) + 12, 1.4), 0.32, -0.6 + i * 0.3)
 
+  // The store: a shop bell as the door opens, the groove kept low, a pluck as the switches open.
+  const store = storeCut(take('store'))
+  groove(sec('store'), end('store'), { kick: true, hats: 2, bassLine: [38, 38, 41, 43], gain: 0.6 })
+  add(sec('store') + 0.15, bell(81, 1.8), 0.16)
+  add(sec('store') + store.switches / FPS, pluck(69, 1.6), 0.3)
+
   // The live run: the receipt printer's sixteenths, a LEAK as each line prints, a low thud when
   // the total settles.
   const live = liveCut(liveRun)
@@ -239,9 +263,11 @@ function scoreFilm() {
   add(sec('live') + live.end / FPS, bass(33, 1.6), 0.5)
   add(sec('live') + live.end / FPS, leak(), 0.5)
 
-  // The proof: down to a pad and a pulse.
+  // One leak followed: down to a pad and a pulse, and a LEAK as its sum lands.
   add(sec('proof'), pad([50, 57, 60, 65], end('proof') - sec('proof')), 0.3)
   groove(sec('proof'), end('proof'), { kick: true, gain: 0.45 })
+  const leaked = phraseAt(sceneOf('proof'), 2, 'leaked', { anchors: anchorsFor('proof') })
+  add(sec('proof') + leaked / FPS, leak(), 0.4)
 
   // AI vs code: a doubtful chord, and a LEAK when the ledger's verdict is called out.
   add(sec('ai-vs-code'), pad([50, 57, 64, 65], end('ai-vs-code') - sec('ai-vs-code')), 0.3)

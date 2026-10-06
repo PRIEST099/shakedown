@@ -65,10 +65,20 @@
         "seconds": 4.473
       }
     ],
+    "store": [
+      {
+        "text": "Meet Leaky Llama, my demo store.",
+        "seconds": 2.146
+      },
+      {
+        "text": "It takes PayPal like any small shop, but I left the common integration mistakes in, on purpose.",
+        "seconds": 5.865
+      }
+    ],
     "live": [
       {
-        "text": "Here is a live run against Leaky Llama, my deliberately leaky demo store.",
-        "seconds": 4.509
+        "text": "Now the customers from hell go shopping.",
+        "seconds": 2.065
       },
       {
         "text": "Each leak prints as PayPal’s sandbox confirms it.",
@@ -97,12 +107,20 @@
     ],
     "proof": [
       {
-        "text": "Every finding quotes PayPal’s own sandbox records: the same capture IDs, the same amounts.",
-        "seconds": 6.083
+        "text": "Follow one of those leaks.",
+        "seconds": 1.422
       },
       {
-        "text": "Look the order up in PayPal’s dashboard, and there it is: the same $18.00 capture.",
-        "seconds": 5.128
+        "text": "The Cart Shuffler approved $18.00 of socks, then changed the cart to two pairs of panniers.",
+        "seconds": 5.652
+      },
+      {
+        "text": "PayPal captured $18.00, the store shipped $248.00 of goods, and $230.00 leaked.",
+        "seconds": 7.059
+      },
+      {
+        "text": "And PayPal’s own dashboard shows that same capture: $18.00.",
+        "seconds": 3.947
       }
     ],
     "ai-vs-code": [

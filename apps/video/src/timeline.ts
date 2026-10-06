@@ -19,7 +19,7 @@ export type TakeEvent =
 
 export type Mark = Extract<TakeEvent, { type: 'mark' }>
 
-export type TakeName = 'landing' | 'live-run' | 'console' | 'exhibit' | 'ci' | 'dashboard'
+export type TakeName = 'landing' | 'store' | 'live-run' | 'console' | 'exhibit' | 'ci' | 'dashboard'
 
 export interface Take {
   take: TakeName
@@ -127,6 +127,22 @@ export function hookCut(take: Take) {
 }
 
 /**
+ * The store scene, at real speed: three seconds of the shelf, then the checkout with PayPal's
+ * button, then the leak switches opening over it (the last two run on, uncut). `switches` is the
+ * frame of that click.
+ */
+export function storeCut(take: Take) {
+  const shelf = markAt(take, 'shelf')
+  const opened = (take.events.filter((e) => e.type === 'click').at(-1)?.t ?? 0) / 1000
+  const cut = place([
+    { from: shelf - 0.1, to: shelf + 3, rate: 1 },
+    { from: markAt(take, 'cart') - 0.2, to: opened - 0.1, rate: 1 },
+    { from: opened - 0.1, to: take.durationMs / 1000 - 0.1, rate: 1 },
+  ])
+  return { cut, switches: frameIn(cut, opened) }
+}
+
+/**
  * S5: the click at real speed, the wait for the first leak at 4×, then the printing at 2×,
  * stopping when the total has settled.
  */
@@ -207,10 +223,15 @@ export function teaserCut(take: Take) {
 // ---------- the voiceover's place in the cut ----------
 
 /**
- * S6 cuts from the console to the dashboard shot by this frame; S8 holds the sealed receipt this
- * long before cutting to CI; S9's end card comes in at this frame.
+ * S6 cuts from the console to the dashboard shot by this frame: just after the voiceover has added
+ * the leak up, however fast the take reads it. S8 holds the sealed receipt this long before
+ * cutting to CI; S9's end card comes in at this frame.
  */
-export const PROOF_DASHBOARD = Math.round(8.7 * FPS)
+export const PROOF_DASHBOARD = (() => {
+  const proof = SCENES.find((scene) => scene.id === 'proof')
+  const added = proof ? lines(proof)[2] : undefined
+  return Math.round(((added?.start ?? 0) + (added?.seconds ?? 0) + 0.4) * FPS)
+})()
 export const FIX_HOLD = 2 * FPS
 export const CLOSE_CARD = Math.round(9.7 * FPS)
 
@@ -232,7 +253,7 @@ export function anchorsFor(id: SceneId, take?: Take): Partial<Record<number, num
       6: end / FPS + 0.8,
     }
   }
-  if (id === 'proof') return { 1: PROOF_DASHBOARD / FPS + 0.5 }
+  if (id === 'proof') return { 3: PROOF_DASHBOARD / FPS + 0.5 }
   if (id === 'fix' && take) return { 2: (fixCut(take).end + FIX_HOLD) / FPS + 0.3 }
   if (id === 'close') return { 1: CLOSE_CARD / FPS + 0.3 }
   return {}

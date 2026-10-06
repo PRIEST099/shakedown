@@ -8,6 +8,7 @@
  */
 import runs from './data/runs.json'
 import vo from './data/vo.json'
+import { numberWords } from './spoken'
 
 export const FPS = 30
 
@@ -32,11 +33,33 @@ const worst = Object.values(runs.checkout.findingsByPersona)
     undefined,
   )
 const fact = (label: string) => worst?.evidence.find((e) => e.label === label)?.value ?? ''
+
+/** A cart as the evidence quotes it, "2 × LL-PNR-PR", named and priced from the store's catalog. */
+function cartOf(line: string) {
+  const [, qty = '0', sku = ''] = /^(\d+) × (\S+)/.exec(line) ?? []
+  const product = runs.store.catalog.find((item) => item.sku === sku)
+  return {
+    qty: Number(qty),
+    name: product?.name ?? sku,
+    cents: Number(qty) * (product?.priceCents ?? 0),
+  }
+}
+
+/**
+ * The worst leak, which the video follows from the receipt to PayPal's own dashboard: the Cart
+ * Shuffler approved one cart, sent another at capture, and the store shipped the second.
+ */
 export const WORST = {
   order: fact('PayPal order'),
   /** "$18.00 (4G3057903W918205K)": the amount PayPal captured, and the capture's ID. */
   captured: fact('Captured at PayPal').split(' ')[0] ?? '',
   captureId: /\(([A-Z0-9]+)\)/.exec(fact('Captured at PayPal'))?.[1] ?? '',
+  /** "$248.00 at the store's own prices": what the store shipped. */
+  shipped: fact('Goods shipped').split(' ')[0] ?? '',
+  /** What the store shipped beyond what PayPal captured. */
+  leakCents: Number(worst?.merchantLeakCents ?? 0) + Number(worst?.customerHarmCents ?? 0),
+  approved: cartOf(fact('Cart sent at checkout')),
+  swapped: cartOf(fact('Cart sent at capture')),
 }
 export const LEAKS = runs.checkout.findings
 
@@ -75,23 +98,30 @@ export const SCENES = [
   {
     id: 'cast',
     title: 'The cast',
-    seconds: 20,
+    seconds: 18,
     source: 'MG',
     vo: 'The Double-Clicker presses Pay twice. The Cart Shuffler changes the cart after approval. The Echo replays payment events. The Bouncer pays with a card that bounces. And the Policy Lawyer talks your AI support agent past your refund policy.',
+  },
+  {
+    id: 'store',
+    title: 'The store under test: Leaky Llama',
+    seconds: 10.5,
+    source: 'LIVE',
+    vo: 'Meet Leaky Llama, my demo store. It takes PayPal like any small shop, but I left the common integration mistakes in, on purpose.',
   },
   {
     id: 'live',
     title: 'A live run',
     seconds: 30,
     source: 'LIVE',
-    vo: `Here is a live run against Leaky Llama, my deliberately leaky demo store. Each leak prints as PayPal’s sandbox confirms it. Charged twice and shipped twice. Goods shipped for more than PayPal captured. An unsigned “paid” event that released the goods. A declined card, and the order shipped anyway. ${LEAKS} leaks in all.`,
+    vo: `Now the customers from hell go shopping. Each leak prints as PayPal’s sandbox confirms it. Charged twice and shipped twice. Goods shipped for more than PayPal captured. An unsigned “paid” event that released the goods. A declined card, and the order shipped anyway. ${LEAKS} leaks in all.`,
   },
   {
     id: 'proof',
-    title: 'Proof: PayPal’s ledger keeps score',
-    seconds: 18,
-    source: 'LIVE',
-    vo: `Every finding quotes PayPal’s own sandbox records: the same capture IDs, the same amounts. Look the order up in PayPal’s dashboard, and there it is: the same ${WORST.captured} capture.`,
+    title: 'One leak, followed to PayPal’s own record',
+    seconds: 23.5,
+    source: 'HYBRID',
+    vo: `Follow one of those leaks. The Cart Shuffler approved ${money(WORST.approved.cents)} of socks, then changed the cart to ${numberWords(WORST.swapped.qty)} pairs of panniers. PayPal captured ${WORST.captured}, the store shipped ${WORST.shipped} of goods, and ${money(WORST.leakCents)} leaked. And PayPal’s own dashboard shows that same capture: ${WORST.captured}.`,
   },
   {
     id: 'ai-vs-code',
@@ -110,7 +140,7 @@ export const SCENES = [
   {
     id: 'close',
     title: 'How it works, and the close',
-    seconds: 20,
+    seconds: 18,
     source: 'MG',
     vo: 'Built on PayPal’s sandbox APIs, with Claude playing the customers and deterministic code keeping score. Shakedown: let the customers from hell find your leaks before your real customers do.',
   },
@@ -298,6 +328,18 @@ export function cues(scene: Scene, timing: Timing = {}): Cue[] {
 /** The frame where a sentence of a scene's voiceover starts. */
 export const sentenceAt = (scene: Scene, sentence: number, timing?: Timing) =>
   Math.round((lines(scene, timing)[sentence]?.start ?? 0) * FPS)
+
+/**
+ * The frame where a phrase of a sentence is said, its line's time shared out by spoken words as
+ * the cues share it: close enough to land a highlight with the word.
+ */
+export function phraseAt(scene: Scene, sentence: number, phrase: string, timing?: Timing) {
+  const line = lines(scene, timing)[sentence]
+  if (!line) return 0
+  const at = line.text.indexOf(phrase)
+  const before = at <= 0 ? 0 : spokenWords(line.text.slice(0, at))
+  return Math.round((line.start + (before / spokenWords(line.text)) * line.seconds) * FPS)
+}
 
 /** How long a scene's words take at the natural pace, for checking the script against the cut. */
 export const spokenSeconds = (scene: Scene) =>

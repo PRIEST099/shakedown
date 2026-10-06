@@ -43,9 +43,15 @@ for (const name of takes) {
   const dir = path.join(RAW, name)
   const take = JSON.parse(readFileSync(path.join(dir, 'take.json'), 'utf8')) as TakeFile
   // The first frame can arrive before the viewport has its size; keep only full-size frames.
-  const size = `${take.width * take.scale}x${take.height * take.scale}`
-  take.frames = take.frames.filter((frame) => jpegSize(path.join(dir, frame.file)) === size)
-  if (take.frames.length === 0) throw new Error(`${name} has no ${size} frames.`)
+  // Full size is the size most frames came in: headless Chrome sends 1080p even at --scale=2.
+  const sizes = take.frames.map((frame) => jpegSize(path.join(dir, frame.file)))
+  const counts = new Map<string, number>()
+  for (const s of sizes) counts.set(s, (counts.get(s) ?? 0) + 1)
+  const size = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '?'
+  const asked = `${take.width * (take.scale ?? 1)}x${take.height * (take.scale ?? 1)}`
+  if (size !== asked) console.log(`${name}: frames came in at ${size}, not the ${asked} asked for.`)
+  take.frames = take.frames.filter((_, i) => sizes[i] === size)
+  if (take.frames.length === 0) throw new Error(`${name} has no frames.`)
   // Each frame lasts until the next one; the first starts the take, the last runs to its end.
   const lines = ['ffconcat version 1.0']
   take.frames.forEach((frame, i) => {

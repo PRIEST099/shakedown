@@ -8,7 +8,9 @@ import { Callout, Line, Mark, Placeholder, Swipe, Voiceover, Wordmark } from './
 import {
   framesOf,
   LEAKS,
+  money,
   POLICY_EXCESS,
+  phraseAt,
   SCENES,
   type SceneId,
   sentenceAt,
@@ -24,12 +26,14 @@ import {
   fixCut,
   hookCut,
   leaksOf,
+  lengthOf,
   linesOf,
   liveCut,
   markAt,
   markOf,
   type Placed,
   PROOF_DASHBOARD,
+  storeCut,
   type Take,
   type TakeName,
 } from './timeline'
@@ -49,6 +53,21 @@ const receiptView = (box: Box): Omit<CameraKey, 'at'> => ({
   scale: RECEIPT_SCALE,
   center: { x: PANEL + 40 + (box.width * RECEIPT_SCALE) / 2, y: 545 },
 })
+
+/** The middle of the frame right of the panel, where split-layout footage centres what it shows. */
+const RIGHT = { x: PANEL + (1920 - PANEL) / 2, y: 540 }
+
+/** The smallest box holding both. */
+const union = (a: Box, b: Box): Box => {
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  return {
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
+  }
+}
 
 /** The ink panel of the split layout, sliding in from the left at frame `at`. */
 function Panel({ at = 0, children }: { at?: number; children: ReactNode }) {
@@ -477,6 +496,50 @@ export function Cast() {
   )
 }
 
+// ---------- S4½ ----------
+
+/**
+ * The store under test, for anyone who hasn't seen it: Leaky Llama's shelf, socks in a cart at
+ * PayPal's button, and the leak switches opening above it, all six set to leaky.
+ */
+export function Store() {
+  const take = useTake('store')
+  if (!take) return <Stage />
+  const { cut, switches } = storeCut(take)
+  const checkout = cut[1]?.start ?? s(3)
+  const end = lengthOf(cut)
+  // The shelf keeps the store's own strip in frame: DEMO STORE · PAYPAL SANDBOX · NO REAL MONEY.
+  const shelf = { x: 192, y: 0, width: 1536, height: 862 }
+  const cart = markOf(take, 'cart')?.box
+  const pay = markOf(take, 'pay')?.box
+  const camera: CameraKey[] = [
+    { at: 0, frames: 0, box: shelf, scale: 1.25 },
+    ...(cart && pay ? [{ at: checkout, frames: 0, box: union(cart, pay), scale: 1.3 }] : []),
+    { at: switches + 4, frames: 26, box: { x: 408, y: 0, width: 1104, height: 720 }, scale: 1.5 },
+  ]
+  const tag = 'LIVE · Leaky Llama, my demo store'
+  // Below the store's header, which the tag would cover where it usually sits, until the dark
+  // switch panel opens and leaves room for it there.
+  const lowered = { left: 40, top: 128 }
+  return (
+    <Stage>
+      <Sequence durationInFrames={end}>
+        <Ramped
+          take="store"
+          cut={cut}
+          camera={camera}
+          tag={tag}
+          tagAt={(segment) => (segment.start < (cut[2]?.start ?? end) ? lowered : undefined)}
+        />
+      </Sequence>
+      <Sequence from={end}>
+        <Held take="store" at={take.durationMs / 1000 - 0.1} view={camera.at(-1)} tag={tag} />
+      </Sequence>
+      <Voiceover scene={scene('store')} />
+    </Stage>
+  )
+}
+
 // ---------- S5 ----------
 
 /** The receipt in plain words: each customer's leaks as they print, and the total at the end. */
@@ -612,30 +675,89 @@ export function Live() {
 
 // ---------- S6 ----------
 
-/** S6, the proof: the finding's evidence in the console, then PayPal's own record of it. */
+/** When S6 says each fact of the leak it follows, in frames of the scene. */
+interface Said {
+  approved: number
+  swapped: number
+  captured: number
+  shipped: number
+  leaked: number
+}
+
+/**
+ * S6, one leak followed for someone new: what the Cart Shuffler did, what PayPal captured and
+ * what the store shipped, worked out in plain words beside the console's own evidence, then
+ * PayPal's own record of the same capture.
+ */
 export function Proof() {
   const take = useTake('console')
   const dashboard = useTake('dashboard')
   if (!take) return <Stage />
-  const from = Math.max(0, markAt(take, 'scoreboard') - 2.2)
-  const to = Math.min(take.durationMs / 1000 - 0.1, from + 9)
-  const finding = markOf(take, 'finding')
-  const at = finding ? s(finding.t / 1000 - from) + 6 : s(4)
-  const length = Math.min(s(to - from), PROOF_DASHBOARD)
+  const proof = scene('proof')
+  const anchors = anchorsFor('proof')
+  const say = (sentence: number, phrase: string) => phraseAt(proof, sentence, phrase, { anchors })
+  const said: Said = {
+    approved: say(1, 'of socks'),
+    swapped: say(1, 'panniers'),
+    captured: say(2, 'PayPal captured'),
+    shipped: say(2, 'the store shipped'),
+    leaked: say(2, 'leaked'),
+  }
+  // From just before the click on the leak, so the console opens on the receipt line it was.
+  const from = Math.max(0, markAt(take, 'leak') - 1.2)
+  const to = take.durationMs / 1000 - 0.1
+  const leak = markOf(take, 'leak')?.box
+  const detail = markOf(take, 'detail')?.box
+  const evidence = markOf(take, 'evidence')?.box
+  const finding = detail && evidence ? union(detail, evidence) : evidence
+  const camera: CameraKey[] = [
+    ...(leak ? [{ at: 0, frames: 0, box: leak, scale: 1.9, center: RIGHT }] : []),
+    ...(finding
+      ? [
+          {
+            at: sentenceAt(proof, 1, { anchors }) - 8,
+            frames: 26,
+            box: finding,
+            scale: 2.3,
+            center: RIGHT,
+          },
+        ]
+      : []),
+  ]
+  // One line of the finding lit at a time, as the voiceover reaches what it says.
+  const lit: [number, string][] = [
+    [said.approved, 'cart-at-checkout'],
+    [said.swapped, 'cart-at-capture'],
+    [said.captured, 'captured'],
+    [said.shipped, 'shipped'],
+    [said.leaked, 'detail'],
+  ]
   return (
     <Stage>
-      <Sequence durationInFrames={length}>
+      <Sequence durationInFrames={PROOF_DASHBOARD}>
         <Footage
           take="console"
           from={from}
           to={to}
           tag="LIVE · the Shakedown console"
-          camera={finding?.box ? [{ at, frames: 22, box: finding.box, scale: 1.9 }] : []}
-        />
+          tagAt={RIGHT_TAG}
+          veil={PANEL}
+          camera={camera}
+        >
+          {(ms) => {
+            const frame = (ms / 1000 - from) * FPS
+            const [at, label] = lit.filter(([start]) => frame >= start).at(-1) ?? []
+            const box = label ? markOf(take, label)?.box : undefined
+            return box && at !== undefined ? <Highlight box={box} t={(frame - at) / 8} /> : null
+          }}
+        </Footage>
+        <Panel>
+          <Followed said={said} />
+        </Panel>
       </Sequence>
-      <Sequence from={length}>
+      <Sequence from={PROOF_DASHBOARD}>
         {dashboard ? (
-          <PayPalRecord take={dashboard} />
+          <PayPalRecord take={dashboard} same={say(3, WORST.captured) - PROOF_DASHBOARD} />
         ) : (
           <Placeholder
             title="The same order in your PayPal sandbox dashboard"
@@ -643,29 +765,122 @@ export function Proof() {
           />
         )}
       </Sequence>
-      <Voiceover scene={scene('proof')} anchors={anchorsFor('proof')} />
+      <Voiceover scene={proof} anchors={anchors} />
     </Stage>
   )
 }
 
-/** The smallest box holding both. */
-const union = (a: Box, b: Box): Box => {
-  const x = Math.min(a.x, b.x)
-  const y = Math.min(a.y, b.y)
-  return {
-    x,
-    y,
-    width: Math.max(a.x + a.width, b.x + b.width) - x,
-    height: Math.max(a.y + a.height, b.y + b.height) - y,
-  }
+/** A fact of the followed leak: what it is, the amount, and where the amount came from. */
+function Fact({
+  at,
+  lit,
+  label,
+  amount,
+  from,
+}: {
+  at: number
+  lit: number
+  label: string
+  amount: string
+  from: string
+}) {
+  const frame = useCurrentFrame()
+  return (
+    <div style={{ marginTop: 40, ...presence(frame, at, Number.POSITIVE_INFINITY, 8) }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ font: `600 40px ${FONT.ui}` }}>
+          <Swipe at={lit} tone="ink">
+            {label}
+          </Swipe>
+        </span>
+        <span style={{ font: `600 44px ${FONT.mono}`, fontVariantNumeric: 'tabular-nums' }}>
+          {amount}
+        </span>
+      </div>
+      <div style={{ marginTop: 8, font: `500 26px/1.3 ${FONT.ui}`, color: C.mutedOnInk }}>
+        {from}
+      </div>
+    </div>
+  )
+}
+
+/** S6's panel: the receipt line it follows, then that leak worked out, a fact at a time. */
+function Followed({ said }: { said: Said }) {
+  const frame = useCurrentFrame()
+  const { approved, swapped } = WORST
+  return (
+    <>
+      <Eyebrow>One leak, followed</Eyebrow>
+      <div style={{ marginTop: 22 }}>
+        <Eyebrow color={C.leakOnInk}>▼ {nameOf('cart-shuffler')}</Eyebrow>
+      </div>
+      <div
+        style={{
+          marginTop: 6,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          font: `500 30px/1.25 ${FONT.ui}`,
+        }}
+      >
+        <span>{BROKE['Goods shipped are never worth more than PayPal captured']}</span>
+        <span style={{ font: `600 30px ${FONT.mono}`, color: C.leakOnInk }}>
+          {money(-WORST.leakCents)}
+        </span>
+      </div>
+      <div style={{ height: 24 }} />
+      <Fact
+        at={said.approved}
+        lit={said.captured}
+        label="PayPal captured"
+        amount={WORST.captured}
+        from={`${approved.qty} × ${approved.name}: the cart it approved`}
+      />
+      <Fact
+        at={said.swapped}
+        lit={said.shipped}
+        label="The store shipped"
+        amount={WORST.shipped}
+        from={`${swapped.qty} × ${swapped.name}: the cart it sent after approving`}
+      />
+      <div
+        style={{
+          marginTop: 34,
+          paddingTop: 20,
+          borderTop: `2px solid ${C.paper}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          ...presence(frame, said.leaked, Number.POSITIVE_INFINITY, 8),
+        }}
+      >
+        <span style={{ font: `600 30px ${FONT.mono}`, letterSpacing: '0.06em' }}>LEAKED</span>
+        <span style={{ font: `600 88px/1 ${FONT.mono}`, color: C.leakOnInk }}>
+          {money(-WORST.leakCents)}
+        </span>
+      </div>
+      <div
+        style={{
+          marginTop: 10,
+          textAlign: 'right',
+          font: `500 26px ${FONT.mono}`,
+          color: C.mutedOnInk,
+          ...presence(frame, said.leaked + 6, Number.POSITIVE_INFINITY, 8),
+        }}
+      >
+        {WORST.shipped} − {WORST.captured}
+      </div>
+    </>
+  )
 }
 
 /**
  * PayPal's own record of the same capture: the sandbox account's transaction details, recorded in
  * a window you signed in to (capture.ts, take `dashboard`). As the cursor reaches the transaction
- * ID, the camera comes in on the ID and the amount together.
+ * ID, the camera comes in on the ID and the amount together; the amount is lit as the voiceover
+ * says it (`same`, a frame of this clip), and a callout keeps the sum in view.
  */
-function PayPalRecord({ take }: { take: Take }) {
+function PayPalRecord({ take, same }: { take: Take; same: number }) {
   const from = Math.max(0, markAt(take, 'heading') - 0.4)
   const to = take.durationMs / 1000 - 0.1
   const id = markOf(take, 'transaction-id')
@@ -674,17 +889,36 @@ function PayPalRecord({ take }: { take: Take }) {
   // The take marks the page, then takes 0.9 s to bring the cursor to the ID.
   const zoomAt = s(markAt(take, 'transaction-id') - from + 0.9)
   return (
-    <Footage
-      take="dashboard"
-      from={from}
-      to={to}
-      tag="LIVE · PayPal’s sandbox dashboard"
-      camera={[
-        // Open just below PayPal's top bar, which this signed-in page leaves half-loaded.
-        { at: 0, frames: 0, box: { x: 0, y: 58, width: 1920, height: 1000 }, scale: 1.08 },
-        ...(facts ? [{ at: zoomAt, frames: 26, box: facts, scale: 1.7 }] : []),
-      ]}
-    />
+    <>
+      <Footage
+        take="dashboard"
+        from={from}
+        to={to}
+        tag="LIVE · PayPal’s sandbox dashboard"
+        // The take's cursor rests on the transaction ID; the highlight does the pointing here.
+        cursor={false}
+        camera={[
+          // Open just below PayPal's top bar, which this signed-in page leaves half-loaded.
+          { at: 0, frames: 0, box: { x: 0, y: 58, width: 1920, height: 1000 }, scale: 1.08 },
+          ...(facts ? [{ at: zoomAt, frames: 26, box: facts, scale: 1.7 }] : []),
+        ]}
+      >
+        {(ms) => {
+          const frame = (ms / 1000 - from) * FPS
+          return amount?.box ? <Highlight box={amount.box} t={(frame - same) / 8} /> : null
+        }}
+      </Footage>
+      <Callout
+        from={s(0.6)}
+        to={Number.POSITIVE_INFINITY}
+        who={nameOf('cart-shuffler')}
+        what={`PayPal captured ${WORST.captured}. The store shipped ${WORST.shipped}.`}
+        amount={money(-WORST.leakCents)}
+        x={440}
+        y={736}
+        width={1040}
+      />
+    </>
   )
 }
 

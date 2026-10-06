@@ -4,11 +4,14 @@
  * cursor move or click is stamped on the same clock, so Remotion can draw the cursor, the zooms
  * and the callouts afterwards, and `conform.ts` can turn the frames into 30 fps video.
  *
- *   SITE_URL=http://localhost:3200 pnpm --filter @shakedown/video capture [take …] [--scale=2]
+ *   SITE_URL=http://localhost:3200 STORE_URL=http://localhost:3100 \
+ *     pnpm --filter @shakedown/video capture [take …] [--scale=2]
  *
  * The site must be running a production build, with the demo store behind it. Live runs go to
  * Leaky Llama in the PayPal sandbox: they cost sandbox calls only. Nothing here types a password,
- * and nothing is captured from any page but Shakedown's own, except the signed-in takes below.
+ * and nothing is captured from any page but Shakedown's own and its demo store's, except the
+ * signed-in takes below. The store take puts socks in a cart and stops at the PayPal button: it
+ * never pays.
  *
  * Signed-in takes (the PayPal sandbox dashboard) run in a Chrome window you signed in to yourself,
  * opened with a throwaway profile and a local debugging port; the script connects to it:
@@ -22,6 +25,8 @@ import { CAST } from '@shakedown/core/cast'
 import { WORST } from '../src/script'
 
 const SITE = process.env.SITE_URL?.trim() || 'http://localhost:3200'
+/** Leaky Llama, the demo store the site's live runs go to. */
+const STORE = process.env.STORE_URL?.trim() || 'http://localhost:3100'
 const SCALE = Number(process.argv.find((a) => a.startsWith('--scale='))?.split('=')[1] ?? 1)
 /** A Chrome you signed in to, for the signed-in takes. */
 const CDP = process.argv.find((a) => a.startsWith('--cdp='))?.slice('--cdp='.length)
@@ -92,6 +97,12 @@ const RECEIPT_WATCHER = `(() => {
   }
   const tape = document.querySelector('.demo__tape')
   if (tape) new MutationObserver(scan).observe(tape, { subtree: true, childList: true, characterData: true })
+})()`
+
+/** True once PayPal's button has drawn itself on the store's checkout page. */
+const PAYPAL_BUTTON_DRAWN = `(() => {
+  const button = document.querySelector('section[aria-labelledby="pay-heading"] paypal-button')
+  return (button?.getBoundingClientRect().height ?? 0) > 30
 })()`
 
 /** One take: the page, its clock, and the event log the edit reads. */
@@ -177,6 +188,45 @@ const TAKES: Take[] = [
     },
   },
   {
+    name: 'store',
+    shows:
+      'Leaky Llama, the demo store under test: its shelf, socks in a cart at the PayPal button, and its leak switches.',
+    async run(shot) {
+      const { page } = shot
+      await page.goto(`${STORE}/`, { waitUntil: 'networkidle' })
+      const card = (name: string) =>
+        page.getByRole('listitem').filter({ has: page.getByRole('heading', { name }) })
+      const socks = card('Alpaca-blend trail socks')
+      const panniers = card('Waxed canvas panniers')
+      await shot.hold(800)
+      await shot.mark('shelf', page.getByRole('list').filter({ has: socks }))
+      await shot.mark('socks', socks)
+      await shot.mark('panniers', panniers)
+      await shot.moveTo(socks.getByText('$18.00', { exact: true }), 800)
+      await shot.hold(600)
+      await shot.moveTo(panniers.getByText('$124.00', { exact: true }), 800)
+      await shot.hold(600)
+      await shot.click(socks.getByRole('button', { name: 'Add Alpaca-blend trail socks to cart' }))
+      await shot.hold(700)
+      await shot.click(page.getByRole('link', { name: /^Cart/ }))
+      await page.waitForURL('**/cart')
+      // PayPal's button draws itself after the page: wait for it, and stop there.
+      await page.waitForFunction(PAYPAL_BUTTON_DRAWN, undefined, { timeout: 30_000 })
+      await shot.hold(600)
+      await shot.mark('cart', page.locator('section[aria-labelledby="cart-heading"]'))
+      await shot.mark('pay', page.locator('section[aria-labelledby="pay-heading"]'))
+      await shot.mark(
+        'paypal',
+        page.locator('section[aria-labelledby="pay-heading"] paypal-button'),
+      )
+      await shot.hold(2400)
+      await shot.click(page.getByRole('button', { name: /Leak switches/ }))
+      await shot.hold(500)
+      await shot.mark('switches', page.locator('#leak-switches'))
+      await shot.hold(3200)
+    },
+  },
+  {
     name: 'live-run',
     shows:
       'A live run against Leaky Llama in the PayPal sandbox, then the fixes and a sealed re-run.',
@@ -212,7 +262,8 @@ const TAKES: Take[] = [
   },
   {
     name: 'console',
-    shows: 'The console: the leaky run picked, a leak clicked, its finding and evidence.',
+    shows:
+      'The console: the leaky run picked, its worst leak clicked, its finding and every line of evidence.',
     async run(shot) {
       const { page } = shot
       await page.goto(`${SITE}/app`, { waitUntil: 'networkidle' })
@@ -221,13 +272,25 @@ const TAKES: Take[] = [
       const leakyRun = page.getByRole('button', { name: /all leaky · 74A923AC/ }).first()
       if (await leakyRun.count()) await shot.click(leakyRun)
       await shot.hold(1500)
-      const leak = page.locator('.sd-tape__pick').first()
+      // The leak the video follows to PayPal: the Cart Shuffler's order that captured $18.00.
+      const worst = page.locator('.sd-tape__pick', { hasText: WORST.order })
+      const leak = (await worst.count()) ? worst.first() : page.locator('.sd-tape__pick').first()
       await shot.mark('scoreboard', page.locator('.sd-widget--tape'))
+      await shot.mark('leak', leak)
       await shot.click(leak)
       await shot.hold(800)
+      const row = (label: string) =>
+        page.locator('.sd-finding__evidence > div', { hasText: label }).first()
       await shot.mark('finding', page.locator('.sd-finding').first())
+      await shot.mark('detail', page.locator('.sd-finding__detail').first())
+      await shot.mark('evidence', page.locator('.sd-finding__evidence').first())
+      await shot.mark('captured', row('Captured at PayPal'))
+      await shot.mark('cart-at-checkout', row('Cart sent at checkout'))
+      await shot.mark('cart-at-capture', row('Cart sent at capture'))
+      await shot.mark('shipped', row('Goods shipped'))
       await shot.mark('leak-table', page.getByText('Leaks in every run in view').first())
-      await shot.hold(4500)
+      // The proof scene stays on the finding while the voiceover works through it.
+      await shot.hold(17_000)
     },
   },
   {
@@ -289,7 +352,7 @@ const TAKES: Take[] = [
       await shot.moveTo(id, 900)
       await shot.hold(1600)
       await shot.moveTo(amount, 900)
-      // Scene 6 holds on PayPal's record for about 9 s after the page settles.
+      // The proof scene holds on PayPal's record for up to 9 s after the page settles.
       await shot.hold(5500)
     },
   },

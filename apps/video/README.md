@@ -24,13 +24,18 @@ closed captions as an SRT file instead of burning them in.
    frame by frame, with an event log on the same clock: the cursor's path, its clicks, and marks
    with the boxes of things worth pointing at. Each receipt line is marked as it prints, with its
    customer and amount. The live-run take goes to Leaky Llama in the PayPal sandbox (sandbox calls
-   only, no Claude). Start a production build of the site and the store first:
+   only, no Claude), and the store take tours Leaky Llama itself: its shelf, socks in a cart at
+   PayPal's button (it never pays), and its leak switches. Start a production build of the site and
+   the store first, or point both at the hosted ones:
 
    ```bash
-   SITE_URL=http://localhost:3200 pnpm --filter @shakedown/video capture [take …] [--scale=2]
+   SITE_URL=http://localhost:3200 STORE_URL=http://localhost:3100 \
+     pnpm --filter @shakedown/video capture [take …] [--scale=2]
    ```
 
-   Use `--scale=2` for the final cut: 4K frames stay sharp when the camera zooms in.
+   `--scale=2` asks for 4K frames, which stay sharp when the camera zooms in, but headless Chrome
+   sends its screencast at 1080p whatever the scale: only a real window gives 4K, as the
+   `dashboard` take below does. `conform` says when a take came in smaller than asked.
 
    The `dashboard` take records PayPal's own transaction details, so it needs a sandbox sign-in.
    Open Chrome with a throwaway profile and a local debugging port, sign in to the sandbox
@@ -77,5 +82,5 @@ timed from it, so picture and sound can't drift apart.
 ## Still to come
 
 - Your own voice, recorded from [VOICEOVER.md](VOICEOVER.md), in place of the scratch takes.
-- The PayPal sandbox dashboard shot in scene 6, which only you can record.
+- 4K takes of the site, the store and the console, recorded in a real window.
 - Closed captions from the final voiceover.

@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { regrade, type SavedRun } from '@shakedown/core'
+import { CATALOG } from '../../leaky-llama/lib/catalog'
 import { exhibit, goldenRun } from '../../web/lib/golden-run'
 import { landingSnippets } from '../../web/lib/landing-snippets'
 
@@ -62,6 +63,10 @@ const data = {
     customerHarmCents: policy.customerHarmCents,
   },
   exhibit: exhibit(),
+  // What the demo store sells, at its own prices: the names behind the SKUs the evidence quotes.
+  store: {
+    catalog: CATALOG.map(({ sku, name, priceCents }) => ({ sku, name, priceCents })),
+  },
   cli: landingSnippets(),
   evaluation: {
     leakyCases: Number(evalMatch[1]),

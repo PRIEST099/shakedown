@@ -347,6 +347,30 @@
       "why": "The $100.00 self-serve limit is per order, not per request."
     }
   },
+  "store": {
+    "catalog": [
+      {
+        "sku": "LL-SOCK-2",
+        "name": "Alpaca-blend trail socks",
+        "priceCents": 1800
+      },
+      {
+        "sku": "LL-BTL-750",
+        "name": "Insulated bottle, 750 ml",
+        "priceCents": 3600
+      },
+      {
+        "sku": "LL-PNR-PR",
+        "name": "Waxed canvas panniers",
+        "priceCents": 12400
+      },
+      {
+        "sku": "LL-BK-001",
+        "name": "Llamas & You: a field guide",
+        "priceCents": 2400
+      }
+    ]
+  },
   "cli": {
     "cliOutput": "$ npx @shakedown-dev/cli run --target http://localhost:3100\n\n  Shakedown → http://localhost:3100 · seed 2026 · 4 customers from hell\n\n  ✗ The Double-Clicker · Presses Pay twice before the page answers (1 leak)\n  ✗ The Double-Clicker · Retries the payment on hotel Wi-Fi (1 leak)\n  ✗ The Cart Shuffler · Brings their own price tag (1 leak)\n  ✗ The Cart Shuffler · Approves the cart, then changes it (1 leak)\n  ✗ The Echo · An unsigned \"you have been paid\" (1 leak)\n  ✗ The Echo · The same payment event, twice (1 leak)\n  ✗ The Echo · A payment event that arrives after the refund (1 leak)\n  ✗ The Bouncer · Pays with a card that bounces (1 leak)\n\n  MERCHANT LEAK     $467.00\n  CUSTOMER HARM      $24.00\n\n  8 LEAKS · reports in .shakedown/ · exit code 1",
     "comment": {
