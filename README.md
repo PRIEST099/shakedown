@@ -44,8 +44,9 @@ Every number on the site and in these pages comes from a real sandbox run. Nothi
 | 05 | The Policy Lawyer | Your AI support agent follows your written refund policy |
 | 06 | The Second Opinion | Dispute handling reconciles earlier refunds |
 
-The AI plays the customers and explains what it finds. Deterministic code reads the PayPal sandbox ledger
-and decides whether money leaked. The AI never makes that call.
+The customers follow fixed, seeded scripts. Claude reads your written refund policy into rules, runs
+the demo store's support assistant (the AI being tested) and explains what it finds. Deterministic
+code reads the PayPal sandbox ledger and decides whether money leaked. The AI never makes that call.
 
 ## Run it against your store
 

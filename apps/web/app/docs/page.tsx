@@ -227,11 +227,11 @@ export default defineConfig({
           <section id="decides" aria-labelledby="decides-h">
             <h2 id="decides-h">How it decides</h2>
             <p>
-              The AI plays the customer; code keeps the score. A check passes or fails from PayPal’s
-              sandbox records: captures, refunds and the webhooks the store accepted. The same seed
-              gives the same verdicts and amounts on every re-run, and a saved run can be judged
-              again by newer graders without repeating a call. The model never decides whether money
-              leaked.
+              The customers are scripts and the AI does the talking; code keeps the score. A check
+              passes or fails from PayPal’s sandbox records: captures, refunds and the webhooks the
+              store accepted. The same seed gives the same verdicts and amounts on every re-run, and
+              a saved run can be judged again by newer graders without repeating a call. The model
+              never decides whether money leaked.
             </p>
           </section>
 

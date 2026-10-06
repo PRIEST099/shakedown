@@ -17,7 +17,7 @@ import './_components/site.css'
 import './_landing/landing.css'
 
 const DESCRIPTION =
-  'Six test customers run your own PayPal sandbox checkout. You get a receipt for every dollar that would have leaked, plus the fix.'
+  'Five test customers run your own PayPal sandbox checkout. You get a receipt for every dollar that would have leaked, plus the fix.'
 
 export const metadata: Metadata = {
   title: 'Shakedown: customers from hell for your PayPal sandbox',

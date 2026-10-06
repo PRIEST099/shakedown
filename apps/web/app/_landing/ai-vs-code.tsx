@@ -4,9 +4,8 @@ import { useState } from 'react'
 import type { Exhibit } from '../../lib/golden-run'
 
 const AI = [
-  'What to say to your support assistant',
-  'How to rephrase when it says no',
-  'Which money paths your policy and code expose',
+  'What your support assistant says and does: the thing being tested',
+  'Your written refund policy, read into rules the customers follow',
   'The first plain-words draft of a finding',
 ]
 
@@ -17,7 +16,7 @@ const CODE = [
   'Whether CI goes red',
 ]
 
-/** The split the whole product rests on: the AI plays the customer, the ledger keeps the score. */
+/** The split the whole product rests on: the AI does the talking, the ledger keeps the score. */
 export function AiVsCode({ exhibit }: { exhibit: Exhibit }) {
   const [linked, setLinked] = useState(false)
   const on = () => setLinked(true)
@@ -27,7 +26,7 @@ export function AiVsCode({ exhibit }: { exhibit: Exhibit }) {
     <section id="how-it-decides" className="section" aria-labelledby="split-title">
       <p className="label">Trust</p>
       <h2 id="split-title" className="display-l section__title">
-        The AI plays the customer. The ledger keeps the score.
+        The AI does the talking. The ledger keeps the score.
       </h2>
       <div className="split">
         <div className="split__side">

@@ -20,8 +20,8 @@ export function CastSection() {
         Meet the regulars.
       </h2>
       <p className="section__lede">
-        Six test customers. Each one checks one property of your integration. All of them are
-        fictional and sandbox-only.
+        Five test customers, with a sixth on the way. Each one checks one property of your
+        integration. All of them are fictional and sandbox-only.
         {ran
           ? ' Their cards show your last demo run.'
           : ' Run the demo below and their cards change.'}

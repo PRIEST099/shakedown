@@ -20,13 +20,13 @@ export function Hero({ run }: { run: RunFixture & { recordedOn: string } }) {
         </h1>
         <p className="hero__sub">
           <span className="hero__sub-long">
-            Six test customers run your own PayPal sandbox checkout and AI support agent. They
+            Five test customers run your own PayPal sandbox checkout and AI support agent. They
             double-click, swap carts, replay webhooks and argue your refund policy. You get a
             receipt for every dollar that would have leaked, read from PayPal’s sandbox ledger, plus
             the fix.
           </span>
           <span className="hero__sub-short">
-            Six test customers run your own PayPal sandbox checkout. You get a receipt for every
+            Five test customers run your own PayPal sandbox checkout. You get a receipt for every
             dollar that would have leaked, plus the fix.
           </span>
         </p>
