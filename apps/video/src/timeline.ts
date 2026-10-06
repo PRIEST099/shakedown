@@ -19,7 +19,7 @@ export type TakeEvent =
 
 export type Mark = Extract<TakeEvent, { type: 'mark' }>
 
-export type TakeName = 'landing' | 'live-run' | 'console' | 'exhibit' | 'ci'
+export type TakeName = 'landing' | 'live-run' | 'console' | 'exhibit' | 'ci' | 'dashboard'
 
 export interface Take {
   take: TakeName

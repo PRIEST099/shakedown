@@ -22,7 +22,7 @@ used to make videos; the font files themselves are not sold or renamed.
 | Files | What they are | How they are made |
 |---|---|---|
 | `public/audio/score.wav`, `public/audio/teaser.wav` (and their `.raw.wav`) | The film's score and the teaser's | Synthesised by `scripts/compose.ts` from oscillators and seeded noise: no samples, no loops, nothing recorded. Original to this project, under the repository's license (Apache-2.0). |
-| `public/footage/<take>.mp4`, `<take>.json` | The LIVE takes: landing, live-run, console, exhibit, ci | Captured by `scripts/capture.ts` from Shakedown's own site and console (a local production build) driving Leaky Llama, our own demo store, in the PayPal sandbox. Conformed by `scripts/conform.ts`. Each `.json` says what the take shows. |
+| `public/footage/<take>.mp4`, `<take>.json` | The LIVE takes: landing, live-run, console, exhibit, ci, dashboard | Captured by `scripts/capture.ts` from Shakedown's own site and console (a local production build) driving Leaky Llama, my own demo store, in the PayPal sandbox. `dashboard` is PayPal's own transaction details for the capture scene 6 quotes, in my sandbox business account: recorded at 4K on October 6, 2026, in a Chrome window I signed in to (a throwaway profile, deleted afterwards). It shows sandbox test data only. Conformed by `scripts/conform.ts`. Each `.json` says what the take shows. |
 | The persona illustrations | The cast's imps, on the cards | Drawn in code in `packages/ui/src/cast`, part of this repository. |
 | The glyphs, the receipt mark, the diagram | Motion graphics | Drawn in code in `src/`. |
 | `src/data/runs.json` | Every number the video shows | Exported by `scripts/data.ts` from the recorded sandbox runs in `apps/web/fixtures/recorded`. |
@@ -40,4 +40,3 @@ the customers; no Anthropic logo appears either.
 |---|---|---|
 | Final voiceover | Your own voice, recorded to the script in `src/script.ts` | Yours. |
 | Closed captions (`shakedown-demo.en.srt`) | whisper.cpp over the final voiceover stem, checked by hand | whisper.cpp is MIT; the model download needs approval. |
-| PayPal sandbox dashboard footage (S6) | You sign in and record it (VIDEO_PIPELINE §3.5) | Your own sandbox account; check that nothing personal is on screen. |

@@ -31,6 +31,17 @@ closed captions as an SRT file instead of burning them in.
    ```
 
    Use `--scale=2` for the final cut: 4K frames stay sharp when the camera zooms in.
+
+   The `dashboard` take records PayPal's own transaction details, so it needs a sandbox sign-in.
+   Open Chrome with a throwaway profile and a local debugging port, sign in to the sandbox
+   business account there yourself, then point the script at that window:
+
+   ```bash
+   open -n -a "Google Chrome" --args --user-data-dir=/tmp/paypal-sandbox --remote-debugging-port=9223 https://www.sandbox.paypal.com/signin
+   pnpm --filter @shakedown/video capture dashboard --cdp=http://127.0.0.1:9223 --scale=2
+   ```
+
+   Quit that window and delete its profile afterwards.
 3. **`pnpm conform`** turns each take's frames into 30 fps video (`public/footage/<take>.mp4`)
    beside its event log.
 4. **`pnpm voice`** records the scratch voiceover: each sentence of `src/script.ts` read by

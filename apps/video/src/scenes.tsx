@@ -615,6 +615,7 @@ export function Live() {
 /** S6, the proof: the finding's evidence in the console, then PayPal's own record of it. */
 export function Proof() {
   const take = useTake('console')
+  const dashboard = useTake('dashboard')
   if (!take) return <Stage />
   const from = Math.max(0, markAt(take, 'scoreboard') - 2.2)
   const to = Math.min(take.durationMs / 1000 - 0.1, from + 9)
@@ -633,13 +634,57 @@ export function Proof() {
         />
       </Sequence>
       <Sequence from={length}>
-        <Placeholder
-          title="The same order in your PayPal sandbox dashboard"
-          detail={`You sign in and record this (VIDEO_PIPELINE §3.5): PayPal order ${WORST.order}, the ${WORST.captured} capture ${WORST.captureId}, as in the finding.`}
-        />
+        {dashboard ? (
+          <PayPalRecord take={dashboard} />
+        ) : (
+          <Placeholder
+            title="The same order in your PayPal sandbox dashboard"
+            detail={`You sign in and record this (VIDEO_PIPELINE §3.5): PayPal order ${WORST.order}, the ${WORST.captured} capture ${WORST.captureId}, as in the finding.`}
+          />
+        )}
       </Sequence>
       <Voiceover scene={scene('proof')} anchors={anchorsFor('proof')} />
     </Stage>
+  )
+}
+
+/** The smallest box holding both. */
+const union = (a: Box, b: Box): Box => {
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  return {
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
+  }
+}
+
+/**
+ * PayPal's own record of the same capture: the sandbox account's transaction details, recorded in
+ * a window you signed in to (capture.ts, take `dashboard`). As the cursor reaches the transaction
+ * ID, the camera comes in on the ID and the amount together.
+ */
+function PayPalRecord({ take }: { take: Take }) {
+  const from = Math.max(0, markAt(take, 'heading') - 0.4)
+  const to = take.durationMs / 1000 - 0.1
+  const id = markOf(take, 'transaction-id')
+  const amount = markOf(take, 'amount')
+  const facts = id?.box && amount?.box ? union(id.box, amount.box) : undefined
+  // The take marks the page, then takes 0.9 s to bring the cursor to the ID.
+  const zoomAt = s(markAt(take, 'transaction-id') - from + 0.9)
+  return (
+    <Footage
+      take="dashboard"
+      from={from}
+      to={to}
+      tag="LIVE · PayPal’s sandbox dashboard"
+      camera={[
+        // Open just below PayPal's top bar, which this signed-in page leaves half-loaded.
+        { at: 0, frames: 0, box: { x: 0, y: 58, width: 1920, height: 1000 }, scale: 1.08 },
+        ...(facts ? [{ at: zoomAt, frames: 26, box: facts, scale: 1.7 }] : []),
+      ]}
+    />
   )
 }
 

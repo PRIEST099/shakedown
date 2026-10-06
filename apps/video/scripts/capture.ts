@@ -8,15 +8,23 @@
  *
  * The site must be running a production build, with the demo store behind it. Live runs go to
  * Leaky Llama in the PayPal sandbox: they cost sandbox calls only. Nothing here types a password,
- * and nothing is captured from any page but Shakedown's own.
+ * and nothing is captured from any page but Shakedown's own, except the signed-in takes below.
+ *
+ * Signed-in takes (the PayPal sandbox dashboard) run in a Chrome window you signed in to yourself,
+ * opened with a throwaway profile and a local debugging port; the script connects to it:
+ *
+ *   pnpm --filter @shakedown/video capture dashboard --cdp=http://127.0.0.1:9223
  */
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { type Browser, chromium, type Locator, type Page } from '@playwright/test'
 import { CAST } from '@shakedown/core/cast'
+import { WORST } from '../src/script'
 
 const SITE = process.env.SITE_URL?.trim() || 'http://localhost:3200'
 const SCALE = Number(process.argv.find((a) => a.startsWith('--scale='))?.split('=')[1] ?? 1)
+/** A Chrome you signed in to, for the signed-in takes. */
+const CDP = process.argv.find((a) => a.startsWith('--cdp='))?.slice('--cdp='.length)
 const WIDTH = 1920
 const HEIGHT = 1080
 const RAW = path.resolve(import.meta.dirname, '../public/footage/raw')
@@ -53,6 +61,8 @@ interface Take {
   name: string
   /** What the take shows, for the asset ledger and anyone reading the footage folder. */
   shows: string
+  /** Runs only with --cdp, in a window you signed in to (the PayPal sandbox). */
+  signedIn?: boolean
   run(shot: Shot): Promise<void>
 }
 
@@ -258,16 +268,50 @@ const TAKES: Take[] = [
       await shot.hold(4000)
     },
   },
+  {
+    name: 'dashboard',
+    shows:
+      "PayPal's own record: the sandbox business account's details for the capture the console quotes.",
+    signedIn: true,
+    async run(shot) {
+      const { page } = shot
+      await page.goto(
+        `https://www.sandbox.paypal.com/unifiedtransactions/details/payment/${WORST.captureId}`,
+        { waitUntil: 'domcontentloaded' },
+      )
+      const id = page.getByText(WORST.captureId, { exact: true }).first()
+      const amount = page.getByText(`${WORST.captured} USD`, { exact: true }).first()
+      await id.waitFor({ timeout: 60_000 })
+      await shot.hold(1200)
+      await shot.mark('heading', page.getByText('Payment received from').first())
+      await shot.mark('transaction-id', id)
+      await shot.mark('amount', amount)
+      await shot.moveTo(id, 900)
+      await shot.hold(1600)
+      await shot.moveTo(amount, 900)
+      // Scene 6 holds on PayPal's record for about 9 s after the page settles.
+      await shot.hold(5500)
+    },
+  },
 ]
 
 async function record(browser: Browser, take: Take) {
-  const context = await browser.newContext({
-    viewport: { width: WIDTH, height: HEIGHT },
-    deviceScaleFactor: SCALE,
-    colorScheme: 'light',
-    reducedMotion: 'no-preference',
-  })
+  // A signed-in take borrows the window you signed in to: its first context holds the session.
+  const signedIn = CDP ? browser.contexts()[0] : undefined
+  const context =
+    signedIn ??
+    (await browser.newContext({
+      viewport: { width: WIDTH, height: HEIGHT },
+      deviceScaleFactor: SCALE,
+      colorScheme: 'light',
+      reducedMotion: 'no-preference',
+    }))
   const page = await context.newPage()
+  if (signedIn) {
+    // A tab in the background barely paints, so bring it forward before recording it.
+    await page.bringToFront()
+    await page.setViewportSize({ width: WIDTH, height: HEIGHT })
+  }
   const dir = path.join(RAW, take.name)
   rmSync(dir, { recursive: true, force: true })
   mkdirSync(dir, { recursive: true })
@@ -292,16 +336,25 @@ async function record(browser: Browser, take: Take) {
     path.join(dir, 'take.json'),
     `${JSON.stringify({ take: take.name, shows: take.shows, site: SITE, scale: SCALE, width: WIDTH, height: HEIGHT, capturedAt: new Date().toISOString(), durationMs: ended, frames, events: shot.events }, null, 1)}\n`,
   )
-  await context.close()
+  // Leave your signed-in window as it was: close only the tab the take used.
+  if (signedIn) await page.close()
+  else await context.close()
   console.log(`${take.name}: ${frames.length} frames over ${(ended / 1000).toFixed(1)} s`)
 }
 
 const wanted = process.argv.slice(2).filter((a) => !a.startsWith('--'))
-const browser = await chromium.launch({ channel: 'chrome' })
+// Signed-in takes run only in a window you signed in to; the others never do.
+const takes = TAKES.filter(
+  (t) => (wanted.length === 0 || wanted.includes(t.name)) && Boolean(t.signedIn) === Boolean(CDP),
+)
+const browser = CDP
+  ? await chromium.connectOverCDP(CDP)
+  : await chromium.launch({ channel: 'chrome' })
 try {
-  for (const take of TAKES.filter((t) => wanted.length === 0 || wanted.includes(t.name))) {
-    await record(browser, take)
-  }
+  for (const take of takes) await record(browser, take)
 } finally {
+  // Closing a connected browser would close your window too, so leave it open and exit: the
+  // connection would otherwise keep this script running.
+  if (CDP) process.exit(0)
   await browser.close()
 }
