@@ -6,9 +6,14 @@ import runs from './data/runs.json'
 import { type CameraKey, Footage, Highlight, useTake } from './footage'
 import { Callout, Line, Mark, Placeholder, Swipe, Voiceover, Wordmark } from './kit'
 import {
+  CUSTOMER,
+  EVAL,
   framesOf,
   LEAKS,
+  MERCHANT,
   money,
+  OWN_PRICE,
+  POLICY,
   POLICY_EXCESS,
   phraseAt,
   SCENES,
@@ -19,14 +24,11 @@ import {
 } from './script'
 import { C, FONT, presence, ramp, Stage } from './theme'
 import {
-  anchorsFor,
   type Box,
   CLOSE_CARD,
-  FIX_HOLD,
   fixCut,
   hookCut,
   leaksOf,
-  lengthOf,
   linesOf,
   liveCut,
   markAt,
@@ -38,14 +40,25 @@ import {
   type TakeName,
 } from './timeline'
 
+/**
+ * The film's scenes. The narration carries every fact on its own, so someone who only listens can
+ * follow; the pictures show what it says as it says it. Each cut is timed from the voice
+ * (sentenceAt, phraseAt), so the picture follows whoever reads the script.
+ */
+
 const FPS = 30
 const s = (seconds: number) => Math.round(seconds * FPS)
 const scene = (id: SceneId) => SCENES.find((x) => x.id === id) ?? SCENES[0]
+const said = (id: SceneId, sentence: number, phrase: string) =>
+  phraseAt(scene(id), sentence, phrase)
+const saying = (id: SceneId, sentence: number) => sentenceAt(scene(id), sentence)
 
-// ---------- the split layout: plain words on ink at left, the live receipt at right ----------
+// ---------- the split layout: plain words on ink at left, the live picture at right ----------
 
 const PANEL = 900
 const RIGHT_TAG = { left: PANEL + 36, top: 36 }
+/** Below a page's own header, where the tag would otherwise cover its name. */
+const LOWERED_TAG = { left: 40, top: 128 }
 const RECEIPT_SCALE = 1.75
 /** The receipt, zoomed, its left edge just clear of the panel so nothing beside it peeks out. */
 const receiptView = (box: Box): Omit<CameraKey, 'at'> => ({
@@ -82,7 +95,7 @@ function Panel({ at = 0, children }: { at?: number; children: ReactNode }) {
         bottom: 0,
         width: PANEL,
         boxSizing: 'border-box',
-        padding: '120px 64px 0 88px',
+        padding: '110px 64px 0 88px',
         background: C.ink,
         color: C.paper,
         transform: `translateX(${((t - 1) * PANEL).toFixed(1)}px)`,
@@ -105,6 +118,23 @@ const Eyebrow = ({ children, color = C.mutedOnInk }: { children: ReactNode; colo
   >
     {children}
   </div>
+)
+
+/** A small grey tag beside a plain word, giving the technical name for it. */
+const Term = ({ children }: { children: ReactNode }) => (
+  <span
+    style={{
+      marginLeft: 14,
+      padding: '3px 10px',
+      borderRadius: 999,
+      border: `1.5px solid ${C.mutedOnInk}`,
+      font: `500 18px ${FONT.mono}`,
+      color: C.mutedOnInk,
+      verticalAlign: 'middle',
+    }}
+  >
+    {children}
+  </span>
 )
 
 /** A speed-ramped clip: consecutive segments of one take, each tagged with its own speed. */
@@ -182,39 +212,49 @@ function Held({
   )
 }
 
+const nameOf = (persona: string) => getPersona(persona as PersonaId).name
+
+/** The Cart Shuffler's two leaks, as the receipt and the panels name them. */
+const OWN_PRICE_LEAK = `Set its own price: ${OWN_PRICE.paid} for ${OWN_PRICE.shipped} saddlebags`
+const SWAPPED_LEAK = 'Approved socks, shipped saddlebags'
+
 /** What each broken check means, in a few plain words: what the panel says beside the receipt. */
 const BROKE: Record<string, string> = {
   'One checkout is charged once, however often Pay is pressed': 'Pressed Pay twice: charged twice',
-  'A retried capture never ships twice': 'Retried the payment: shipped twice',
-  'Goods shipped are never worth more than PayPal captured': 'Shipped more than PayPal captured',
-  'An unverified webhook never releases goods': 'An unsigned “paid” event released the goods',
-  'The same event ID is acted on exactly once': 'The same payment event, acted on twice',
-  'A late event never reverses a newer one': 'A late payment event undid the refund',
-  'A declined card never ships anything': 'A declined card, and the order shipped',
+  'A retried capture never ships twice': 'A retried payment shipped twice',
+  'An unverified webhook never releases goods': 'An unsigned “paid” message released goods',
+  'The same event ID is acted on exactly once': 'The same message, acted on twice',
+  'A late event never reverses a newer one': 'A late message undid a refund',
+  'A declined card never ships anything': 'Declined card, order shipped anyway',
 }
+const brokeOf = (leak: { persona: string; check: string; amountCents: number }) =>
+  leak.persona === 'cart-shuffler'
+    ? -leak.amountCents === OWN_PRICE.leakCents
+      ? OWN_PRICE_LEAK
+      : SWAPPED_LEAK
+    : (BROKE[leak.check] ?? leak.check)
 
-/** Each customer's fix, condensed from its findings' `fix` text (packages/core/src/personas). */
-const FIXED: Record<string, string> = {
-  'double-clicker': 'One PayPal-Request-Id per order and per capture',
-  'cart-shuffler': 'Price on the server; check the capture before shipping',
-  echo: 'Verify signatures; act on each event once, in order',
-  bouncer: 'Ship only once the capture is COMPLETED',
-}
+/** Each customer's fix, in plain words (packages/core/src/personas has the full text). */
+const FIXED: { persona: PersonaId; fix: string }[] = [
+  { persona: 'double-clicker', fix: 'One payment key per order' },
+  { persona: 'cart-shuffler', fix: 'Ship only what PayPal collected' },
+  { persona: 'echo', fix: 'Act only on PayPal-signed messages, once, in order' },
+  { persona: 'bouncer', fix: 'Ship only once PayPal completes the payment' },
+]
 
-const nameOf = (persona: string) => getPersona(persona as PersonaId).name
+// ---------- the cold open ----------
 
-// ---------- S1 ----------
-
-/** S1, the cold open: the receipt printing red at speed, then what it adds up to. */
+/** The receipt printing red at speed, each leak a chime; the total; who it is for. */
 export function Hook() {
   const take = useTake('live-run')
   // Frames wait for the take (delayRender), so nothing is captured before it loads.
   if (!take) return <Stage tone="ink" />
-  const { cut, land, settled } = hookCut(take)
+  const { cut, land, settled } = hookCut(take, true)
   const tape = markOf(take, 'run-done')?.box
   const view = tape ? receiptView(tape) : undefined
   const hook = scene('hook')
-  const second = sentenceAt(hook, 1)
+  const second = saying('hook', 1)
+  const third = saying('hook', 2)
   return (
     <Stage tone="ink">
       <Sequence durationInFrames={land}>
@@ -240,21 +280,28 @@ export function Hook() {
       </Sequence>
       <Panel>
         <div style={{ position: 'absolute', left: 88, right: 64, top: 300 }}>
-          <Line from={4} to={second - 3} size={92} color={C.paper}>
-            Every happy-path test passes.
+          <Line from={4} to={second - 3} size={96} color={C.paper}>
+            Each chime is a{' '}
+            <Swipe at={18} tone="ink">
+              leak.
+            </Swipe>
+          </Line>
+          <Line from={said('hook', 0, 'money')} to={second - 3} size={44} color={C.mutedOnInk}>
+            <div style={{ marginTop: 28, font: `500 44px/1.2 ${FONT.ui}` }}>
+              money a bug would lose
+            </div>
           </Line>
         </div>
         <div style={{ position: 'absolute', left: 88, right: 64, top: 300 }}>
-          <Line from={second} to={land - 4} size={92} color={C.paper}>
-            Then the{' '}
-            <Swipe at={second + 16} tone="ink">
-              customers from hell
-            </Swipe>{' '}
-            show up.
+          <Line from={second} to={land - 3} size={72} color={C.paper}>
+            One sandbox test run
+            <div style={{ marginTop: 18, font: `600 44px ${FONT.mono}`, color: C.leakOnInk }}>
+              {LEAKS} leaks
+            </div>
           </Line>
         </div>
-        <div style={{ position: 'absolute', left: 88, right: 64, top: 330 }}>
-          <Line from={land} to={framesOf(hook) + 4} size={40} color={C.paper}>
+        <div style={{ position: 'absolute', left: 88, right: 64, top: 300 }}>
+          <Line from={land} to={third - 3} size={40} color={C.paper}>
             <div
               style={{
                 font: `600 150px/1 ${FONT.mono}`,
@@ -265,7 +312,16 @@ export function Hook() {
               {TOTAL}
             </div>
             <div style={{ marginTop: 26, font: `500 44px/1.2 ${FONT.ui}` }}>
-              would have leaked in one sandbox run.
+              would have leaked, in {LEAKS} leaks.
+            </div>
+          </Line>
+        </div>
+        <div style={{ position: 'absolute', left: 88, right: 64, top: 300 }}>
+          <Line from={third} to={framesOf(hook) + 4} size={56} color={C.paper}>
+            <Wordmark size={120} color={C.paper} />
+            <div style={{ marginTop: 34 }}>Finds them first,</div>
+            <div style={{ marginTop: 10, font: `500 40px/1.25 ${FONT.ui}`, color: C.mutedOnInk }}>
+              for developers with PayPal checkouts.
             </div>
           </Line>
         </div>
@@ -275,324 +331,421 @@ export function Hook() {
   )
 }
 
-// ---------- S2 ----------
+// ---------- the store, and how a PayPal payment works ----------
 
-function Glyph({ kind }: { kind: 'double' | 'cart' | 'echo' | 'chat' }) {
-  const stroke = {
-    fill: 'none',
-    stroke: C.paper,
-    strokeWidth: 2.4,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-  } as const
+/** One step of a PayPal payment, appearing as the voice names it. */
+function Step({
+  at,
+  n,
+  children,
+  term,
+}: {
+  at: number
+  n: string
+  children: ReactNode
+  term?: string
+}) {
+  const frame = useCurrentFrame()
   return (
-    <svg viewBox="0 0 48 48" width={84} height={84}>
-      <title>{kind}</title>
-      {kind === 'double' ? (
-        <>
-          <path d="M10 8 L10 30 L16 25 L20 35 L24 33 L20 23 L28 23 Z" {...stroke} />
-          <path d="M22 4 L22 26 L28 21 L32 31 L36 29 L32 19 L40 19 Z" {...stroke} opacity={0.55} />
-        </>
-      ) : kind === 'cart' ? (
-        <>
-          <path d="M6 10 H12 L17 32 H38 L42 16 H14" {...stroke} />
-          <circle cx="20" cy="39" r="3" {...stroke} />
-          <circle cx="35" cy="39" r="3" {...stroke} />
-          <path d="M24 4 H36 L33 1 M36 4 L33 7" {...stroke} />
-        </>
-      ) : kind === 'echo' ? (
-        <>
-          <circle cx="24" cy="24" r="4" {...stroke} />
-          <circle cx="24" cy="24" r="11" {...stroke} opacity={0.7} />
-          <circle cx="24" cy="24" r="18" {...stroke} opacity={0.4} />
-        </>
-      ) : (
-        <>
-          <path d="M6 10 H30 V26 H16 L10 32 V26 H6 Z" {...stroke} />
-          <path d="M20 20 H42 V36 H38 V42 L32 36 H20 Z" {...stroke} opacity={0.7} />
-        </>
-      )}
-    </svg>
+    <div
+      style={{
+        marginTop: 26,
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 22,
+        ...presence(frame, at, Number.POSITIVE_INFINITY, 8),
+      }}
+    >
+      <span style={{ flex: 'none', width: 34, font: `600 28px ${FONT.mono}`, color: C.mutedOnInk }}>
+        {n}
+      </span>
+      <span style={{ font: `600 38px/1.25 ${FONT.ui}` }}>
+        {children}
+        {term ? <Term>{term}</Term> : null}
+      </span>
+    </div>
   )
 }
 
-/** S2, the problem: the customers nobody's happy path is written for, one per sentence. */
-export function Problem() {
+/** The panel beside the checkout: a PayPal payment in four steps, then what a skipped check costs. */
+function PaySteps() {
   const frame = useCurrentFrame()
-  const problem = scene('problem')
-  const at = (i: number) => sentenceAt(problem, i)
-  const lines: { kind: 'double' | 'cart' | 'echo' | 'chat'; text: string; at: number }[] = [
-    { kind: 'double', text: 'Real customers double-click.', at: at(0) },
-    { kind: 'cart', text: 'They change the cart after approving it.', at: at(1) },
-    { kind: 'echo', text: 'Payment events arrive twice, late, or unsigned.', at: at(2) },
-    { kind: 'chat', text: 'They argue with your AI support agent.', at: at(3) },
-  ]
-  const verdict = at(4)
+  const skip = saying('store', 3)
+  const signed = said('store', 2, 'signed')
   return (
-    <Stage tone="ink">
-      <AbsoluteFill style={{ justifyContent: 'center', paddingLeft: 170, gap: 34 }}>
-        {lines.map((line) => (
-          <div
-            key={line.text}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 34,
-              ...presence(frame, line.at, verdict - 4),
-            }}
-          >
-            <Glyph kind={line.kind} />
-            <span
-              style={{ font: `800 66px/1 ${FONT.display}`, fontVariationSettings: '"wdth" 82' }}
+    <>
+      <Eyebrow>How a PayPal payment works</Eyebrow>
+      <Step at={said('store', 1, 'approves')} n="1">
+        The customer approves a payment
+      </Step>
+      <Step at={said('store', 1, 'collects')} n="2" term="capture">
+        PayPal collects the money
+      </Step>
+      <Step at={said('store', 1, 'ships')} n="3">
+        My shop ships the order
+      </Step>
+      <Step at={said('store', 2, 'paid')} n="+" term="webhook">
+        PayPal sends a “paid” message
+      </Step>
+      <div
+        style={{
+          marginTop: 10,
+          marginLeft: 56,
+          font: `600 24px ${FONT.mono}`,
+          color: C.sealedOnInk,
+          ...presence(frame, signed, Number.POSITIVE_INFINITY, 8),
+        }}
+      >
+        ✓ signed by PayPal, to prove it’s real
+      </div>
+      <div style={{ marginTop: 56, ...presence(frame, skip, Number.POSITIVE_INFINITY, 8) }}>
+        <Eyebrow color={C.leakOnInk}>Skip one check, and…</Eyebrow>
+      </div>
+      {[
+        { at: said('store', 3, 'unpaid'), text: 'Goods ship unpaid' },
+        { at: said('store', 3, 'twice'), text: 'Someone pays twice' },
+      ].map((row) => (
+        <div
+          key={row.text}
+          style={{
+            marginTop: 14,
+            font: `600 38px ${FONT.ui}`,
+            color: C.leakOnInk,
+            ...presence(frame, row.at, Number.POSITIVE_INFINITY, 8),
+          }}
+        >
+          ✕ {row.text}
+        </div>
+      ))}
+    </>
+  )
+}
+
+/**
+ * My demo shop: its shelf, then its checkout beside a payment in four plain steps, then its leak
+ * switches opening, all set to leaky. The sixth switch's customer isn't built, so it says so.
+ */
+export function Store() {
+  const take = useTake('store')
+  if (!take) return <Stage />
+  const store = scene('store')
+  const { cut, checkout, switches } = storeCut(take)
+  const panelAt = saying('store', 1) - 4
+  const pay = markOf(take, 'pay')?.box
+  const opened = (take.events.filter((e) => e.type === 'click').at(-1)?.t ?? 0) / 1000
+  const camera: CameraKey[] = [
+    // The whole shelf, with the shop's own strip: DEMO STORE · PAYPAL SANDBOX · NO REAL MONEY.
+    { at: 0, frames: 0, box: { x: 192, y: 0, width: 1536, height: 862 }, scale: 1.25 },
+    // Then, right of the panel, the cart's total and PayPal's button.
+    ...(pay
+      ? [
+          {
+            at: checkout,
+            frames: 0,
+            box: { x: 760, y: pay.y, width: 752, height: 420 },
+            scale: 1.3,
+            center: RIGHT,
+          },
+        ]
+      : []),
+    {
+      at: switches + 4,
+      frames: 26,
+      box: { x: 408, y: 0, width: 1104, height: 380 },
+      scale: 0.96,
+      center: RIGHT,
+    },
+  ]
+  const tag = 'LIVE · Leaky Llama, my demo shop'
+  const right = (segment: Placed) => segment.start + segment.frames > panelAt
+  return (
+    <Stage>
+      <Ramped
+        take="store"
+        cut={cut}
+        camera={camera}
+        tag={tag}
+        tagAt={(segment) => (right(segment) ? RIGHT_TAG : LOWERED_TAG)}
+        veil={(segment) => (right(segment) ? PANEL : undefined)}
+      >
+        {(ms) =>
+          ms >= opened * 1000 + 400 ? (
+            // The sixth switch belongs to a customer that arrives in a later version.
+            <div
+              style={{
+                position: 'absolute',
+                left: 1152,
+                top: 168,
+                width: 360,
+                height: 111,
+                borderRadius: 8,
+                background: 'rgb(18 16 13 / 0.82)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                font: `600 20px ${FONT.mono}`,
+                color: C.mutedOnInk,
+                letterSpacing: '0.08em',
+              }}
             >
-              {line.text}
-            </span>
-          </div>
-        ))}
-      </AbsoluteFill>
-      <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <Line from={verdict} to={framesOf(problem) + 4} size={104} color={C.paper}>
-          Happy-path tests{' '}
-          <Swipe at={verdict + 14} tone="ink">
-            never meet them.
-          </Swipe>
-        </Line>
-      </AbsoluteFill>
-      <Voiceover scene={problem} tone="paper" />
+              NOT BUILT YET
+            </div>
+          ) : null
+        }
+      </Ramped>
+      <Panel at={panelAt}>
+        <PaySteps />
+      </Panel>
+      <Voiceover scene={store} />
     </Stage>
   )
 }
 
-// ---------- S3 ----------
+// ---------- the sandbox, and the cast ----------
 
-/** S3, meet Shakedown: the name, the promise, then the real site. */
-export function Meet() {
+/** The plain rule each customer checks. */
+const CAST: { id: PersonaId; rule: string }[] = [
+  { id: 'double-clicker', rule: 'Charged once?' },
+  { id: 'cart-shuffler', rule: 'Ships only what was paid?' },
+  { id: 'echo', rule: 'Only signed messages, once?' },
+  { id: 'bouncer', rule: 'Declined card, nothing ships?' },
+  { id: 'policy-lawyer', rule: 'Refunds kept to policy?' },
+]
+
+/** A bracket under a run of cards, naming what they test. */
+function Bracket({ at, x, width, text }: { at: number; x: number; width: number; text: string }) {
   const frame = useCurrentFrame()
-  const meet = scene('meet')
-  const site = sentenceAt(meet, 1) - 6
-  const mark = ramp(frame, 30, 60)
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: x,
+        top: 850,
+        width,
+        textAlign: 'center',
+        ...presence(frame, at, Number.POSITIVE_INFINITY, 8),
+      }}
+    >
+      <div
+        style={{
+          height: 18,
+          borderLeft: `3px solid ${C.ink}`,
+          borderRight: `3px solid ${C.ink}`,
+          borderBottom: `3px solid ${C.ink}`,
+        }}
+      />
+      <div style={{ marginTop: 12, font: `600 24px ${FONT.mono}`, letterSpacing: '0.06em' }}>
+        {text}
+      </div>
+    </div>
+  )
+}
+
+/** The five customers, scripts every one, dealt as the voice introduces them. */
+function Cast({ from }: { from: number }) {
+  const frame = useCurrentFrame() + from
+  const deal = saying('meet', 1)
+  const width = 300
+  const gap = 34
+  const left = (1920 - (CAST.length * width + (CAST.length - 1) * gap)) / 2
   return (
     <Stage>
-      <Sequence durationInFrames={site}>
-        <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', gap: 40 }}>
-          <div style={{ font: `500 34px ${FONT.ui}`, color: C.muted, ...presence(frame, 4, site) }}>
-            A shakedown cruise is a ship’s test voyage before passengers board.
-          </div>
-          <div style={{ opacity: mark, transform: `scale(${0.92 + 0.08 * mark})` }}>
-            <Wordmark size={170} />
-          </div>
+      <AbsoluteFill style={{ alignItems: 'center', paddingTop: 96 }}>
+        <div style={{ font: `600 26px ${FONT.mono}`, letterSpacing: '0.12em', color: C.muted }}>
+          THE CAST · {CAST.length} SCRIPTED CUSTOMERS · NO AI
+        </div>
+      </AbsoluteFill>
+      {CAST.map((member, i) => {
+        const at = deal + i * 15
+        const t = ramp(frame, at - 6, at + 12)
+        return (
           <div
+            key={member.id}
             style={{
-              padding: '14px 26px',
-              borderRadius: 999,
-              border: `2px solid ${C.ink}`,
-              font: `600 30px ${FONT.mono}`,
-              ...presence(frame, 90, site),
+              position: 'absolute',
+              left: left + i * (width + gap),
+              top: 170,
+              width,
+              opacity: t,
+              transform: `translateY(${(1 - t) * 60}px) rotate(${(1 - t) * (i % 2 ? 4 : -4)}deg)`,
             }}
           >
-            Sandbox only · your own integration
+            <PersonaCard
+              persona={member.id}
+              state="idle"
+              of={CAST.length}
+              t={(frame / FPS) * 1000}
+            />
+            <div
+              style={{
+                marginTop: 18,
+                textAlign: 'center',
+                font: `600 28px/1.25 ${FONT.ui}`,
+                ...presence(frame, at + 10, Number.POSITIVE_INFINITY, 8),
+              }}
+            >
+              {member.rule}
+            </div>
+          </div>
+        )
+      })}
+      <Sequence from={-from}>
+        <Bracket
+          at={said('meet', 2, 'payments')}
+          x={left}
+          width={4 * width + 3 * gap}
+          text="PAYMENTS · CHECKOUT AND “PAID” MESSAGES"
+        />
+        <Bracket
+          at={said('meet', 2, 'Lulu')}
+          x={left + 4 * (width + gap)}
+          width={width}
+          text="SUPPORT · LULU"
+        />
+      </Sequence>
+    </Stage>
+  )
+}
+
+/** Shakedown in the sandbox, from its own site; then its five customers, all of them scripts. */
+export function Meet() {
+  const frame = useCurrentFrame()
+  const landing = useTake('landing')
+  const meet = scene('meet')
+  const cardsAt = saying('meet', 1) - 8
+  const hero = { x: 360, y: 90, width: 1200, height: 640 }
+  // From the moment the page has loaded.
+  const loaded = Math.max(0, markAt(landing, 'hero') - 0.1)
+  return (
+    <Stage>
+      <Sequence durationInFrames={cardsAt}>
+        <Footage
+          take="landing"
+          from={loaded}
+          to={loaded + cardsAt / FPS}
+          tag="LIVE · the Shakedown site"
+          cursor={false}
+          camera={[{ at: 0, frames: 0, box: hero, scale: 1.3 }]}
+        />
+        <AbsoluteFill
+          style={{ justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 190 }}
+        >
+          <div
+            style={{
+              padding: '14px 28px',
+              borderRadius: 999,
+              background: C.ink,
+              color: C.paper,
+              font: `600 30px ${FONT.mono}`,
+              ...presence(frame, 10, cardsAt, 8),
+            }}
+          >
+            PayPal sandbox · pretend money · nothing really ships
           </div>
         </AbsoluteFill>
       </Sequence>
-      <Sequence from={site}>
-        <Footage
-          take="landing"
-          from={0.4}
-          to={7.2}
-          tag="LIVE · the Shakedown site"
-          cursor={false}
-        />
+      <Sequence from={cardsAt}>
+        <Cast from={cardsAt} />
       </Sequence>
       <Voiceover scene={meet} />
     </Stage>
   )
 }
 
-// ---------- S4 ----------
+// ---------- the live run ----------
 
-const CAST: { id: PersonaId; line: string; amountCents: number }[] = [
-  {
-    id: 'double-clicker',
-    line: 'Presses Pay twice. Charged once?',
-    amountCents: runs.hero.before[0]?.amountCents ?? 0,
-  },
-  {
-    id: 'cart-shuffler',
-    line: 'Changes the cart after approval. Shipped what was paid?',
-    amountCents: runs.hero.before[1]?.amountCents ?? 0,
-  },
-  {
-    id: 'echo',
-    line: 'Replays payment events. Acted on once, and only if signed?',
-    amountCents: runs.hero.before[2]?.amountCents ?? 0,
-  },
-  {
-    id: 'bouncer',
-    line: 'Pays with a card that bounces. Nothing shipped?',
-    amountCents: runs.hero.before[3]?.amountCents ?? 0,
-  },
-  {
-    id: 'policy-lawyer',
-    line: 'Argues your refund policy with your AI agent. Policy held?',
-    amountCents: -Math.round(Number(POLICY_EXCESS.replace(/[^0-9.]/g, '')) * 100),
-  },
-]
-
-/** S4, the cast: five customers from hell, each dealt as the voiceover names them. */
-export function Cast() {
-  const frame = useCurrentFrame()
-  const cast = scene('cast')
-  const deal = CAST.map((_, i) => sentenceAt(cast, i))
-  let current = 0
-  for (const [i, at] of deal.entries()) if (frame >= at) current = i
-  const until = deal[current + 1] ?? framesOf(cast)
-  return (
-    <Stage>
-      <AbsoluteFill style={{ alignItems: 'center', paddingTop: 110 }}>
-        <div style={{ font: `600 26px ${FONT.mono}`, letterSpacing: '0.12em', color: C.muted }}>
-          THE CAST · {CAST.length} ON DUTY
-        </div>
-        <div style={{ display: 'flex', gap: 34, marginTop: 40 }}>
-          {CAST.map((member, i) => {
-            const at = deal[i] ?? 0
-            const t = ramp(frame, at - 6, at + 12)
-            const found = frame >= at + 40
-            return (
-              <div
-                key={member.id}
-                style={{
-                  width: 300,
-                  opacity: t,
-                  transform: `translateY(${(1 - t) * 60}px) rotate(${(1 - t) * (i % 2 ? 4 : -4)}deg)`,
-                  outline: i === current ? `4px solid ${C.highlighter}` : 'none',
-                  outlineOffset: 6,
-                  borderRadius: 12,
-                }}
-              >
-                <PersonaCard
-                  persona={member.id}
-                  state={found ? 'leak' : 'idle'}
-                  amountCents={member.amountCents}
-                  t={(frame / FPS) * 1000}
-                  stateT={found ? ((frame - at - 40) / FPS) * 1000 : 0}
-                />
-              </div>
-            )
-          })}
-        </div>
-        <div
-          style={{
-            marginTop: 48,
-            height: 60,
-            font: `600 44px ${FONT.ui}`,
-            ...presence(frame, deal[current] ?? 0, until - 2, 6),
-          }}
-        >
-          {CAST[current]?.line}
-        </div>
-      </AbsoluteFill>
-      <Voiceover scene={cast} />
-    </Stage>
-  )
+/** When the voice names each customer, and lights its group on the panel. */
+const GROUP: Record<string, number> = {
+  'double-clicker': 1,
+  'cart-shuffler': 3,
+  echo: 4,
+  bouncer: 6,
 }
 
-// ---------- S4½ ----------
-
-/**
- * The store under test, for anyone who hasn't seen it: Leaky Llama's shelf, socks in a cart at
- * PayPal's button, and the leak switches opening above it, all six set to leaky.
- */
-export function Store() {
-  const take = useTake('store')
-  if (!take) return <Stage />
-  const { cut, switches } = storeCut(take)
-  const checkout = cut[1]?.start ?? s(3)
-  const end = lengthOf(cut)
-  // The shelf keeps the store's own strip in frame: DEMO STORE · PAYPAL SANDBOX · NO REAL MONEY.
-  const shelf = { x: 192, y: 0, width: 1536, height: 862 }
-  const cart = markOf(take, 'cart')?.box
-  const pay = markOf(take, 'pay')?.box
-  const camera: CameraKey[] = [
-    { at: 0, frames: 0, box: shelf, scale: 1.25 },
-    ...(cart && pay ? [{ at: checkout, frames: 0, box: union(cart, pay), scale: 1.3 }] : []),
-    { at: switches + 4, frames: 26, box: { x: 408, y: 0, width: 1104, height: 720 }, scale: 1.5 },
-  ]
-  const tag = 'LIVE · Leaky Llama, my demo store'
-  // Below the store's header, which the tag would cover where it usually sits, until the dark
-  // switch panel opens and leaves room for it there.
-  const lowered = { left: 40, top: 128 }
-  return (
-    <Stage>
-      <Sequence durationInFrames={end}>
-        <Ramped
-          take="store"
-          cut={cut}
-          camera={camera}
-          tag={tag}
-          tagAt={(segment) => (segment.start < (cut[2]?.start ?? end) ? lowered : undefined)}
-        />
-      </Sequence>
-      <Sequence from={end}>
-        <Held take="store" at={take.durationMs / 1000 - 0.1} view={camera.at(-1)} tag={tag} />
-      </Sequence>
-      <Voiceover scene={scene('store')} />
-    </Stage>
-  )
-}
-
-// ---------- S5 ----------
-
-/** The receipt in plain words: each customer's leaks as they print, and the total at the end. */
-function Tally({ leaks, total }: { leaks: ReturnType<typeof liveCut>['leaks']; total: number }) {
-  const frame = useCurrentFrame()
-  const shown = leaks.filter((leak) => frame >= leak.frame)
-  const groups: { persona: string; rows: typeof shown }[] = []
-  for (const leak of shown) {
-    const group = groups.find((g) => g.persona === leak.persona)
-    if (group) group.rows.push(leak)
-    else groups.push({ persona: leak.persona, rows: [leak] })
-  }
-  const latest = shown[shown.length - 1]?.persona
+/** The receipt in plain words: each customer as the voice names it, its leaks as they print. */
+function Tally({
+  leaks,
+  total,
+  offset,
+}: {
+  leaks: ReturnType<typeof liveCut>['leaks']
+  total: number
+  offset: number
+}) {
+  const frame = useCurrentFrame() + offset
+  const live = scene('live')
+  const named = Object.entries(GROUP)
+    .map(([persona, sentence]) => ({ persona, at: sentenceAt(live, sentence) }))
+    .filter((group) => frame >= group.at)
+  const current = named.at(-1)?.persona
   const done = frame >= total
+  const echoChips = [
+    { at: said('live', 4, 'unsigned'), text: 'unsigned' },
+    { at: said('live', 4, 'once'), text: 'once' },
+    { at: said('live', 4, 'twice'), text: 'twice' },
+    { at: said('live', 4, 'late'), text: 'late' },
+  ]
   return (
     <>
       <Eyebrow>The receipt, line by line</Eyebrow>
-      <div style={{ marginTop: 10, font: `500 26px ${FONT.ui}`, color: C.mutedOnInk }}>
-        Four customers, one after another, in PayPal’s sandbox
+      <div style={{ marginTop: 10, font: `500 24px ${FONT.ui}`, color: C.mutedOnInk }}>
+        Four scripted customers, one after another, in PayPal’s sandbox
       </div>
-      <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {groups.map((group) => (
-          <div key={group.persona} style={{ opacity: done || group.persona === latest ? 1 : 0.5 }}>
-            <Eyebrow color={C.leakOnInk}>▼ {nameOf(group.persona)}</Eyebrow>
-            {group.rows.map((row) => (
-              <div
-                key={row.t}
-                style={{
-                  marginTop: 6,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  gap: 24,
-                  ...presence(frame, row.frame, Number.POSITIVE_INFINITY, 6),
-                }}
-              >
-                <span style={{ font: `500 30px/1.25 ${FONT.ui}` }}>
-                  {BROKE[row.check] ?? row.check}
-                </span>
-                <span
+      <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {named.map((group) => {
+          const rows = leaks.filter((leak) => leak.persona === group.persona && frame >= leak.frame)
+          return (
+            <div
+              key={group.persona}
+              style={{
+                ...presence(frame, group.at, Number.POSITIVE_INFINITY, 6),
+                // The group being told is bright; the others step back until the total.
+                opacity:
+                  presence(frame, group.at, Number.POSITIVE_INFINITY, 6).opacity *
+                  (done || group.persona === current ? 1 : 0.5),
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+                <Eyebrow color={C.leakOnInk}>▼ {nameOf(group.persona)}</Eyebrow>
+                {group.persona === 'echo'
+                  ? echoChips
+                      .filter((chip) => frame >= chip.at)
+                      .map((chip) => <Term key={chip.text}>{chip.text}</Term>)
+                  : null}
+              </div>
+              {rows.map((row) => (
+                <div
+                  key={row.t}
                   style={{
-                    flex: 'none',
-                    font: `600 30px ${FONT.mono}`,
-                    color: C.leakOnInk,
-                    fontVariantNumeric: 'tabular-nums',
+                    marginTop: 5,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    gap: 24,
+                    ...presence(frame, row.frame, Number.POSITIVE_INFINITY, 6),
                   }}
                 >
-                  {formatCents(row.amountCents)}
-                </span>
-              </div>
-            ))}
-          </div>
-        ))}
+                  <span style={{ font: `500 28px/1.25 ${FONT.ui}` }}>{brokeOf(row)}</span>
+                  <span
+                    style={{
+                      flex: 'none',
+                      font: `600 28px ${FONT.mono}`,
+                      color: C.leakOnInk,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {formatCents(row.amountCents)}
+                  </span>
+                </div>
+              ))}
+              {group.persona === 'echo' && rows.length > 0 ? (
+                <div style={{ marginTop: 4, font: `500 18px ${FONT.mono}`, color: C.mutedOnInk }}>
+                  judged from my shop’s own records
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
       </div>
       {done ? (
         <div
@@ -600,82 +753,79 @@ function Tally({ leaks, total }: { leaks: ReturnType<typeof liveCut>['leaks']; t
             position: 'absolute',
             left: 88,
             right: 64,
-            bottom: 140,
-            paddingTop: 18,
+            bottom: 150,
+            paddingTop: 16,
             borderTop: `2px solid ${C.paper}`,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'baseline',
             ...presence(frame, total, Number.POSITIVE_INFINITY, 8),
           }}
         >
-          <span style={{ font: `600 30px ${FONT.mono}`, letterSpacing: '0.06em' }}>
-            {LEAKS} LEAKS
-          </span>
-          <span style={{ font: `600 88px/1 ${FONT.mono}`, color: C.leakOnInk }}>{TOTAL}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ font: `600 30px ${FONT.mono}`, letterSpacing: '0.06em' }}>
+              {LEAKS} LEAKS
+            </span>
+            <span style={{ font: `600 84px/1 ${FONT.mono}`, color: C.leakOnInk }}>{TOTAL}</span>
+          </div>
+          <div
+            style={{
+              marginTop: 12,
+              textAlign: 'right',
+              font: `500 22px ${FONT.mono}`,
+              color: C.mutedOnInk,
+              ...presence(frame, total + 15, Number.POSITIVE_INFINITY, 8),
+            }}
+          >
+            {MERCHANT} my shop would lose · {CUSTOMER} a customer overpaid
+          </div>
         </div>
       ) : null}
     </>
   )
 }
 
-/** S5, a live run on the site: the click, then every leak as PayPal's sandbox confirms it. */
+/** A live run on the site: the click, then each leak as the voice names it. */
 export function Live() {
   const take = useTake('live-run')
   if (!take) return <Stage />
-  const { cut, end, settled, leaks } = liveCut(take)
+  const { cut, end, leaks, split } = liveCut(take)
   const tape = markOf(take, 'run-done')?.box
   const view = tape ? receiptView(tape) : undefined
-  const split = cut[1]?.start ?? s(4)
   const camera: CameraKey[] = view ? [{ ...view, at: split, frames: 22 }] : []
   const live = scene('live')
   const allLeaks = leaksOf(take)
+  const settled = leaks.at(-1)?.frame ?? end
+  const total = said('live', 7, '$')
+  const right = (segment: Placed) => segment.start + segment.frames > split
   return (
     <Stage>
-      <Sequence durationInFrames={end}>
-        <Ramped
-          take="live-run"
-          cut={cut}
-          camera={camera}
-          tag="LIVE · PayPal sandbox"
-          tagAt={(segment) => (segment.start >= split ? RIGHT_TAG : undefined)}
-          veil={(segment) => (segment.start >= split ? PANEL : undefined)}
-        >
-          {(ms) => {
-            // The line that printed last, swiped as the panel names it.
-            const latest = allLeaks.filter((leak) => leak.t * 1000 <= ms).pop()
-            return latest?.box ? (
-              <Highlight box={latest.box} t={(ms - latest.t * 1000) / 260} />
-            ) : null
-          }}
-        </Ramped>
-      </Sequence>
-      <Sequence from={end}>
-        <Held
-          take="live-run"
-          at={settled}
-          view={view}
-          tag="LIVE · PayPal sandbox"
-          tagAt={RIGHT_TAG}
-          veil={PANEL}
-        />
-      </Sequence>
+      <Ramped
+        take="live-run"
+        cut={cut}
+        camera={camera}
+        tag="LIVE · PayPal sandbox"
+        tagAt={(segment) => (right(segment) ? RIGHT_TAG : undefined)}
+        veil={(segment) => (right(segment) ? PANEL : undefined)}
+      >
+        {(ms) => {
+          // The line that printed last, swiped as the panel names it.
+          const latest = allLeaks.filter((leak) => leak.t * 1000 <= ms).pop()
+          return latest?.box ? (
+            <Highlight box={latest.box} t={(ms - latest.t * 1000) / 260} />
+          ) : null
+        }}
+      </Ramped>
       <Sequence from={split}>
         <Panel at={1}>
-          <Tally
-            leaks={leaks.map((leak) => ({ ...leak, frame: leak.frame - split }))}
-            total={end - split}
-          />
+          <Tally leaks={leaks} total={Math.max(total, settled)} offset={split} />
         </Panel>
       </Sequence>
-      <Voiceover scene={live} anchors={anchorsFor('live', take)} />
+      <Voiceover scene={live} />
     </Stage>
   )
 }
 
-// ---------- S6 ----------
+// ---------- one leak, followed to PayPal ----------
 
-/** When S6 says each fact of the leak it follows, in frames of the scene. */
+/** When the proof scene says each fact of the leak it follows, in frames of the scene. */
 interface Said {
   approved: number
   swapped: number
@@ -685,26 +835,25 @@ interface Said {
 }
 
 /**
- * S6, one leak followed for someone new: what the Cart Shuffler did, what PayPal captured and
- * what the store shipped, worked out in plain words beside the console's own evidence, then
- * PayPal's own record of the same capture.
+ * One leak, followed: the console's evidence lit line by line as the voice says it, the sum worked
+ * out beside it, then PayPal's own record of the same payment, and the Cart Shuffler's other leak.
  */
 export function Proof() {
   const take = useTake('console')
   const dashboard = useTake('dashboard')
   if (!take) return <Stage />
   const proof = scene('proof')
-  const anchors = anchorsFor('proof')
-  const say = (sentence: number, phrase: string) => phraseAt(proof, sentence, phrase, { anchors })
-  const said: Said = {
-    approved: say(1, 'of socks'),
-    swapped: say(1, 'panniers'),
-    captured: say(2, 'PayPal captured'),
-    shipped: say(2, 'the store shipped'),
-    leaked: say(2, 'leaked'),
+  const facts: Said = {
+    approved: said('proof', 0, 'approved'),
+    swapped: said('proof', 1, 'saddlebags'),
+    captured: said('proof', 2, 'collected'),
+    shipped: said('proof', 3, 'shipped'),
+    leaked: said('proof', 4, 'unpaid'),
   }
   // From just before the click on the leak, so the console opens on the receipt line it was.
-  const from = Math.max(0, markAt(take, 'leak') - 1.2)
+  const from = Math.max(0, markAt(take, 'leak') - 0.4)
+  // The click on the leak line; the camera leaves the filtered scoreboard as it lands.
+  const clicked = (take.events.find((e) => e.type === 'click' && e.t / 1000 > from)?.t ?? 0) / 1000
   const to = take.durationMs / 1000 - 0.1
   const leak = markOf(take, 'leak')?.box
   const detail = markOf(take, 'detail')?.box
@@ -715,8 +864,8 @@ export function Proof() {
     ...(finding
       ? [
           {
-            at: sentenceAt(proof, 1, { anchors }) - 8,
-            frames: 26,
+            at: s(clicked - from) + 3,
+            frames: 20,
             box: finding,
             scale: 2.3,
             center: RIGHT,
@@ -724,13 +873,13 @@ export function Proof() {
         ]
       : []),
   ]
-  // One line of the finding lit at a time, as the voiceover reaches what it says.
+  // One line of the finding lit at a time, as the voice reaches what it says.
   const lit: [number, string][] = [
-    [said.approved, 'cart-at-checkout'],
-    [said.swapped, 'cart-at-capture'],
-    [said.captured, 'captured'],
-    [said.shipped, 'shipped'],
-    [said.leaked, 'detail'],
+    [facts.approved, 'cart-at-checkout'],
+    [facts.swapped, 'cart-at-capture'],
+    [facts.captured, 'captured'],
+    [facts.shipped, 'shipped'],
+    [facts.leaked, 'detail'],
   ]
   return (
     <Stage>
@@ -739,7 +888,7 @@ export function Proof() {
           take="console"
           from={from}
           to={to}
-          tag="LIVE · the Shakedown console"
+          tag="LIVE · my console, built on AG Studio"
           tagAt={RIGHT_TAG}
           veil={PANEL}
           camera={camera}
@@ -752,12 +901,16 @@ export function Proof() {
           }}
         </Footage>
         <Panel>
-          <Followed said={said} />
+          <Followed said={facts} />
         </Panel>
       </Sequence>
       <Sequence from={PROOF_DASHBOARD}>
         {dashboard ? (
-          <PayPalRecord take={dashboard} same={say(3, WORST.captured) - PROOF_DASHBOARD} />
+          <PayPalRecord
+            take={dashboard}
+            from={PROOF_DASHBOARD}
+            panelAt={saying('proof', 6) - 4 - PROOF_DASHBOARD}
+          />
         ) : (
           <Placeholder
             title="The same order in your PayPal sandbox dashboard"
@@ -765,7 +918,12 @@ export function Proof() {
           />
         )}
       </Sequence>
-      <Voiceover scene={proof} anchors={anchors} />
+      <Sequence from={saying('proof', 6) - 4}>
+        <Panel at={1}>
+          <TwoLeaks />
+        </Panel>
+      </Sequence>
+      <Voiceover scene={proof} />
     </Stage>
   )
 }
@@ -804,8 +962,8 @@ function Fact({
   )
 }
 
-/** S6's panel: the receipt line it follows, then that leak worked out, a fact at a time. */
-function Followed({ said }: { said: Said }) {
+/** The panel beside the console: the receipt line it follows, then that leak worked out. */
+function Followed({ said: at }: { said: Said }) {
   const frame = useCurrentFrame()
   const { approved, swapped } = WORST
   return (
@@ -823,25 +981,25 @@ function Followed({ said }: { said: Said }) {
           font: `500 30px/1.25 ${FONT.ui}`,
         }}
       >
-        <span>{BROKE['Goods shipped are never worth more than PayPal captured']}</span>
+        <span>{SWAPPED_LEAK}</span>
         <span style={{ font: `600 30px ${FONT.mono}`, color: C.leakOnInk }}>
           {money(-WORST.leakCents)}
         </span>
       </div>
       <div style={{ height: 24 }} />
       <Fact
-        at={said.approved}
-        lit={said.captured}
-        label="PayPal captured"
+        at={at.approved}
+        lit={at.captured}
+        label="PayPal collected"
         amount={WORST.captured}
-        from={`${approved.qty} × ${approved.name}: the cart it approved`}
+        from={`for ${approved.qty} × ${approved.name}: the cart it approved`}
       />
       <Fact
-        at={said.swapped}
-        lit={said.shipped}
-        label="The store shipped"
+        at={at.swapped}
+        lit={at.shipped}
+        label="My shop shipped"
         amount={WORST.shipped}
-        from={`${swapped.qty} × ${swapped.name}: the cart it sent after approving`}
+        from={`${swapped.qty} × ${swapped.name} (saddlebags): the cart it sent after`}
       />
       <div
         style={{
@@ -851,10 +1009,10 @@ function Followed({ said }: { said: Said }) {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'baseline',
-          ...presence(frame, said.leaked, Number.POSITIVE_INFINITY, 8),
+          ...presence(frame, at.leaked, Number.POSITIVE_INFINITY, 8),
         }}
       >
-        <span style={{ font: `600 30px ${FONT.mono}`, letterSpacing: '0.06em' }}>LEAKED</span>
+        <span style={{ font: `600 30px ${FONT.mono}`, letterSpacing: '0.06em' }}>UNPAID</span>
         <span style={{ font: `600 88px/1 ${FONT.mono}`, color: C.leakOnInk }}>
           {money(-WORST.leakCents)}
         </span>
@@ -865,7 +1023,7 @@ function Followed({ said }: { said: Said }) {
           textAlign: 'right',
           font: `500 26px ${FONT.mono}`,
           color: C.mutedOnInk,
-          ...presence(frame, said.leaked + 6, Number.POSITIVE_INFINITY, 8),
+          ...presence(frame, at.leaked + 6, Number.POSITIVE_INFINITY, 8),
         }}
       >
         {WORST.shipped} − {WORST.captured}
@@ -874,20 +1032,97 @@ function Followed({ said }: { said: Said }) {
   )
 }
 
+/** The Cart Shuffler's two leaks as one bar: the followed one, then the price it set itself. */
+function TwoLeaks() {
+  const frame = useCurrentFrame()
+  const start = saying('proof', 6) - 4
+  const ownAt = said('proof', 6, '$') - start
+  const totalAt = said('proof', 6, 'paid') - start
+  const swappedCents = WORST.leakCents
+  const ownCents = OWN_PRICE.leakCents
+  const width = PANEL - 88 - 64
+  const part = (cents: number) => (width * cents) / (swappedCents + ownCents)
+  const line = runs.hero.before.find((b) => b.personaId === 'cart-shuffler')
+  return (
+    <>
+      <Eyebrow color={C.leakOnInk}>▼ {nameOf('cart-shuffler')} · two leaks</Eyebrow>
+      <div style={{ marginTop: 40, display: 'flex', height: 64, gap: 4 }}>
+        <div style={{ width: part(swappedCents), background: C.leakOnInk, borderRadius: 6 }} />
+        <div
+          style={{
+            width: part(ownCents),
+            background: C.leakOnInk,
+            borderRadius: 6,
+            opacity: 0.25 + 0.75 * ramp(frame, ownAt, ownAt + 10),
+          }}
+        />
+      </div>
+      {[
+        { at: 0, cents: swappedCents, text: SWAPPED_LEAK },
+        { at: ownAt, cents: ownCents, text: OWN_PRICE_LEAK },
+      ].map((row) => (
+        <div
+          key={row.text}
+          style={{
+            marginTop: 22,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            gap: 20,
+            ...presence(frame, row.at, Number.POSITIVE_INFINITY, 8),
+          }}
+        >
+          <span style={{ font: `500 30px/1.25 ${FONT.ui}` }}>{row.text}</span>
+          <span style={{ flex: 'none', font: `600 32px ${FONT.mono}`, color: C.leakOnInk }}>
+            {money(-row.cents)}
+          </span>
+        </div>
+      ))}
+      <div
+        style={{
+          marginTop: 34,
+          paddingTop: 18,
+          borderTop: `2px solid ${C.paper}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          ...presence(frame, totalAt, Number.POSITIVE_INFINITY, 8),
+        }}
+      >
+        <span style={{ font: `600 30px ${FONT.mono}`, letterSpacing: '0.06em' }}>
+          ITS RECEIPT LINE
+        </span>
+        <span style={{ font: `600 72px/1 ${FONT.mono}`, color: C.leakOnInk }}>
+          {formatCents(line?.amountCents ?? -(swappedCents + ownCents))}
+        </span>
+      </div>
+    </>
+  )
+}
+
+/** The order-details row on PayPal's transaction page ("Alpaca-blend trail socks"), measured. */
+const ORDER_ROW: Box = { x: 280, y: 868, width: 1380, height: 50 }
+
 /**
- * PayPal's own record of the same capture: the sandbox account's transaction details, recorded in
- * a window you signed in to (capture.ts, take `dashboard`). As the cursor reaches the transaction
- * ID, the camera comes in on the ID and the amount together; the amount is lit as the voiceover
- * says it (`same`, a frame of this clip), and a callout keeps the sum in view.
+ * PayPal's own record of the same payment: the sandbox account's transaction details, recorded in
+ * a window you signed in to (capture.ts, take `dashboard`). The amount is lit as the voice says
+ * it, then the order's one line, the socks; a callout keeps the sum in view.
  */
-function PayPalRecord({ take, same }: { take: Take; same: number }) {
+function PayPalRecord({
+  take,
+  from: sceneFrom,
+  panelAt,
+}: {
+  take: Take
+  from: number
+  /** When the two-leak panel slides in over the left of the frame, in frames of this clip. */
+  panelAt: number
+}) {
   const from = Math.max(0, markAt(take, 'heading') - 0.4)
   const to = take.durationMs / 1000 - 0.1
-  const id = markOf(take, 'transaction-id')
   const amount = markOf(take, 'amount')
-  const facts = id?.box && amount?.box ? union(id.box, amount.box) : undefined
-  // The take marks the page, then takes 0.9 s to bring the cursor to the ID.
-  const zoomAt = s(markAt(take, 'transaction-id') - from + 0.9)
+  const amountAt = said('proof', 5, '$') - sceneFrom
+  const socksAt = said('proof', 5, 'socks') - sceneFrom
   return (
     <>
       <Footage
@@ -895,60 +1130,82 @@ function PayPalRecord({ take, same }: { take: Take; same: number }) {
         from={from}
         to={to}
         tag="LIVE · PayPal’s sandbox dashboard"
-        // The take's cursor rests on the transaction ID; the highlight does the pointing here.
+        // The take's cursor rests on the transaction ID; the highlights do the pointing here.
         cursor={false}
         camera={[
-          // Open just below PayPal's top bar, which this signed-in page leaves half-loaded.
-          { at: 0, frames: 0, box: { x: 0, y: 58, width: 1920, height: 1000 }, scale: 1.08 },
-          ...(facts ? [{ at: zoomAt, frames: 26, box: facts, scale: 1.7 }] : []),
+          // From PayPal's "Payment received" down to the order's line items.
+          { at: 0, frames: 0, box: { x: 280, y: 300, width: 1380, height: 600 }, scale: 1.15 },
+          // Then right of the panel: the amount, and the socks line's own $18.00.
+          {
+            at: panelAt,
+            frames: 22,
+            box: { x: 1100, y: 300, width: 600, height: 620 },
+            scale: 1.25,
+            center: RIGHT,
+          },
         ]}
       >
         {(ms) => {
           const frame = (ms / 1000 - from) * FPS
-          return amount?.box ? <Highlight box={amount.box} t={(frame - same) / 8} /> : null
+          return (
+            <>
+              {amount?.box ? <Highlight box={amount.box} t={(frame - amountAt) / 8} /> : null}
+              <Highlight box={ORDER_ROW} t={(frame - socksAt) / 8} />
+            </>
+          )
         }}
       </Footage>
       <Callout
         from={s(0.6)}
-        to={Number.POSITIVE_INFINITY}
+        to={panelAt + 6}
         who={nameOf('cart-shuffler')}
-        what={`PayPal captured ${WORST.captured}. The store shipped ${WORST.shipped}.`}
+        label="PayPal’s record"
+        what={`PayPal collected ${WORST.captured}, for socks. My shop shipped ${WORST.shipped}.`}
         amount={money(-WORST.leakCents)}
         x={440}
-        y={736}
+        y={560}
         width={1040}
       />
     </>
   )
 }
 
-// ---------- S7 ----------
+// ---------- what the AI said vs what the money did ----------
 
-/** S7, AI decides vs code decides: what the assistant said, then what the ledger recorded. */
+/**
+ * The Policy Lawyer's recorded run: my written policy, the scripted request, Lulu's reply (Lulu is
+ * Claude, the AI being tested), then PayPal's refunds read by plain code, and the verdict.
+ */
 export function AiVsCode() {
+  const frame = useCurrentFrame()
   const take = useTake('exhibit')
   if (!take) return <Stage />
-  const length = Math.min(take.durationMs / 1000 - 0.1, 10.4)
   const vo = scene('ai-vs-code')
-  const ask = sentenceAt(vo, 2)
-  const ledgerAt = sentenceAt(vo, 3)
-  const whole = markOf(take, 'exhibit')?.box
+  // From the moment the page has loaded.
+  const from = Math.max(0, markAt(take, 'exhibit') - 0.5)
+  const length = Math.min(take.durationMs / 1000 - 0.1 - from, 10.4)
   const chat = markOf(take, 'chat')?.box
   const ledger = markOf(take, 'ledger')?.box
+  const reply = saying('ai-vs-code', 2)
+  const ledgerAt = saying('ai-vs-code', 3)
+  const asked = saying('ai-vs-code', 1)
   const camera: CameraKey[] = [
-    ...(whole ? [{ at: 0, frames: 0, box: whole, scale: 1.2 }] : []),
-    ...(chat ? [{ at: ask - 8, frames: 26, box: chat, scale: 1.8 }] : []),
+    ...(chat ? [{ at: 0, frames: 0, box: chat, scale: 1.6 }] : []),
+    ...(chat ? [{ at: reply - 8, frames: 24, box: chat, scale: 1.9 }] : []),
     ...(ledger ? [{ at: ledgerAt - 8, frames: 26, box: ledger, scale: 1.8 }] : []),
   ]
   const end = s(length)
+  const recorded = /· (\w+ \d+),/.exec(runs.hero.label)?.[1] ?? ''
+  const tag = `LIVE · the Shakedown site · recorded run${recorded ? `, ${recorded}` : ''}`
+  const why = runs.exhibit.verdict.why
   return (
     <Stage>
       <Sequence durationInFrames={end}>
         <Footage
           take="exhibit"
-          from={0}
-          to={length}
-          tag="LIVE · the Shakedown site"
+          from={from}
+          to={from + length}
+          tag={tag}
           camera={camera}
           cursor={false}
         />
@@ -956,16 +1213,64 @@ export function AiVsCode() {
       <Sequence from={end}>
         <Held
           take="exhibit"
-          at={length - 0.1}
+          at={from + length - 0.1}
           view={ledger ? { box: ledger, scale: 1.8 } : undefined}
-          tag="LIVE · the Shakedown site"
+          tag={tag}
         />
       </Sequence>
+      {/* My written policy, said first, then kept in the corner. */}
+      <div
+        style={{
+          position: 'absolute',
+          right: 40,
+          top: frame < asked ? 120 : 36,
+          width: frame < asked ? 620 : 470,
+          padding: frame < asked ? '22px 28px' : '12px 18px',
+          borderRadius: 12,
+          background: C.surface,
+          border: `3px solid ${C.ink}`,
+          ...presence(frame, 4, Number.POSITIVE_INFINITY, 8),
+        }}
+      >
+        <div style={{ font: `600 20px ${FONT.mono}`, letterSpacing: '0.1em', color: C.muted }}>
+          MY WRITTEN POLICY
+        </div>
+        <div style={{ marginTop: 6, font: `600 ${frame < asked ? 34 : 24}px/1.25 ${FONT.ui}` }}>
+          Over {POLICY.limit} an order, a person decides.
+        </div>
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          left: 40,
+          bottom: 150,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          ...presence(frame, asked, ledgerAt - 4, 8),
+        }}
+      >
+        {['Policy Lawyer · scripted lines', 'Lulu · Claude, the AI being tested'].map((label) => (
+          <span
+            key={label}
+            style={{
+              alignSelf: 'flex-start',
+              padding: '8px 18px',
+              borderRadius: 999,
+              background: C.ink,
+              color: C.surface,
+              font: `600 22px ${FONT.mono}`,
+            }}
+          >
+            {label}
+          </span>
+        ))}
+      </div>
       <Callout
-        from={ledgerAt + s(1.6)}
+        from={said('ai-vs-code', 3, 'second')}
         to={framesOf(vo) + 4}
         who={nameOf('policy-lawyer')}
-        what={runs.exhibit.verdict.why}
+        what={`Refund 2 broke my policy. ${why}`}
         amount={`−${POLICY_EXCESS}`}
         x={440}
         y={736}
@@ -976,7 +1281,7 @@ export function AiVsCode() {
   )
 }
 
-// ---------- S8 ----------
+// ---------- the fix, the same test again, and CI ----------
 
 /** How the re-run came back, customer by customer, from the receipt the take printed. */
 function rerunOf(take: Take) {
@@ -991,50 +1296,64 @@ function rerunOf(take: Take) {
 /** The fixes, one line per customer; each turns to its re-run verdict as the receipt seals. */
 function Fixes({ sealed, results }: { sealed: number; results: ReturnType<typeof rerunOf> }) {
   const frame = useCurrentFrame()
-  const rows = Object.entries(FIXED)
+  const lit = said('fix', 0, 'shipping')
   return (
     <>
-      <Eyebrow>The fixes, applied</Eyebrow>
-      <div style={{ marginTop: 30, display: 'flex', flexDirection: 'column', gap: 30 }}>
-        {rows.map(([persona, fix], i) => {
+      <Eyebrow>Every leak, its fix</Eyebrow>
+      <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {FIXED.map(({ persona, fix }, i) => {
           const result = results.get(persona)
           const done = frame >= sealed
           const verdict = done ? (result?.verdict ?? 'sealed') : 'leak'
           const color =
             verdict === 'sealed' ? C.sealedOnInk : verdict === 'leak' ? C.leakOnInk : C.paper
           const word =
-            verdict === 'sealed' ? '✓ Sealed' : verdict === 'leak' ? '▼ Leaked' : '? Inconclusive'
+            verdict === 'sealed' ? '✓ Sealed' : verdict === 'leak' ? '▼ Leaked' : '? Unproven'
           return (
             <div key={persona} style={presence(frame, 8 + i * 9, Number.POSITIVE_INFINITY, 8)}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20 }}>
                 <Eyebrow color={C.paper}>{nameOf(persona)}</Eyebrow>
                 <Eyebrow color={color}>{word}</Eyebrow>
               </div>
-              <div style={{ marginTop: 6, font: `500 30px/1.25 ${FONT.ui}` }}>{fix}</div>
+              <div style={{ marginTop: 6, font: `500 30px/1.25 ${FONT.ui}` }}>
+                {persona === 'cart-shuffler' ? (
+                  <Swipe at={lit} tone="ink">
+                    {fix}
+                  </Swipe>
+                ) : (
+                  fix
+                )}
+              </div>
               {done && verdict === 'inconclusive' ? (
                 <div style={{ marginTop: 4, font: `500 22px ${FONT.mono}`, color: C.mutedOnInk }}>
-                  {result?.evidence}
+                  Only PayPal can sign those messages
                 </div>
               ) : null}
             </div>
           )
         })}
+        <div style={presence(frame, 8 + FIXED.length * 9, Number.POSITIVE_INFINITY, 8)}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20 }}>
+            <Eyebrow color={C.paper}>{nameOf('policy-lawyer')}</Eyebrow>
+            <Eyebrow>Tested separately</Eyebrow>
+          </div>
+          <div style={{ marginTop: 6, font: `500 30px/1.25 ${FONT.ui}` }}>
+            Over {POLICY.limit} an order, a person decides
+          </div>
+        </div>
       </div>
     </>
   )
 }
 
-/** S8, the fix: apply it, re-run the same seed, watch it seal; then the gate in CI. */
+/** The fix: name one, switch them on, the same test again at $0; then the check in CI. */
 export function Fix() {
   const take = useTake('live-run')
   const ci = useTake('ci')
   if (!take || !ci) return <Stage />
-  const { cut, end, sealed, settled } = fixCut(take)
+  const { cut, end, sealed } = fixCut(take)
   const tape = markOf(take, 'rerun-sealed')?.box ?? markOf(take, 'run-done')?.box
   const view = tape ? receiptView(tape) : undefined
-  const split = cut[1]?.start ?? s(1.9)
-  const hold = FIX_HOLD
-  const ciAt = end + hold
   const ciFrom = 1.0
   const terminal = markOf(ci, 'terminal')?.box
   const comment = markOf(ci, 'comment')?.box
@@ -1043,36 +1362,27 @@ export function Fix() {
     ...(terminal ? [{ at: 0, frames: 0, box: terminal, scale: 1.45 }] : []),
     ...(comment ? [{ at: s(clicked - ciFrom) + 14, frames: 24, box: comment, scale: 1.75 }] : []),
   ]
-  const ciLength = s(Math.min(ci.durationMs / 1000 - 0.1, 8.4) - ciFrom)
   const fix = scene('fix')
+  const ciLength = Math.min(
+    s(Math.min(ci.durationMs / 1000 - 0.1, 8.4) - ciFrom),
+    framesOf(fix) - end,
+  )
   return (
     <Stage>
       <Sequence durationInFrames={end}>
         <Ramped
           take="live-run"
           cut={cut}
-          camera={view ? [{ ...view, at: split, frames: 22 }] : []}
+          camera={view ? [{ ...view, at: 0, frames: 0 }] : []}
           tag="LIVE · PayPal sandbox"
-          tagAt={(segment) => (segment.start >= split ? RIGHT_TAG : undefined)}
-          veil={(segment) => (segment.start >= split ? PANEL : undefined)}
+          tagAt={() => RIGHT_TAG}
+          veil={() => PANEL}
         />
-      </Sequence>
-      <Sequence from={end} durationInFrames={hold}>
-        <Held
-          take="live-run"
-          at={settled}
-          view={view}
-          tag="LIVE · PayPal sandbox"
-          tagAt={RIGHT_TAG}
-          veil={PANEL}
-        />
-      </Sequence>
-      <Sequence from={split} durationInFrames={ciAt - split}>
         <Panel at={1}>
-          <Fixes sealed={sealed - split} results={rerunOf(take)} />
+          <Fixes sealed={sealed} results={rerunOf(take)} />
         </Panel>
       </Sequence>
-      <Sequence from={ciAt} durationInFrames={ciLength}>
+      <Sequence from={end} durationInFrames={ciLength}>
         <Footage
           take="ci"
           from={ciFrom}
@@ -1081,7 +1391,7 @@ export function Fix() {
           camera={ciCamera}
         />
       </Sequence>
-      <Sequence from={ciAt + ciLength}>
+      <Sequence from={end + ciLength}>
         <Held
           take="ci"
           at={ciFrom + ciLength / FPS - 0.05}
@@ -1089,153 +1399,81 @@ export function Fix() {
           tag="LIVE · the Shakedown site"
         />
       </Sequence>
-      <Voiceover scene={fix} anchors={anchorsFor('fix', take)} />
+      <Callout
+        from={said('fix', 5, 'fails')}
+        to={framesOf(fix) + 4}
+        who="every pull request"
+        label="The check"
+        what="A leak that comes back fails the check."
+        amount="exit 1"
+        x={440}
+        y={736}
+        width={1040}
+      />
+      <Voiceover scene={fix} />
     </Stage>
   )
 }
 
-// ---------- S9 ----------
+// ---------- the close ----------
 
 const NODES = [
-  { label: 'The cast', sub: 'Claude plays the customers', who: 'AI' },
-  { label: 'Your store', sub: 'checkout, webhooks, AI support' },
-  { label: 'PayPal sandbox', sub: 'Orders v2 · Payments v2 · Webhooks' },
-  { label: 'The graders', sub: 'plain code reads the ledger', who: 'Code' },
-  { label: 'The receipt', sub: 'fix, re-run, CI gate' },
+  { label: 'Scripted customers', sub: 'fixed, seeded scripts · no AI' },
+  { label: 'Your store', sub: 'checkout, “paid” messages, AI assistant', who: 'AI' },
+  { label: 'PayPal sandbox', sub: 'Orders v2 · Payments v2 · webhook signatures' },
+  { label: 'Plain-code checks', sub: 'PayPal’s records vs the store’s', who: 'Code' },
+  { label: 'The receipt', sub: 'each leak, and its fix' },
 ]
 
-/** S9: how it works, in one drawing, then the end card. */
+/** The tester tested; how it decides, in one drawing; the fix sent upstream; the end card. */
 export function Close() {
   const frame = useCurrentFrame()
   const close = scene('close')
   const card = CLOSE_CARD
+  const drawing = saying('close', 1)
+  const upstream = saying('close', 2)
   const width = 300
   const gap = 56
   const left = (1920 - (NODES.length * width + (NODES.length - 1) * gap)) / 2
   return (
     <Stage>
-      <Sequence durationInFrames={card}>
-        <AbsoluteFill>
+      <Sequence durationInFrames={drawing}>
+        <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', gap: 40 }}>
           <div
             style={{
-              position: 'absolute',
-              top: 150,
-              width: '100%',
-              textAlign: 'center',
-              font: `800 72px ${FONT.display}`,
-              fontVariationSettings: '"wdth" 80',
-              ...presence(frame, 4, card),
-            }}
-          >
-            AI plays the customers. <Swipe at={40}>Code keeps the score.</Swipe>
-          </div>
-          {NODES.map((node, i) => {
-            const at = 24 + i * 22
-            const x = left + i * (width + gap)
-            const ink = node.who === 'Code'
-            return (
-              <div key={node.label}>
-                {i > 0 ? (
-                  <svg
-                    width={gap}
-                    height={30}
-                    viewBox={`0 0 ${gap} 30`}
-                    style={{
-                      position: 'absolute',
-                      left: x - gap,
-                      top: 455,
-                      ...presence(frame, at - 6, card),
-                    }}
-                  >
-                    <title>then</title>
-                    <path
-                      d={`M6 15 H${gap - 10} M${gap - 18} 7 L${gap - 8} 15 L${gap - 18} 23`}
-                      fill="none"
-                      stroke={C.ink}
-                      strokeWidth={3.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : null}
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: x,
-                    top: 380,
-                    width,
-                    height: 204,
-                    boxSizing: 'border-box',
-                    padding: '26px 24px',
-                    borderRadius: 14,
-                    border: `3px solid ${C.ink}`,
-                    background: ink ? C.ink : C.surface,
-                    color: ink ? C.surface : C.ink,
-                    ...presence(frame, at, card),
-                  }}
-                >
-                  <div
-                    style={{
-                      font: `800 40px/1 ${FONT.display}`,
-                      fontVariationSettings: '"wdth" 82',
-                    }}
-                  >
-                    {node.label}
-                  </div>
-                  <div style={{ marginTop: 14, font: `500 25px/1.3 ${FONT.ui}`, opacity: 0.85 }}>
-                    {node.sub}
-                  </div>
-                </div>
-                {node.who ? (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: x + width / 2 - 260,
-                      top: 620,
-                      width: 520,
-                      textAlign: 'center',
-                      whiteSpace: 'nowrap',
-                      ...presence(frame, 150 + (ink ? 24 : 0), card),
-                    }}
-                  >
-                    <div
-                      style={{
-                        margin: '0 auto 14px',
-                        width: 3,
-                        height: 34,
-                        background: C.ink,
-                      }}
-                    />
-                    <span
-                      style={{
-                        padding: '8px 18px',
-                        borderRadius: 999,
-                        background: ink ? C.ink : C.highlighter,
-                        color: ink ? C.surface : C.ink,
-                        font: `600 24px ${FONT.mono}`,
-                      }}
-                    >
-                      {ink ? 'Code decides: did money move?' : 'AI decides: what to say'}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-            )
-          })}
-          <div
-            style={{
-              position: 'absolute',
-              top: 820,
-              width: '100%',
-              textAlign: 'center',
-              font: `500 28px ${FONT.mono}`,
+              font: `600 28px ${FONT.mono}`,
+              letterSpacing: '0.12em',
               color: C.muted,
-              ...presence(frame, 200, card),
+              ...presence(frame, 4, drawing, 8),
             }}
           >
-            Sandbox only · point it at your own integration
+            THE TESTER, TESTED
           </div>
+          {[
+            `${EVAL.leakyCases} cases with a bug on: all ${EVAL.caught} caught`,
+            `${EVAL.sealedCases} cases with it fixed: ${EVAL.falseAlarms} false alarms`,
+          ].map((text, i) => (
+            <div
+              key={text}
+              style={{
+                font: `800 76px ${FONT.display}`,
+                fontVariationSettings: '"wdth" 80',
+                ...presence(frame, 10 + i * 30, drawing, 8),
+              }}
+            >
+              {text}
+            </div>
+          ))}
         </AbsoluteFill>
+      </Sequence>
+      <Sequence from={drawing} durationInFrames={card - drawing}>
+        <CloseDrawing
+          left={left}
+          width={width}
+          gap={gap}
+          upstream={upstream - drawing}
+          from={drawing}
+        />
       </Sequence>
       <Sequence from={card}>
         <AbsoluteFill
@@ -1252,7 +1490,7 @@ export function Close() {
             Let the customers from hell find your leaks first.
           </div>
           <div style={{ font: `600 28px ${FONT.mono}`, color: C.sealedOnInk }}>
-            Sandbox only · test your own integration
+            Sandbox only · test your own store
           </div>
           <div style={{ marginTop: 30, font: `500 26px ${FONT.ui}`, opacity: 0.75 }}>
             Built for the PayPal AI Hackathon 2026 · demo and code linked below
@@ -1274,7 +1512,149 @@ export function Close() {
           </div>
         </AbsoluteFill>
       </Sequence>
-      <Voiceover scene={close} anchors={anchorsFor('close')} />
+      <Voiceover scene={close} />
     </Stage>
+  )
+}
+
+/** How it decides, in one drawing: Claude explains, plain code decides; then the fix upstream. */
+function CloseDrawing({
+  left,
+  width,
+  gap,
+  upstream,
+  from,
+}: {
+  left: number
+  width: number
+  gap: number
+  upstream: number
+  from: number
+}) {
+  const frame = useCurrentFrame()
+  const claude = said('close', 1, 'Claude') - from
+  const code = said('close', 1, 'plain') - from
+  return (
+    <AbsoluteFill>
+      <div
+        style={{
+          position: 'absolute',
+          top: 130,
+          width: '100%',
+          textAlign: 'center',
+          font: `800 72px ${FONT.display}`,
+          fontVariationSettings: '"wdth" 80',
+          ...presence(frame, 2, Number.POSITIVE_INFINITY),
+        }}
+      >
+        Claude explains. <Swipe at={code}>Plain code decides.</Swipe>
+      </div>
+      {NODES.map((node, i) => {
+        const at = 6 + i * 10
+        const x = left + i * (width + gap)
+        const ink = node.who === 'Code'
+        return (
+          <div key={node.label}>
+            {i > 0 ? (
+              <svg
+                width={gap}
+                height={30}
+                viewBox={`0 0 ${gap} 30`}
+                style={{
+                  position: 'absolute',
+                  left: x - gap,
+                  top: 405,
+                  ...presence(frame, at - 4, Number.POSITIVE_INFINITY),
+                }}
+              >
+                <title>then</title>
+                <path
+                  d={`M6 15 H${gap - 10} M${gap - 18} 7 L${gap - 8} 15 L${gap - 18} 23`}
+                  fill="none"
+                  stroke={C.ink}
+                  strokeWidth={3.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : null}
+            <div
+              style={{
+                position: 'absolute',
+                left: x,
+                top: 320,
+                width,
+                height: 204,
+                boxSizing: 'border-box',
+                padding: '26px 24px',
+                borderRadius: 14,
+                border: `3px solid ${C.ink}`,
+                background: ink ? C.ink : C.surface,
+                color: ink ? C.surface : C.ink,
+                ...presence(frame, at, Number.POSITIVE_INFINITY),
+              }}
+            >
+              <div
+                style={{ font: `800 38px/1 ${FONT.display}`, fontVariationSettings: '"wdth" 82' }}
+              >
+                {node.label}
+              </div>
+              <div style={{ marginTop: 14, font: `500 24px/1.3 ${FONT.ui}`, opacity: 0.85 }}>
+                {node.sub}
+              </div>
+            </div>
+            {node.who ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: x + width / 2 - 330,
+                  top: 560,
+                  width: 660,
+                  textAlign: 'center',
+                  ...presence(frame, ink ? code : claude, Number.POSITIVE_INFINITY),
+                }}
+              >
+                <div style={{ margin: '0 auto 14px', width: 3, height: 34, background: C.ink }} />
+                <span
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 999,
+                    background: ink ? C.ink : C.highlighter,
+                    color: ink ? C.surface : C.ink,
+                    font: `600 22px ${FONT.mono}`,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {ink
+                    ? 'Code: every verdict, from the records'
+                    : 'Claude: runs Lulu · reads your policy · explains'}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        )
+      })}
+      <div
+        style={{
+          position: 'absolute',
+          left: 360,
+          right: 360,
+          top: 720,
+          padding: '18px 30px',
+          borderRadius: 12,
+          background: C.surface,
+          border: `3px solid ${C.ink}`,
+          textAlign: 'center',
+          ...presence(frame, upstream, Number.POSITIVE_INFINITY, 8),
+        }}
+      >
+        <div style={{ font: `600 20px ${FONT.mono}`, letterSpacing: '0.1em', color: C.muted }}>
+          FIX SENT UPSTREAM · {runs.upstream.status.toUpperCase()}
+        </div>
+        <div style={{ marginTop: 6, font: `600 30px ${FONT.ui}` }}>
+          {runs.upstream.project}: {runs.upstream.what}
+        </div>
+      </div>
+    </AbsoluteFill>
   )
 }

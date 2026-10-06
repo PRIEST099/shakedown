@@ -24,7 +24,7 @@ import {
   sentenceAt,
 } from '../src/script'
 import {
-  anchorsFor,
+  CLOSE_CARD,
   fixCut,
   hookCut,
   liveCut,
@@ -184,8 +184,9 @@ const BEAT = 60 / 96
 const sceneOf = (id: SceneId) => SCENES.find((x) => x.id === id) ?? SCENES[0]
 const sec = (id: SceneId) => START[id] / FPS
 const end = (id: SceneId) => sec(id) + framesOf(sceneOf(id)) / FPS
-const said = (id: SceneId, sentence: number, anchors?: Partial<Record<number, number>>) =>
-  sec(id) + sentenceAt(sceneOf(id), sentence, { anchors }) / FPS
+const said = (id: SceneId, sentence: number) => sec(id) + sentenceAt(sceneOf(id), sentence) / FPS
+const phrase = (id: SceneId, sentence: number, text: string) =>
+  sec(id) + phraseAt(sceneOf(id), sentence, text) / FPS
 const D_MINOR = [50, 53, 57, 62, 65, 69]
 const take = (name: string) =>
   JSON.parse(readFileSync(path.join(ROOT, `public/footage/${name}.json`), 'utf8')) as Take
@@ -209,9 +210,10 @@ function groove(
 /** The film: follows the script's scenes. */
 function scoreFilm() {
   begin(DEMO_FRAMES / FPS)
-  // Hook: a low pulse and a rising hiss under the receipt at speed, a small LEAK per printed line,
-  // and the full LEAK when the total lands.
-  const hook = hookCut(liveRun)
+  // Hook: a low pulse and a rising hiss under the receipt at speed. The voice says each chime is
+  // a leak, so every printed line gets its own, at least six frames apart, and nothing else
+  // chimes: the total lands on a low thud.
+  const hook = hookCut(liveRun, true)
   add(
     0,
     lowpass(
@@ -221,66 +223,79 @@ function scoreFilm() {
     0.25,
   )
   groove(0, end('hook'), { kick: true, gain: 0.7 })
-  for (const frame of stings(hook.leaks.map((leak) => leak.frame)).filter((f) => f < hook.land - 8))
-    add(sec('hook') + frame / FPS, leak(), 0.24, 0.3)
-  add(sec('hook') + hook.land / FPS, leak(), 0.55)
-
-  // The problem: plucked D minor, one note per line, a soft beat under it.
-  groove(sec('problem'), end('problem'), { kick: true, hats: 2, gain: 0.6 })
-  for (let i = 0; i < 4; i += 1) {
-    add(said('problem', i), pluck((D_MINOR[i + 1] ?? 53) + 12, 1.6), 0.35, i % 2 ? 0.4 : -0.4)
+  let chimed = Number.NEGATIVE_INFINITY
+  for (const printed of hook.leaks.map((leak) => leak.frame).sort((x, y) => x - y)) {
+    const frame = Math.max(printed, chimed + 6)
+    if (frame > hook.land - 6) break
+    add(sec('hook') + frame / FPS, leak(), 0.22, 0.3)
+    chimed = frame
   }
-  add(said('problem', 4) + 14 / FPS, bell(81, 1.4), 0.18)
+  add(sec('hook') + hook.land / FPS, bass(33, 1.6), 0.55)
 
-  // Meet Shakedown: a warm pad that opens up under the wordmark.
-  add(sec('meet'), pad([50, 57, 62, 65], 7.5), 0.35)
-  add(sec('meet') + 7.5, pad([46, 53, 58, 62], end('meet') - sec('meet') - 7.5), 0.35)
-  add(sec('meet') + 30 / FPS, bell(74, 2.4), 0.2)
-
-  // The cast: the groove proper, and a pluck as each card is dealt.
-  groove(sec('cast'), end('cast'), { kick: true, hats: 2, bassLine: [38, 38, 41, 43], gain: 0.85 })
-  for (let i = 0; i < 5; i += 1)
-    add(said('cast', i), pluck((D_MINOR[i % D_MINOR.length] ?? 0) + 12, 1.4), 0.32, -0.6 + i * 0.3)
-
-  // The store: a shop bell as the door opens, the groove kept low, a pluck as the switches open.
+  // The store: a shop bell as the door opens, the groove kept low, a pluck as each step of a
+  // payment appears, and one as the leak switches open.
   const store = storeCut(take('store'))
-  groove(sec('store'), end('store'), { kick: true, hats: 2, bassLine: [38, 38, 41, 43], gain: 0.6 })
+  groove(sec('store'), end('store'), {
+    kick: true,
+    hats: 2,
+    bassLine: [38, 38, 41, 43],
+    gain: 0.55,
+  })
   add(sec('store') + 0.15, bell(81, 1.8), 0.16)
+  const steps: [number, string][] = [
+    [1, 'approves'],
+    [1, 'collects'],
+    [1, 'ships'],
+    [2, 'paid'],
+  ]
+  for (const [i, [sentence, word]] of steps.entries())
+    add(
+      phrase('store', sentence, word),
+      pluck((D_MINOR[i + 1] ?? 53) + 12, 1.2),
+      0.26,
+      i % 2 ? 0.3 : -0.3,
+    )
   add(sec('store') + store.switches / FPS, pluck(69, 1.6), 0.3)
 
-  // The live run: the receipt printer's sixteenths, a LEAK as each line prints, a low thud when
-  // the total settles.
+  // The sandbox and the cast: a warm pad, and a pluck as each card is dealt.
+  add(sec('meet'), pad([50, 57, 62, 65], end('meet') - sec('meet')), 0.32)
+  for (let i = 0; i < 5; i += 1)
+    add(
+      said('meet', 1) + (i * 15) / FPS,
+      pluck((D_MINOR[i % D_MINOR.length] ?? 0) + 12, 1.4),
+      0.3,
+      -0.6 + i * 0.3,
+    )
+
+  // The live run: the receipt printer's sixteenths, a LEAK as each line prints, and a low thud as
+  // the voice says the total.
   const live = liveCut(liveRun)
-  groove(sec('live'), sec('live') + live.end / FPS, {
+  const total = phrase('live', 7, '$')
+  groove(sec('live'), total, {
     kick: true,
     hats: 4,
     bassLine: [38, 38, 41, 43, 38, 38, 45, 43],
     gain: 0.85,
   })
-  groove(sec('live') + live.end / FPS, end('live'), { kick: true, gain: 0.5 })
+  groove(total, end('live'), { kick: true, gain: 0.5 })
   for (const frame of stings(live.leaks.map((leak) => leak.frame)))
     add(sec('live') + frame / FPS, leak(), 0.42)
-  add(sec('live') + live.end / FPS, bass(33, 1.6), 0.5)
-  add(sec('live') + live.end / FPS, leak(), 0.5)
+  // Only leaks chime; the total lands on a low thud.
+  add(total, bass(33, 1.6), 0.55)
 
-  // One leak followed: down to a pad and a pulse, and a LEAK as its sum lands.
+  // One leak followed: down to a pad and a pulse, and a LEAK as "unpaid" lands.
   add(sec('proof'), pad([50, 57, 60, 65], end('proof') - sec('proof')), 0.3)
   groove(sec('proof'), end('proof'), { kick: true, gain: 0.45 })
-  const leaked = phraseAt(sceneOf('proof'), 2, 'leaked', { anchors: anchorsFor('proof') })
-  add(sec('proof') + leaked / FPS, leak(), 0.4)
+  add(phrase('proof', 4, 'unpaid'), leak(), 0.4)
 
-  // AI vs code: a doubtful chord, and a LEAK when the ledger's verdict is called out.
+  // What the AI said vs what the money did: a doubtful chord, and a LEAK with the verdict.
   add(sec('ai-vs-code'), pad([50, 57, 64, 65], end('ai-vs-code') - sec('ai-vs-code')), 0.3)
-  add(said('ai-vs-code', 3) + 1.6, leak(), 0.45)
+  add(phrase('ai-vs-code', 3, 'second'), leak(), 0.45)
 
   // The fix: a climbing arpeggio through the re-run, the SEALED stamp, then D major.
   const fix = fixCut(liveRun)
   const sealedAt = sec('fix') + fix.sealed / FPS
-  for (
-    let t = sec('fix') + (fix.cut[1]?.start ?? 57) / FPS, n = 0;
-    t < sealedAt - 0.1;
-    t += BEAT / 2, n += 1
-  )
+  for (let t = phrase('fix', 1, 'switch'), n = 0; t < sealedAt - 0.1; t += BEAT / 2, n += 1)
     add(
       t,
       pluck((D_MINOR[n % D_MINOR.length] ?? 0) + 12 + Math.floor(n / 6) * 2, 0.6),
@@ -292,10 +307,10 @@ function scoreFilm() {
   add(sealedAt + 0.4, pad([50, 54, 57, 62], end('fix') - sealedAt - 0.4), 0.32)
 
   // The close: D major, a bell motif on the end card, and out.
-  const card = sec('close') + 9.7
+  const card = sec('close') + CLOSE_CARD / FPS
   add(sec('close'), pad([50, 54, 57, 62, 66], end('close') - sec('close')), 0.34)
   for (const [i, m] of [74, 78, 81, 86].entries()) add(card + i * BEAT, bell(m, 2.6), 0.16)
-  fadeOut(3)
+  fadeOut(2)
   finish('score')
   return sealedAt
 }

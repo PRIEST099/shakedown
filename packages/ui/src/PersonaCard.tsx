@@ -12,6 +12,8 @@ export interface PersonaCardProps {
   amountCents?: number
   t?: number
   stateT?: number
+  /** How many cards the set has, for the "01/06" number. */
+  of?: number
   className?: string
 }
 
@@ -42,6 +44,7 @@ export function PersonaCard({
   amountCents,
   t = 0,
   stateT = 10_000,
+  of = 6,
   className,
 }: PersonaCardProps) {
   const p = getPersona(persona)
@@ -57,7 +60,9 @@ export function PersonaCard({
       style={style}
     >
       <header className="sd-card__top">
-        <span className="sd-card__no">{String(p.number).padStart(2, '0')}/06</span>
+        <span className="sd-card__no">
+          {String(p.number).padStart(2, '0')}/{String(of).padStart(2, '0')}
+        </span>
         <span className="sd-card__chip">{p.channel}</span>
       </header>
       <div className="sd-card__art">

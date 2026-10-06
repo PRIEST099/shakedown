@@ -412,5 +412,11 @@
     "sealedCases": 16,
     "caught": 8,
     "falseAlarms": 0
+  },
+  "upstream": {
+    "project": "PayPal Agent Toolkit",
+    "what": "one PayPal-Request-Id per create and capture call, so a retried call cannot pay twice",
+    "status": "pull request open",
+    "pullRequest": "paypal/agent-toolkit#108"
   }
 }

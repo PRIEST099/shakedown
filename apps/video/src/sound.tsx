@@ -1,5 +1,4 @@
 import { Audio, interpolate, staticFile } from 'remotion'
-import { useTake } from './footage'
 import { voiceSpans } from './timeline'
 
 /** How far the music dips under the voice (VIDEO_PIPELINE §4.5: 10 to 12 dB), and how fast. */
@@ -11,8 +10,7 @@ const RAMP = 6
  * It dips under every recorded voiceover line, easing down and back up over six frames.
  */
 export function Score() {
-  const take = useTake('live-run')
-  const spans = voiceSpans(take)
+  const spans = voiceSpans()
   const volume = (frame: number) => {
     let under = 0
     for (const span of spans) {

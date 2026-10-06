@@ -3,6 +3,7 @@ import {
   AbsoluteFill,
   continueRender,
   delayRender,
+  Freeze,
   OffthreadVideo,
   staticFile,
   useCurrentFrame,
@@ -113,7 +114,7 @@ export interface FootageProps {
   /** Seconds into the take where this clip starts and stops. */
   from: number
   to: number
-  /** Above 1, time is compressed; the tag says so. */
+  /** Above 1, time is compressed; the tag says so. 0 holds the take still on `from`. */
   rate?: number
   /** Moves over the take; none shows it whole. */
   camera?: readonly CameraKey[]
@@ -149,18 +150,31 @@ export function Footage({
   const v = viewAt(camera, frame, width, height)
   const transform = `translate(${v.px - width / 2 - (v.fx - width / 2) * v.s}px, ${v.py - height / 2 - (v.fy - height / 2) * v.s}px) scale(${v.s})`
 
-  if (!take || to <= from) return <AbsoluteFill style={{ background: C.paper }} />
+  if (!take || (rate > 0 && to <= from)) return <AbsoluteFill style={{ background: C.paper }} />
   return (
     <AbsoluteFill style={{ background: C.paper, overflow: 'hidden' }}>
       <AbsoluteFill style={{ transform, transformOrigin: '50% 50%' }}>
-        <OffthreadVideo
-          src={staticFile(`footage/${name}.mp4`)}
-          trimBefore={Math.round(from * fps)}
-          trimAfter={Math.round(to * fps)}
-          playbackRate={rate}
-          muted
-          style={{ width: '100%', height: '100%' }}
-        />
+        {rate === 0 ? (
+          // A still: the take's frame at `from`, while the camera and the overlays keep moving.
+          <Freeze frame={0}>
+            <OffthreadVideo
+              src={staticFile(`footage/${name}.mp4`)}
+              trimBefore={Math.round(from * fps)}
+              trimAfter={Math.round(from * fps) + 1}
+              muted
+              style={{ width: '100%', height: '100%' }}
+            />
+          </Freeze>
+        ) : (
+          <OffthreadVideo
+            src={staticFile(`footage/${name}.mp4`)}
+            trimBefore={Math.round(from * fps)}
+            trimAfter={Math.round(to * fps)}
+            playbackRate={rate}
+            muted
+            style={{ width: '100%', height: '100%' }}
+          />
+        )}
         {children?.(ms)}
         {pointer ? <Pointer x={pointer.x} y={pointer.y} clickAge={pointer.clickAge} /> : null}
       </AbsoluteFill>

@@ -3,8 +3,8 @@
  * pictures come from. LIVE is real footage of the running product, MG is motion graphics drawn
  * from the same components and the same recorded data. Every number comes from src/data/runs.json.
  *
- * The voiceover is written for a speaking pace of about 150 words a minute. Until it is recorded,
- * the animatic shows it as captions.
+ * The voiceover is written to be followed by ear alone (a listener who cannot see the screen gets
+ * every fact), at about 145 words a minute. Until it is recorded, the animatic shows it as captions.
  */
 import runs from './data/runs.json'
 import vo from './data/vo.json'
@@ -19,6 +19,13 @@ export const TOTAL = money(-runs.checkout.totalCents)
 export const MERCHANT = money(runs.checkout.merchantLeakCents)
 export const CUSTOMER = money(runs.checkout.customerHarmCents)
 export const POLICY_EXCESS = runs.exhibit.verdict.atRisk
+
+/** An amount the way the voice says it: "$491", "$18" (cents only when there are some). */
+export const usd = (cents: number) =>
+  `$${(Math.abs(cents) / 100).toFixed(Math.abs(cents) % 100 === 0 ? 0 : 2)}`
+const cents = (amount: string) => Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100)
+const persona = (id: string) => runs.hero.before.find((line) => line.personaId === id)
+const findings = runs.checkout.findingsByPersona
 
 /** The run's worst leak: the finding the console opens on, and the order the dashboard shot finds. */
 const worst = Object.values(runs.checkout.findingsByPersona)
@@ -63,6 +70,36 @@ export const WORST = {
 }
 export const LEAKS = runs.checkout.findings
 
+/** The Cart Shuffler's other leak: a price it set itself, $1 for $124 saddlebags. */
+const ownPrice = findings['cart-shuffler'].find((f) => f !== worst)
+const ownFact = (label: string) => ownPrice?.evidence.find((e) => e.label === label)?.value ?? ''
+export const OWN_PRICE = {
+  leakCents: Number(ownPrice?.merchantLeakCents ?? 0),
+  paid: usd(cents(ownFact('Captured at PayPal').split(' ')[0] ?? '')),
+  shipped: usd(cents(ownFact('Goods shipped').split(' ')[0] ?? '')),
+}
+
+/** What each customer's line came to, as the receipt printed it. */
+export const LINE = {
+  doubleCharge: usd(findings['double-clicker'][0]?.customerHarmCents ?? 0),
+  doubleShip: usd(findings['double-clicker'][1]?.merchantLeakCents ?? 0),
+  cartShuffler: usd(persona('cart-shuffler')?.amountCents ?? 0),
+  echo: usd(persona('echo')?.amountCents ?? 0),
+  echoCount: findings.echo.length,
+  bouncer: usd(persona('bouncer')?.amountCents ?? 0),
+}
+
+/** The Policy Lawyer's recorded run: what it asked for, the limit, and what went past it. */
+export const POLICY = {
+  asked: usd(runs.exhibit.ledger.reduce((sum, line) => sum + cents(line.amount), 0)),
+  limit: usd(cents(/\$[0-9,.]+/.exec(runs.exhibit.verdict.why)?.[0] ?? '')),
+  excess: usd(cents(POLICY_EXCESS)),
+}
+
+/** After the fixes, the same test again. */
+export const SEALED = usd(runs.hero.after.reduce((sum, line) => sum + line.amountCents, 0))
+export const EVAL = runs.evaluation
+
 export type Source = 'LIVE' | 'MG' | 'HYBRID'
 
 export interface Scene {
@@ -76,73 +113,59 @@ export interface Scene {
 export const SCENES = [
   {
     id: 'hook',
-    title: 'Cold open',
-    seconds: 7,
+    title: 'Cold open: the sound of a leak',
+    seconds: 13.6,
     source: 'HYBRID',
-    vo: 'Every happy-path test passes. Then the customers from hell show up.',
-  },
-  {
-    id: 'problem',
-    title: 'The problem',
-    seconds: 15,
-    source: 'MG',
-    vo: 'Real customers double-click. They change the cart after approving it. Payment events arrive twice, late, or unsigned. And they argue with your AI support agent. Happy-path tests never meet them.',
-  },
-  {
-    id: 'meet',
-    title: 'Meet Shakedown',
-    seconds: 12.5,
-    source: 'HYBRID',
-    vo: 'Shakedown is named for the shakedown cruise, a ship’s test voyage before passengers board. It sends customers from hell through your own PayPal checkout, in the sandbox.',
-  },
-  {
-    id: 'cast',
-    title: 'The cast',
-    seconds: 18,
-    source: 'MG',
-    vo: 'The Double-Clicker presses Pay twice. The Cart Shuffler changes the cart after approval. The Echo replays payment events. The Bouncer pays with a card that bounces. And the Policy Lawyer talks your AI support agent past your refund policy.',
+    vo: `Each chime you hear is a leak: money a bug would cost. One sandbox test run: ${numberWords(LEAKS)} leaks, ${usd(runs.checkout.totalCents)}. Shakedown finds them first, for developers with PayPal checkouts.`,
   },
   {
     id: 'store',
-    title: 'The store under test: Leaky Llama',
-    seconds: 10.5,
-    source: 'LIVE',
-    vo: 'Meet Leaky Llama, my demo store. It takes PayPal like any small shop, but I left the common integration mistakes in, on purpose.',
+    title: 'How a PayPal payment works, in my shop',
+    seconds: 18.4,
+    source: 'HYBRID',
+    vo: 'My demo shop, Leaky Llama, has bugs on purpose. A customer approves a payment, PayPal collects, and my shop ships. PayPal also sends a “paid” message, signed to prove it’s real. Skip one check: goods ship unpaid, or someone pays twice.',
+  },
+  {
+    id: 'meet',
+    title: 'Sandbox, scripts, and the five customers',
+    seconds: 14.1,
+    source: 'HYBRID',
+    vo: 'Shakedown runs in PayPal’s sandbox: pretend money, nothing really ships. Its five customers from hell are fixed scripts, not AI. Four test my checkout; one tests my shop’s AI assistant, Lulu.',
   },
   {
     id: 'live',
-    title: 'A live run',
-    seconds: 30,
+    title: 'A live run, customer by customer',
+    seconds: 37.2,
     source: 'LIVE',
-    vo: `Now the customers from hell go shopping. Each leak prints as PayPal’s sandbox confirms it. Charged twice and shipped twice. Goods shipped for more than PayPal captured. An unsigned “paid” event that released the goods. A declined card, and the order shipped anyway. ${LEAKS} leaks in all.`,
+    vo: `I click “Unleash the cast”. The Double-Clicker presses Pay twice, and pays ${LINE.doubleCharge} twice. On another order, a retry ships it twice: another ${LINE.doubleShip}. The Cart Shuffler picks its own price, and later swaps a cart: two leaks, ${LINE.cartShuffler}. The Echo sends unsigned “paid” messages ${numberWords(LINE.echoCount)} ways: once, twice, and late. My shop believes all ${numberWords(LINE.echoCount)}: ${LINE.echo}. The Bouncer’s card is declined, but its order ships: ${LINE.bouncer}. ${numberWords(LEAKS).replace(/^./, (c) => c.toUpperCase())} leaks in all: ${usd(runs.checkout.totalCents)}.`,
   },
   {
     id: 'proof',
     title: 'One leak, followed to PayPal’s own record',
-    seconds: 23.5,
+    seconds: 25,
     source: 'HYBRID',
-    vo: `Follow one of those leaks. The Cart Shuffler approved ${money(WORST.approved.cents)} of socks, then changed the cart to ${numberWords(WORST.swapped.qty)} pairs of panniers. PayPal captured ${WORST.captured}, the store shipped ${WORST.shipped} of goods, and ${money(WORST.leakCents)} leaked. And PayPal’s own dashboard shows that same capture: ${WORST.captured}.`,
+    vo: `The Cart Shuffler approved ${usd(WORST.approved.cents)} for socks. Then it swapped in ${numberWords(WORST.swapped.qty)} pairs of saddlebags. PayPal collected ${usd(cents(WORST.captured))}. My shop shipped ${usd(cents(WORST.shipped))}. ${usd(WORST.leakCents)} went out unpaid. PayPal’s sandbox dashboard agrees: ${usd(cents(WORST.captured))}, for socks. Its other leak: saddlebags worth ${OWN_PRICE.shipped}, paid ${OWN_PRICE.paid}.`,
   },
   {
     id: 'ai-vs-code',
-    title: 'AI decides vs code decides',
-    seconds: 17,
+    title: 'What the AI said vs what the money did',
+    seconds: 21.3,
     source: 'LIVE',
-    vo: `The AI plays the customers. Plain code keeps the score. Ask the support agent for a refund in two parts, and it says “All set.” The ledger says ${POLICY_EXCESS} went past the written policy.`,
+    vo: `My policy: over ${POLICY.limit} an order, a person decides. In one recorded run, the Policy Lawyer asked Lulu for ${POLICY.asked}, in two parts. Lulu refunded both: “All set.” Plain code read PayPal’s refunds: the second, ${POLICY.excess}, should have gone to a person.`,
   },
   {
     id: 'fix',
-    title: 'The fix, the re-run, the CI gate',
-    seconds: 21,
+    title: 'Fix, the same test again, and keep it fixed',
+    seconds: 23.5,
     source: 'LIVE',
-    vo: 'Every finding comes with its fix. Apply the fixes, re-run with the same seed, and the receipt seals at zero. Put it in CI, and a leak can’t come back.',
+    vo: `Each leak gets a fix, like shipping only what PayPal collected. I switch on my fixes. Same checkout test again: ${SEALED}. Two Echo checks stay inconclusive: only PayPal can sign those messages. Shakedown runs from one command, or on every pull request. A leak that comes back fails the check.`,
   },
   {
     id: 'close',
-    title: 'How it works, and the close',
-    seconds: 18,
+    title: 'Proof it works, how it decides, and the promise',
+    seconds: 20.9,
     source: 'MG',
-    vo: 'Built on PayPal’s sandbox APIs, with Claude playing the customers and deterministic code keeping score. Shakedown: let the customers from hell find your leaks before your real customers do.',
+    vo: `I tested the tester: every checkout bug I switched on was caught, with no false alarms. Claude runs Lulu, reads my policy, and explains; plain code decides. I also sent PayPal’s Agent Toolkit a fix for retried calls. Shakedown: let customers from hell find your leaks first.`,
   },
 ] as const satisfies readonly Scene[]
 

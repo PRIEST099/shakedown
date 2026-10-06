@@ -1,15 +1,13 @@
 import { Series } from 'remotion'
 import { CaptionsOn } from './kit'
-import { AiVsCode, Cast, Close, Fix, Hook, Live, Meet, Problem, Proof, Store } from './scenes'
+import { AiVsCode, Close, Fix, Hook, Live, Meet, Proof, Store } from './scenes'
 import { framesOf, SCENES, type SceneId } from './script'
 import { Score } from './sound'
 
 const BY_ID: Record<SceneId, () => React.JSX.Element> = {
   hook: Hook,
-  problem: Problem,
-  meet: Meet,
-  cast: Cast,
   store: Store,
+  meet: Meet,
   live: Live,
   proof: Proof,
   'ai-vs-code': AiVsCode,

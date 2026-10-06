@@ -2,8 +2,8 @@
 
 **Customers from hell. Sandbox only.**
 
-Shakedown is a pre-launch test drive for PayPal checkouts and AI support agents. Six sandbox-only test
-customers run against your *own* integration in the PayPal sandbox. Shakedown then prints a receipt for
+Shakedown is a pre-launch test drive for PayPal checkouts and AI support agents. Five sandbox-only test
+customers (a sixth is planned) run against your *own* integration in the PayPal sandbox. Shakedown then prints a receipt for
 every dollar that would have leaked, read from PayPal's sandbox ledger, plus the fix. It can also run in CI,
 so a leak can't quietly come back.
 
@@ -15,8 +15,8 @@ so a leak can't quietly come back.
    four test customers, −$491.00 that would have leaked, then the fixed store sealed to $0.00.
    It is labelled as a recording, because it is one.
 2. **Run the demo shakedown.** The same four customers go to Leaky Llama, my deliberately leaky
-   demo store, in the PayPal sandbox, live. Each leak prints as PayPal's ledger confirms it, with
-   the sandbox ID behind it. Then press **Apply fixes and re-run** and watch it seal. Seed 2026
+   demo store, in the PayPal sandbox, live. Each leak prints as the checks confirm it from the
+   records (PayPal's sandbox ledger, and the store's own for its webhooks), with the ID behind it. Then press **Apply fixes and re-run** and watch it seal. Seed 2026
    gives the same 8 leaks every time, in the CLI, the site and the console alike: $467.00 the
    merchant would lose, and $24.00 that customers were overcharged.
 3. **Open the console.** Every run, each finding with its evidence and fix, and Triage, an agent
@@ -110,7 +110,7 @@ come.
   in under five seconds, and says it is a recording. Every ID and amount on the page comes from the
   runs committed in `apps/web/fixtures/recorded`. A unit test and an end-to-end test check that.
 - **Run the demo shakedown** sends the four free customers at the local Leaky Llama and prints the
-  receipt as PayPal's ledger confirms each leak. If no store is answering, it offers the recording.
+  receipt as the checks confirm each leak from the records. If no store is answering, it offers the recording.
 - With reduced motion, the hero shows the before and after receipts side by side, still.
 - Lighthouse (mobile): performance 96 and accessibility 100 on `/`; 98 and 100 on `/docs`.
 
@@ -149,7 +149,7 @@ dashboard over every campaign, finding and ledger entry.
   computed in code, and hands everything else to Studio's built-in agents: the Data agent for
   questions, the Lead agent (with Planning, Page and Widget) to build or change widgets.
 - **Live runs:** *Run leaky* and *Run sealed* send the four free customers at the local Leaky
-  Llama and stream every leak onto the page as PayPal's ledger confirms it.
+  Llama and stream every leak onto the page as the checks confirm it.
 - **Day shift and Night shift** themes, and a pocket receipt on screens narrower than 720 px.
 
 Every Claude call goes through the same spend gate as the rest of Shakedown, with the console's own
@@ -211,9 +211,9 @@ the demo's HTTP API: the store's checkout, probe and webhook routes, and the con
     sent a fix with the package's first tests:
     [paypal/agent-toolkit#108](https://github.com/paypal/agent-toolkit/pull/108).
 - **Claude (Anthropic API, Haiku 4.5)** through the official TypeScript SDK:
-  - the Policy Lawyer;
-  - Lulu, the demo store's support assistant;
-  - the policy compiler;
+  - Lulu, the demo store's support assistant: the AI that the Policy Lawyer's scripted lines test;
+  - the policy compiler, which reads a written refund policy into the rules those lines follow;
+  - plain-words explanations of findings;
   - Triage in the console.
 
   Every call passes a spend gate with a hard cap and a replay cache.

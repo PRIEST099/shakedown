@@ -3,166 +3,174 @@
   "lines": {
     "hook": [
       {
-        "text": "Every happy-path test passes.",
-        "seconds": 1.785
+        "text": "Each chime you hear is a leak: money a bug would cost.",
+        "seconds": 2.937
       },
       {
-        "text": "Then the customers from hell show up.",
-        "seconds": 1.776
-      }
-    ],
-    "problem": [
-      {
-        "text": "Real customers double-click.",
-        "seconds": 1.714
+        "text": "One sandbox test run: eight leaks, $491.",
+        "seconds": 4.358
       },
       {
-        "text": "They change the cart after approving it.",
-        "seconds": 2.122
-      },
-      {
-        "text": "Payment events arrive twice, late, or unsigned.",
-        "seconds": 2.899
-      },
-      {
-        "text": "And they argue with your AI support agent.",
-        "seconds": 2.329
-      },
-      {
-        "text": "Happy-path tests never meet them.",
-        "seconds": 1.832
-      }
-    ],
-    "meet": [
-      {
-        "text": "Shakedown is named for the shakedown cruise, a ship’s test voyage before passengers board.",
-        "seconds": 5.244
-      },
-      {
-        "text": "It sends customers from hell through your own PayPal checkout, in the sandbox.",
-        "seconds": 4.164
-      }
-    ],
-    "cast": [
-      {
-        "text": "The Double-Clicker presses Pay twice.",
-        "seconds": 2.017
-      },
-      {
-        "text": "The Cart Shuffler changes the cart after approval.",
-        "seconds": 2.837
-      },
-      {
-        "text": "The Echo replays payment events.",
-        "seconds": 1.755
-      },
-      {
-        "text": "The Bouncer pays with a card that bounces.",
-        "seconds": 2.259
-      },
-      {
-        "text": "And the Policy Lawyer talks your AI support agent past your refund policy.",
-        "seconds": 4.473
+        "text": "Shakedown finds them first, for developers with PayPal checkouts.",
+        "seconds": 3.726
       }
     ],
     "store": [
       {
-        "text": "Meet Leaky Llama, my demo store.",
-        "seconds": 2.146
+        "text": "My demo shop, Leaky Llama, has bugs on purpose.",
+        "seconds": 3.072
       },
       {
-        "text": "It takes PayPal like any small shop, but I left the common integration mistakes in, on purpose.",
-        "seconds": 5.865
+        "text": "A customer approves a payment, PayPal collects, and my shop ships.",
+        "seconds": 3.769
+      },
+      {
+        "text": "PayPal also sends a “paid” message, signed to prove it’s real.",
+        "seconds": 3.749
+      },
+      {
+        "text": "Skip one check: goods ship unpaid, or someone pays twice.",
+        "seconds": 3.315
+      }
+    ],
+    "meet": [
+      {
+        "text": "Shakedown runs in PayPal’s sandbox: pretend money, nothing really ships.",
+        "seconds": 4.544
+      },
+      {
+        "text": "Its five customers from hell are fixed scripts, not AI.",
+        "seconds": 3.224
+      },
+      {
+        "text": "Four test my checkout; one tests my shop’s AI assistant, Lulu.",
+        "seconds": 4.231
       }
     ],
     "live": [
       {
-        "text": "Now the customers from hell go shopping.",
-        "seconds": 2.065
+        "text": "I click “Unleash the cast”.",
+        "seconds": 1.533
       },
       {
-        "text": "Each leak prints as PayPal’s sandbox confirms it.",
-        "seconds": 2.966
+        "text": "The Double-Clicker presses Pay twice, and pays $24 twice.",
+        "seconds": 4.057
       },
       {
-        "text": "Charged twice and shipped twice.",
-        "seconds": 1.76
+        "text": "On another order, a retry ships it twice: another $24.",
+        "seconds": 4.222
       },
       {
-        "text": "Goods shipped for more than PayPal captured.",
-        "seconds": 2.064
+        "text": "The Cart Shuffler picks its own price, and later swaps a cart: two leaks, $353.",
+        "seconds": 5.983
       },
       {
-        "text": "An unsigned “paid” event that released the goods.",
-        "seconds": 2.519
+        "text": "The Echo sends unsigned “paid” messages three ways: once, twice, and late.",
+        "seconds": 4.649
       },
       {
-        "text": "A declined card, and the order shipped anyway.",
-        "seconds": 2.584
+        "text": "My shop believes all three: $54.",
+        "seconds": 2.919
       },
       {
-        "text": "8 leaks in all.",
-        "seconds": 1.031
+        "text": "The Bouncer’s card is declined, but its order ships: $36.",
+        "seconds": 4.196
+      },
+      {
+        "text": "Eight leaks in all: $491.",
+        "seconds": 2.933
       }
     ],
     "proof": [
       {
-        "text": "Follow one of those leaks.",
-        "seconds": 1.422
+        "text": "The Cart Shuffler approved $18 for socks.",
+        "seconds": 2.884
       },
       {
-        "text": "The Cart Shuffler approved $18.00 of socks, then changed the cart to two pairs of panniers.",
-        "seconds": 5.652
+        "text": "Then it swapped in two pairs of saddlebags.",
+        "seconds": 2.162
       },
       {
-        "text": "PayPal captured $18.00, the store shipped $248.00 of goods, and $230.00 leaked.",
-        "seconds": 7.059
+        "text": "PayPal collected $18.",
+        "seconds": 1.909
       },
       {
-        "text": "And PayPal’s own dashboard shows that same capture: $18.00.",
-        "seconds": 3.947
+        "text": "My shop shipped $248.",
+        "seconds": 2.336
+      },
+      {
+        "text": "$230 went out unpaid.",
+        "seconds": 2.405
+      },
+      {
+        "text": "PayPal’s sandbox dashboard agrees: $18, for socks.",
+        "seconds": 3.899
+      },
+      {
+        "text": "Its other leak: saddlebags worth $124, paid $1.",
+        "seconds": 4.513
       }
     ],
     "ai-vs-code": [
       {
-        "text": "The AI plays the customers.",
-        "seconds": 1.767
+        "text": "My policy: over $100 an order, a person decides.",
+        "seconds": 3.893
       },
       {
-        "text": "Plain code keeps the score.",
-        "seconds": 1.47
+        "text": "In one recorded run, the Policy Lawyer asked Lulu for $124, in two parts.",
+        "seconds": 5.981
       },
       {
-        "text": "Ask the support agent for a refund in two parts, and it says “All set.”",
-        "seconds": 4.103
+        "text": "Lulu refunded both: “All set.”",
+        "seconds": 2.17
       },
       {
-        "text": "The ledger says $34.00 went past the written policy.",
-        "seconds": 3.587
+        "text": "Plain code read PayPal’s refunds: the second, $34, should have gone to a person.",
+        "seconds": 5.621
       }
     ],
     "fix": [
       {
-        "text": "Every finding comes with its fix.",
-        "seconds": 1.865
+        "text": "Each leak gets a fix, like shipping only what PayPal collected.",
+        "seconds": 3.711
       },
       {
-        "text": "Apply the fixes, re-run with the same seed, and the receipt seals at zero.",
-        "seconds": 4.681
+        "text": "I switch on my fixes.",
+        "seconds": 1.381
       },
       {
-        "text": "Put it in CI, and a leak can’t come back.",
-        "seconds": 2.457
+        "text": "Same checkout test again: $0.",
+        "seconds": 2.642
+      },
+      {
+        "text": "Two Echo checks stay inconclusive: only PayPal can sign those messages.",
+        "seconds": 4.718
+      },
+      {
+        "text": "Shakedown runs from one command, or on every pull request.",
+        "seconds": 3.593
+      },
+      {
+        "text": "A leak that comes back fails the check.",
+        "seconds": 1.928
       }
     ],
     "close": [
       {
-        "text": "Built on PayPal’s sandbox APIs, with Claude playing the customers and deterministic code keeping score.",
-        "seconds": 6.597
+        "text": "I tested the tester: every checkout bug I switched on was caught, with no false alarms.",
+        "seconds": 5.192
       },
       {
-        "text": "Shakedown: let the customers from hell find your leaks before your real customers do.",
-        "seconds": 4.793
+        "text": "Claude runs Lulu, reads my policy, and explains; plain code decides.",
+        "seconds": 4.528
+      },
+      {
+        "text": "I also sent PayPal’s Agent Toolkit a fix for retried calls.",
+        "seconds": 3.989
+      },
+      {
+        "text": "Shakedown: let customers from hell find your leaks first.",
+        "seconds": 3.083
       }
     ]
   }

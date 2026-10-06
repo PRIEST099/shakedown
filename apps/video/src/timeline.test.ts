@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { FPS } from './script'
-import { frameIn, leaksOf, lengthOf, liveCut, place, stings, type Take } from './timeline'
+import { FPS, framesOf, SCENES } from './script'
+import { follow, frameIn, leaksOf, lengthOf, liveCut, place, stings, type Take } from './timeline'
 
 const line = (t: number, persona: string, amount: string, verdict = 'leak', check = 'A check') => ({
   t,
@@ -57,14 +57,44 @@ describe('the printed leaks', () => {
     ])
   })
 
-  it('time the live scene: real speed for the click, faster while the receipt prints', () => {
+  it('fill the live scene, each leak printing in order, while the voice names it', () => {
+    const live = SCENES.find((scene) => scene.id === 'live') ?? SCENES[0]
     const { cut, end, leaks } = liveCut(take)
-    expect(cut[0]?.rate).toBe(1)
-    expect(cut.at(-1)?.rate).toBe(2)
     expect(end).toBe(lengthOf(cut))
+    expect(end).toBe(framesOf(live))
     const frames = leaks.map((leak) => leak.frame)
     expect(frames).toEqual([...frames].sort((a, b) => a - b))
     expect(Math.max(...frames)).toBeLessThanOrEqual(end)
+  })
+})
+
+describe('cuts that follow the voice', () => {
+  const keys = [
+    { t: 10, at: 0 },
+    { t: 12, at: 4 * FPS },
+    { t: 30, at: 6 * FPS },
+  ]
+  const cut = follow(keys, 9 * FPS, 31)
+
+  it('land every moment of the take on its frame', () => {
+    for (const key of keys) expect(frameIn(cut, key.t)).toBe(key.at)
+    expect(lengthOf(cut)).toBe(9 * FPS)
+  })
+
+  it('run on past a moment, hold still, then play into the next, when the voice needs longer', () => {
+    expect(cut.slice(0, 3).map((segment) => [segment.rate, segment.frames])).toEqual([
+      [1, FPS / 2],
+      [0, 2 * FPS],
+      [1, 1.5 * FPS],
+    ])
+  })
+
+  it('play faster when the take has more to show, then run on and hold', () => {
+    expect(cut[3]?.rate).toBe(9)
+    expect(cut.slice(4).map((segment) => [segment.rate, segment.frames])).toEqual([
+      [1, FPS],
+      [0, 2 * FPS],
+    ])
   })
 })
 

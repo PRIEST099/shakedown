@@ -4,7 +4,7 @@
  * scenes draw from these and scripts/compose.ts scores from them, so picture and sound agree.
  * Plain TypeScript: no React, no Remotion.
  */
-import { FPS, lines, SCENES, type SceneId, START } from './script'
+import { FPS, framesOf, lines, phraseAt, SCENES, type SceneId, START, sentenceAt } from './script'
 
 export interface Box {
   x: number
@@ -81,6 +81,7 @@ export interface Segment {
   /** Seconds into the take. */
   from: number
   to: number
+  /** How fast the take plays; 0 holds it still on `from`. */
   rate: number
 }
 
@@ -103,9 +104,13 @@ export function place(segments: readonly Segment[]): Placed[] {
 export const lengthOf = (cut: readonly Placed[]) =>
   cut.reduce((sum, segment) => sum + segment.frames, 0)
 
-/** The frame of the clip that shows a moment of the take (seconds). */
+/** The first frame of the clip that shows a moment of the take (seconds). */
 export function frameIn(cut: readonly Placed[], t: number) {
   for (const segment of cut) {
+    if (segment.rate === 0) {
+      if (t <= segment.from) return segment.start
+      continue
+    }
     if (t <= segment.to) {
       const into = Math.max(0, t - segment.from)
       return segment.start + Math.round((into / segment.rate) * FPS)
@@ -114,62 +119,162 @@ export function frameIn(cut: readonly Placed[], t: number) {
   return lengthOf(cut)
 }
 
+/** A moment of the take (seconds) and the frame of the scene it should land on. */
+export interface Key {
+  t: number
+  at: number
+}
+
+/**
+ * A cut that lands each moment of the take on its frame of the scene, so the picture follows the
+ * voice, whoever reads it. Where the take has more to show than the voice has time for, it plays
+ * faster; where it has less, it holds still, then plays at real speed into the moment. After the
+ * last key it plays on at real speed to `until` (seconds into the take), then holds to `end`.
+ */
+export function follow(keys: readonly Key[], end: number, until?: number): Placed[] {
+  const out: Placed[] = []
+  const push = (from: number, to: number, rate: number, frames: number) => {
+    if (frames > 0) out.push({ from, to, rate, start: lengthOf(out), frames })
+  }
+  for (const [i, b] of keys.entries()) {
+    const a = keys[i - 1]
+    if (!a) continue
+    const frames = b.at - a.at
+    const need = (b.t - a.t) * FPS
+    if (frames <= 0) continue
+    if (need <= 0) push(a.t, a.t, 0, frames)
+    else if (need >= frames) {
+      // The opening, or a sliver over real speed, starts later in the take instead of being
+      // labelled a speed-up.
+      const trim = (need - frames) / FPS
+      if (i === 1 || trim <= 0.3) push(b.t - frames / FPS, b.t, 1, frames)
+      else push(a.t, b.t, need / frames, frames)
+    } else {
+      // Run on half a second past the moment, so the still shows what it just did, then hold,
+      // then play at real speed into the next moment.
+      const played = Math.round(need)
+      const runIn = Math.min(Math.round(FPS / 2), Math.floor(played / 2))
+      const held = a.t + runIn / FPS
+      push(a.t, held, 1, runIn)
+      push(held, held, 0, frames - played)
+      push(held, b.t, 1, played - runIn)
+    }
+  }
+  const last = keys.at(-1)
+  if (last) {
+    const left = end - lengthOf(out)
+    const run = Math.min(left, Math.round(Math.max(0, (until ?? last.t) - last.t) * FPS))
+    push(last.t, last.t + run / FPS, 1, run)
+    push(last.t + run / FPS, last.t + run / FPS, 0, left - run)
+  }
+  return out
+}
+
 /** How long the receipt's total takes to tick to a new value, plus a beat to read it. */
 const SETTLE = 1.0
 
-/** S1: the whole first run at speed, landing on the settled total five seconds in. */
-export function hookCut(take: Take) {
+const sceneOf = (id: SceneId) => SCENES.find((scene) => scene.id === id) ?? SCENES[0]
+const clicksOf = (take: Take) =>
+  take.events.filter((e) => e.type === 'click').map((e) => e.t / 1000)
+
+/**
+ * The cold open: the whole first run at speed, landing on the settled total. The film lands it as
+ * the voice says the total, with the first leak printing a second in; the teaser lands it at 5 s.
+ */
+export function hookCut(take: Take, film = false) {
   const settled = markAt(take, 'run-done') + SETTLE
-  const land = 5 * FPS
-  const rate = 9.5
+  const hook = sceneOf('hook')
+  const land = film ? phraseAt(hook, 1, '$') : 5 * FPS
+  const first = leaksOf(take)[0]?.t ?? settled - 30
+  const rate = film ? (settled - first) / (land / FPS - 1) : 9.5
   const cut = place([{ from: settled - (rate * land) / FPS, to: settled, rate }])
   return { cut, land: lengthOf(cut), settled, leaks: leakFrames(take, cut) }
 }
 
 /**
- * The store scene, at real speed: three seconds of the shelf, then the checkout with PayPal's
- * button, then the leak switches opening over it (the last two run on, uncut). `switches` is the
- * frame of that click.
+ * The store: the shelf, the click into the cart, the checkout with PayPal's button while the voice
+ * explains a payment, then the leak switches opening as it says what a skipped check costs.
  */
 export function storeCut(take: Take) {
-  const shelf = markAt(take, 'shelf')
-  const opened = (take.events.filter((e) => e.type === 'click').at(-1)?.t ?? 0) / 1000
-  const cut = place([
-    { from: shelf - 0.1, to: shelf + 3, rate: 1 },
-    { from: markAt(take, 'cart') - 0.2, to: opened - 0.1, rate: 1 },
-    { from: opened - 0.1, to: take.durationMs / 1000 - 0.1, rate: 1 },
-  ])
-  return { cut, switches: frameIn(cut, opened) }
+  const store = sceneOf('store')
+  const clicks = clicksOf(take)
+  // The first click puts socks in the cart; the last opens the leak switches.
+  const added = clicks[0] ?? 10
+  const opened = clicks.at(-1) ?? 18
+  // The checkout once PayPal's button has drawn itself.
+  const checkout = markAt(take, 'paypal') + 0.8
+  const cut = follow(
+    [
+      { t: markAt(take, 'shelf') + 0.6, at: 0 },
+      { t: added, at: sentenceAt(store, 1) - 6 },
+      { t: checkout, at: sentenceAt(store, 1) + FPS },
+      { t: opened, at: sentenceAt(store, 3) },
+    ],
+    framesOf(store),
+    take.durationMs / 1000 - 0.1,
+  )
+  return { cut, checkout: frameIn(cut, checkout), switches: frameIn(cut, opened) }
 }
 
 /**
- * S5: the click at real speed, the wait for the first leak at 4×, then the printing at 2×,
- * stopping when the total has settled.
+ * The live run: the click on "Unleash the cast", then each leak printing as the voice names it, and
+ * the total settling as it says the total.
  */
 export function liveCut(take: Take) {
+  const live = sceneOf('live')
+  const said = (sentence: number, phrase: string) => phraseAt(live, sentence, phrase)
   const settled = markAt(take, 'run-done') + SETTLE
-  const first = leaksOf(take)[0]?.t ?? 19
-  const clickedAt = markAt(take, 'run-started')
-  const cut = place([
-    { from: clickedAt - 2.6, to: clickedAt + 1.4, rate: 1 },
-    { from: clickedAt + 1.4, to: first - 0.6, rate: 4 },
-    { from: first - 0.6, to: settled, rate: 2 },
-  ])
-  return { cut, end: lengthOf(cut), settled, leaks: leakFrames(take, cut) }
+  const clicked = markAt(take, 'run-started')
+  const leaks = leaksOf(take)
+  const at = (i: number, sentence: number, phrase: string) =>
+    leaks[i] ? [{ t: leaks[i].t, at: said(sentence, phrase) }] : []
+  const cut = follow(
+    [
+      { t: clicked - 1.2, at: 0 },
+      { t: clicked, at: said(0, 'Unleash') },
+      ...at(0, 1, 'pays'),
+      ...at(1, 2, 'twice'),
+      ...at(2, 3, 'picks'),
+      ...at(3, 3, 'swaps'),
+      ...at(4, 5, 'believes'),
+      ...at(7, 6, 'ships'),
+      { t: settled, at: said(7, '$') },
+    ],
+    framesOf(live),
+    settled + 0.5,
+  )
+  return {
+    cut,
+    end: lengthOf(cut),
+    settled,
+    split: said(0, 'Unleash') + 12,
+    leaks: leakFrames(take, cut),
+  }
 }
 
-/** S8: the click on "Apply fixes", the re-run at 8×, the sealed receipt at real speed. */
+/**
+ * The fix: the leaky receipt while the voice names a fix, the click on "Apply fixes and re-run" on
+ * "switch", the re-run at speed, the receipt sealing on "$0", then on to the CI shot.
+ */
 export function fixCut(take: Take) {
+  const fix = sceneOf('fix')
+  const leaky = markAt(take, 'run-done') + SETTLE
   const started = markAt(take, 'rerun-started')
+  const clicked = clicksOf(take).find((t) => t > leaky) ?? started
   const printed =
     linesOf(take).find((line) => line.t / 1000 > started)?.t ?? markOf(take, 'rerun-sealed')?.t ?? 0
   const sealedAt = printed / 1000
-  const cut = place([
-    { from: started - 1.6, to: started + 0.3, rate: 1 },
-    { from: started + 0.3, to: sealedAt - 0.4, rate: 8 },
-    { from: sealedAt - 0.4, to: sealedAt + 1.6, rate: 1 },
-  ])
-  return { cut, end: lengthOf(cut), sealed: frameIn(cut, sealedAt), settled: sealedAt + 1.6 }
+  const ciAt = sentenceAt(fix, 4) - 3
+  const cut = follow(
+    [
+      { t: leaky, at: 0 },
+      { t: clicked, at: phraseAt(fix, 1, 'switch') },
+      { t: sealedAt, at: phraseAt(fix, 2, '$') },
+    ],
+    ciAt,
+    sealedAt + 1.6,
+  )
+  return { cut, end: ciAt, sealed: frameIn(cut, sealedAt), settled: sealedAt + 1.6 }
 }
 
 /** The frames where a cut shows each leak printing. */
@@ -223,46 +328,19 @@ export function teaserCut(take: Take) {
 // ---------- the voiceover's place in the cut ----------
 
 /**
- * S6 cuts from the console to the dashboard shot by this frame: just after the voiceover has added
- * the leak up, however fast the take reads it. S8 holds the sealed receipt this long before
- * cutting to CI; S9's end card comes in at this frame.
+ * The proof scene cuts from the console to PayPal's dashboard just after the voice has said what
+ * went out unpaid; the close's end card comes in as the voice starts the tagline.
  */
 export const PROOF_DASHBOARD = (() => {
-  const proof = SCENES.find((scene) => scene.id === 'proof')
-  const added = proof ? lines(proof)[2] : undefined
-  return Math.round(((added?.start ?? 0) + (added?.seconds ?? 0) + 0.4) * FPS)
+  const unpaid = lines(sceneOf('proof'))[4]
+  return Math.round(((unpaid?.start ?? 0) + (unpaid?.seconds ?? 0) + 0.3) * FPS)
 })()
-export const FIX_HOLD = 2 * FPS
-export const CLOSE_CARD = Math.round(9.7 * FPS)
-
-/**
- * The moments some sentences wait for, in seconds into their scene: in S5 each customer's line
- * as its leak prints, in S6 the dashboard shot, in S8 the CI shot, in S9 the end card. The scenes and the score's ducking
- * both read these.
- */
-export function anchorsFor(id: SceneId, take?: Take): Partial<Record<number, number>> {
-  if (id === 'live' && take) {
-    const { leaks, end } = liveCut(take)
-    const first = (persona: string) =>
-      (leaks.find((leak) => leak.persona === persona)?.frame ?? 0) / FPS
-    return {
-      2: first('double-clicker') + 0.4,
-      3: first('cart-shuffler'),
-      4: first('echo'),
-      5: first('bouncer'),
-      6: end / FPS + 0.8,
-    }
-  }
-  if (id === 'proof') return { 3: PROOF_DASHBOARD / FPS + 0.5 }
-  if (id === 'fix' && take) return { 2: (fixCut(take).end + FIX_HOLD) / FPS + 0.3 }
-  if (id === 'close') return { 1: CLOSE_CARD / FPS + 0.3 }
-  return {}
-}
+export const CLOSE_CARD = sentenceAt(sceneOf('close'), 3) - 5
 
 /** Every recorded voiceover line in the film, as frames, for ducking the score under them. */
-export function voiceSpans(take: Take | undefined) {
+export function voiceSpans() {
   return SCENES.flatMap((scene) =>
-    lines(scene, { anchors: anchorsFor(scene.id, take) })
+    lines(scene)
       .filter((line) => line.recorded)
       .map((line) => ({
         from: START[scene.id] + Math.round(line.start * FPS),

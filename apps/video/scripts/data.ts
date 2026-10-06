@@ -74,6 +74,13 @@ const data = {
     caught: Number(evalMatch[1]),
     falseAlarms: 0,
   },
+  // The fix sent upstream (README, "Upstream"): open, not merged, so the film says "sent".
+  upstream: {
+    project: 'PayPal Agent Toolkit',
+    what: 'one PayPal-Request-Id per create and capture call, so a retried call cannot pay twice',
+    status: 'pull request open',
+    pullRequest: 'paypal/agent-toolkit#108',
+  },
 }
 const out = path.resolve(here, '../src/data/runs.json')
 writeFileSync(out, `${JSON.stringify(data, null, 2)}\n`)
