@@ -291,6 +291,9 @@ importers:
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
+      '@shakedown/reporters':
+        specifier: workspace:*
+        version: link:../../packages/reporters
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0

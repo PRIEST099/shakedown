@@ -83,9 +83,9 @@ describe('cuts that follow the voice', () => {
 
   it('run on past a moment, hold still, then play into the next, when the voice needs longer', () => {
     expect(cut.slice(0, 3).map((segment) => [segment.rate, segment.frames])).toEqual([
-      [1, FPS / 2],
+      [1, 0.9 * FPS],
       [0, 2 * FPS],
-      [1, 1.5 * FPS],
+      [1, 1.1 * FPS],
     ])
   })
 

@@ -8,6 +8,7 @@
  */
 import runs from './data/runs.json'
 import vo from './data/vo.json'
+import voWalkthrough from './data/vo-walkthrough.json'
 import { numberWords } from './spoken'
 
 export const FPS = 30
@@ -108,6 +109,8 @@ export interface Scene {
   seconds: number
   source: Source
   vo: string
+  /** Extra seconds of silence before a sentence, where a speaker would stop and let it land. */
+  pauses?: Partial<Record<number, number>>
 }
 
 export const SCENES = [
@@ -284,9 +287,12 @@ export interface Line {
 
 type Recorded = Record<string, { text: string; seconds: number }[] | undefined>
 
+/** Every film's takes, by scene id (the walkthrough's scene ids all start with "w-"). */
+const TAKES: Recorded = { ...(vo.lines as Recorded), ...(voWalkthrough.lines as Recorded) }
+
 /** The recorded lines of a scene, if they are takes of the script's sentences as written now. */
 function recorded(scene: Scene) {
-  const takes = (vo.lines as Recorded)[scene.id]
+  const takes = TAKES[scene.id]
   const said = sentences(scene.vo)
   if (!takes || takes.length !== said.length) return undefined
   return takes.every((take, i) => take.text === said[i]) ? takes : undefined
@@ -310,6 +316,7 @@ export function lines(scene: Scene, timing: Timing = {}): Line[] {
   const squeeze = !takes && Object.keys(anchors).length === 0 && natural > room ? room / natural : 1
   let at = lead
   return said.map((text, sentence) => {
+    at += scene.pauses?.[sentence] ?? 0
     const pinned = anchors[sentence]
     if (pinned !== undefined) at = Math.max(at, pinned)
     const seconds = takes?.[sentence]?.seconds ?? estimate(text) * squeeze

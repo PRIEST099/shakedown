@@ -21,7 +21,9 @@
     "gallery": "tsx scripts/gallery.ts",
     "sheet": "tsx scripts/contact-sheet.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "cli-output": "tsx scripts/cli-output.ts",
+    "walkthrough": "remotion render src/index.ts Walkthrough out/shakedown-walkthrough.mp4 && tsx scripts/master.ts out/shakedown-walkthrough.mp4"
   },
   "dependencies": {
     "@remotion/cli": "4.0.532",
@@ -34,6 +36,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
+    "@shakedown/reporters": "workspace:*",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "kokoro-js": "1.2.1",

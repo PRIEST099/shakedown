@@ -6,6 +6,8 @@ import { SLIDES } from './gallery-slides'
 import { DEMO_FRAMES, FPS } from './script'
 import { TEASER_FRAMES, Teaser } from './Teaser'
 import { Thumbnail } from './Thumbnail'
+import { W_FRAMES } from './walkthrough/script'
+import { Walkthrough } from './walkthrough/Walkthrough'
 
 export function Root() {
   return (
@@ -15,6 +17,16 @@ export function Root() {
         id="Demo"
         component={Demo}
         durationInFrames={DEMO_FRAMES}
+        fps={FPS}
+        width={1920}
+        height={1080}
+        defaultProps={{ captions: true }}
+      />
+      {/* The second cut: the problem first, then Shakedown and how it is used, as a walkthrough. */}
+      <Composition
+        id="Walkthrough"
+        component={Walkthrough}
+        durationInFrames={W_FRAMES}
         fps={FPS}
         width={1920}
         height={1080}

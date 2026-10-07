@@ -19,7 +19,18 @@ export type TakeEvent =
 
 export type Mark = Extract<TakeEvent, { type: 'mark' }>
 
-export type TakeName = 'landing' | 'store' | 'live-run' | 'console' | 'exhibit' | 'ci' | 'dashboard'
+export type TakeName =
+  | 'landing'
+  | 'store'
+  | 'live-run'
+  | 'console'
+  | 'exhibit'
+  | 'ci'
+  | 'dashboard'
+  | 'w-store'
+  | 'w-echo'
+  | 'w-site'
+  | 'report'
 
 export interface Take {
   take: TakeName
@@ -131,6 +142,9 @@ export interface Key {
  * faster; where it has less, it holds still, then plays at real speed into the moment. After the
  * last key it plays on at real speed to `until` (seconds into the take), then holds to `end`.
  */
+/** How long a printed line's total takes to roll to its new value on the site's receipt. */
+const RUN_IN = 0.9
+
 export function follow(keys: readonly Key[], end: number, until?: number): Placed[] {
   const out: Placed[] = []
   const push = (from: number, to: number, rate: number, frames: number) => {
@@ -150,10 +164,11 @@ export function follow(keys: readonly Key[], end: number, until?: number): Place
       if (i === 1 || trim <= 0.3) push(b.t - frames / FPS, b.t, 1, frames)
       else push(a.t, b.t, need / frames, frames)
     } else {
-      // Run on half a second past the moment, so the still shows what it just did, then hold,
-      // then play at real speed into the next moment.
+      // Run on past the moment until the receipt's digits have rolled (RUN_IN), so the still
+      // shows what it just did and never a number mid-roll, then hold, then play at real speed
+      // into the next moment.
       const played = Math.round(need)
-      const runIn = Math.min(Math.round(FPS / 2), Math.floor(played / 2))
+      const runIn = Math.min(Math.round(RUN_IN * FPS), Math.floor(played / 2))
       const held = a.t + runIn / FPS
       push(a.t, held, 1, runIn)
       push(held, held, 0, frames - played)
@@ -236,7 +251,8 @@ export function liveCut(take: Take) {
       ...at(1, 2, 'twice'),
       ...at(2, 3, 'picks'),
       ...at(3, 3, 'swaps'),
-      ...at(4, 5, 'believes'),
+      // The Echo's third message, so the hold shows all three and a settled total.
+      ...at(6, 5, 'believes'),
       ...at(7, 6, 'ships'),
       { t: settled, at: said(7, '$') },
     ],

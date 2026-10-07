@@ -6,6 +6,7 @@
  *   pnpm --filter @shakedown/video voice                 # every line
  *   pnpm --filter @shakedown/video voice --scene=proof   # one scene's lines, keeping the rest
  *   pnpm --filter @shakedown/video voice --probe "the AI" "in CI"   # the phonemes it would say
+ *   pnpm --filter @shakedown/video voice --film=walkthrough   # the walkthrough, in a male voice
  *
  * The first run downloads the model (about 330 MB) from Hugging Face into the transformers.js
  * cache under node_modules. It writes public/audio/vo/<scene>/<n>.wav, 48 kHz with each line at
@@ -14,16 +15,37 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { KokoroTTS, TextSplitterStream } from 'kokoro-js'
-import { SCENES, sentences } from '../src/script'
+import { SCENES, type Scene, sentences } from '../src/script'
 import { voiced } from '../src/spoken'
+import { W_SCENES } from '../src/walkthrough/script'
 import { integratedLoudness, limit } from './loudness'
 import { decode, floatWav, RATE } from './wav'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX'
 const DTYPE = 'fp32'
-const VOICE = 'af_heart'
 const LINE_LUFS = -16
+
+/**
+ * Each film's script, voice and pace. The walkthrough is a man explaining his screen, a touch
+ * slower than the model's default so it never sounds hurried.
+ */
+const FILMS = {
+  demo: { scenes: SCENES as readonly Scene[], voice: 'af_heart', speed: 1, file: 'vo.json' },
+  walkthrough: {
+    scenes: W_SCENES as readonly Scene[],
+    voice: 'am_michael',
+    speed: 0.94,
+    file: 'vo-walkthrough.json',
+  },
+} as const
+const FILM =
+  FILMS[
+    (process.argv.find((a) => a.startsWith('--film='))?.slice('--film='.length) ??
+      'demo') as keyof typeof FILMS
+  ] ?? FILMS.demo
+const VOICE =
+  process.argv.find((a) => a.startsWith('--voice='))?.slice('--voice='.length) ?? FILM.voice
 
 /** One recorded line: the sentence as written, and how long the take runs. */
 type Take = { text: string; seconds: number }
@@ -61,18 +83,21 @@ async function speak() {
     .find((arg) => arg.startsWith('--scene='))
     ?.slice('--scene='.length)
     .split(',')
-  const file = path.join(ROOT, 'src/data/vo.json')
+  const file = path.join(ROOT, 'src/data', FILM.file)
   const kept = existsSync(file)
     ? (JSON.parse(readFileSync(file, 'utf8')) as { lines: Record<string, Take[]> }).lines
     : {}
   const lines: Record<string, Take[]> = only ? kept : {}
-  for (const scene of SCENES.filter((s) => !only || only.includes(s.id))) {
+  for (const scene of FILM.scenes.filter((s) => !only || only.includes(s.id))) {
     const dir = path.join(ROOT, 'public/audio/vo', scene.id)
     rmSync(dir, { recursive: true, force: true })
     mkdirSync(dir, { recursive: true })
     const said: Take[] = []
     for (const [i, sentence] of sentences(scene.vo).entries()) {
-      const audio = await tts.generate(voiced(sentence), { voice: VOICE })
+      const audio = await tts.generate(voiced(sentence), {
+        voice: VOICE as 'af_heart',
+        speed: FILM.speed,
+      })
       const speech = trim(audio.audio, audio.sampling_rate)
       // ffmpeg resamples the model's 24 kHz to 48 kHz stereo; the line is then levelled.
       const raw = path.join(dir, `.${i}.raw.wav`)
@@ -91,11 +116,11 @@ async function speak() {
   }
   // In script order, so the file reads like the script.
   const ordered = Object.fromEntries(
-    SCENES.filter((scene) => lines[scene.id]).map((scene) => [scene.id, lines[scene.id]]),
+    FILM.scenes.filter((scene) => lines[scene.id]).map((scene) => [scene.id, lines[scene.id]]),
   )
   writeFileSync(
     file,
     `${JSON.stringify({ source: `${MODEL} (${DTYPE}), voice ${VOICE}`, lines: ordered }, null, 2)}\n`,
   )
-  console.log('Wrote public/audio/vo and src/data/vo.json.')
+  console.log(`Wrote public/audio/vo and src/data/${FILM.file}.`)
 }

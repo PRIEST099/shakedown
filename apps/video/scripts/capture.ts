@@ -18,11 +18,13 @@
  *
  *   pnpm --filter @shakedown/video capture dashboard --cdp=http://127.0.0.1:9223
  */
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { type Browser, chromium, type Locator, type Page } from '@playwright/test'
 import { CAST } from '@shakedown/core/cast'
 import { WORST } from '../src/script'
+import { ECHO_ITEM } from '../src/walkthrough/script'
 
 const SITE = process.env.SITE_URL?.trim() || 'http://localhost:3200'
 /** Leaky Llama, the demo store the site's live runs go to. */
@@ -105,6 +107,40 @@ const PAYPAL_BUTTON_DRAWN = `(() => {
   return (button?.getBoundingClientRect().height ?? 0) > 30
 })()`
 
+/**
+ * PayPal's own record of an order, read with the sandbox app's credentials from the repository's
+ * .env.local (read here, never printed). Sandbox only: anything else stops the take.
+ */
+async function paypalOrder(id: string) {
+  const env = path.resolve(import.meta.dirname, '../../../.env.local')
+  process.loadEnvFile(env)
+  if ((process.env.PAYPAL_ENV ?? 'sandbox') !== 'sandbox') throw new Error('Sandbox only.')
+  const api = 'https://api-m.sandbox.paypal.com'
+  const basic = Buffer.from(
+    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`,
+  ).toString('base64')
+  const token = (await (
+    await fetch(`${api}/v1/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        authorization: `Basic ${basic}`,
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    })
+  ).json()) as { access_token: string }
+  const order = (await (
+    await fetch(`${api}/v2/checkout/orders/${encodeURIComponent(id)}`, {
+      headers: { authorization: `Bearer ${token.access_token}` },
+    })
+  ).json()) as {
+    status: string
+    purchase_units?: { payments?: { captures?: { id: string; amount: { value: string } }[] } }[]
+  }
+  const captures = order.purchase_units?.flatMap((unit) => unit.payments?.captures ?? []) ?? []
+  return { status: order.status, captures: captures.length }
+}
+
 /** One take: the page, its clock, and the event log the edit reads. */
 class Shot {
   readonly events: Event[] = []
@@ -117,9 +153,9 @@ class Shot {
     return performance.now() - this.started
   }
 
-  async mark(label: string, target?: Locator) {
+  async mark(label: string, target?: Locator, data?: Record<string, string>) {
     const box = target ? ((await target.boundingBox()) ?? undefined) : undefined
-    this.events.push({ t: this.now(), type: 'mark', label, box })
+    this.events.push({ t: this.now(), type: 'mark', label, box, ...(data ? { data } : {}) })
   }
 
   /**
@@ -329,6 +365,185 @@ const TAKES: Take[] = [
       await comment.scrollIntoViewIfNeeded()
       await shot.mark('comment', comment)
       await shot.hold(4000)
+    },
+  },
+  {
+    name: 'w-store',
+    shows:
+      'Leaky Llama running on my machine: the shelf, the field guide into the cart, and the checkout at the PayPal button. Nothing is paid.',
+    async run(shot) {
+      const { page } = shot
+      await page.goto(`${STORE}/`, { waitUntil: 'networkidle' })
+      const card = (name: string) =>
+        page.getByRole('listitem').filter({ has: page.getByRole('heading', { name }) })
+      const guide = card('Llamas & You: a field guide')
+      await shot.hold(900)
+      await shot.mark('shelf', page.getByRole('list').filter({ has: guide }))
+      await shot.mark('banner', page.getByText(/no real money/i).first())
+      for (const name of [
+        'Alpaca-blend trail socks',
+        'Insulated bottle, 750 ml',
+        'Waxed canvas panniers',
+      ]) {
+        await shot.moveTo(card(name).getByRole('heading', { name }), 1100)
+        await shot.hold(700)
+      }
+      await shot.moveTo(guide.getByRole('heading', { name: 'Llamas & You: a field guide' }), 900)
+      await shot.hold(900)
+      await shot.click(guide.getByRole('button', { name: /Add Llamas & You/ }))
+      await shot.hold(900)
+      await shot.click(page.getByRole('link', { name: /^Cart/ }))
+      await page.waitForURL('**/cart')
+      await page.waitForFunction(PAYPAL_BUTTON_DRAWN, undefined, { timeout: 30_000 })
+      await shot.hold(700)
+      await shot.mark('cart', page.locator('section[aria-labelledby="cart-heading"]'))
+      await shot.mark('pay', page.locator('section[aria-labelledby="pay-heading"]'))
+      const button = page.locator('section[aria-labelledby="pay-heading"] paypal-button')
+      await shot.mark('paypal', button)
+      await shot.moveTo(
+        page.locator('section[aria-labelledby="cart-heading"]').getByText('Total'),
+        1200,
+      )
+      await shot.hold(1500)
+      // Rest on PayPal's button without pressing it: the film draws the double press over this.
+      await shot.moveTo(button, 1200)
+      await shot.mark('hover')
+      await shot.hold(6000)
+    },
+  },
+  {
+    name: 'w-echo',
+    shows:
+      'The Echo, for real, on Leaky Llama running on my machine: an order nobody has paid, a "paid" message I send it by hand with no signature, and the order shipping. PayPal\'s record of the order is read afterwards: never approved, nothing captured.',
+    async run(shot) {
+      const { page } = shot
+      await page.goto(`${STORE}/`, { waitUntil: 'networkidle' })
+      // Open an order the way the checkout page does, as this visitor. Nobody ever approves it.
+      const created = await page.evaluate(async (item) => {
+        const res = await fetch('/api/checkout/orders', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            email: 'walkthrough@example.com',
+            checkoutKey: crypto.randomUUID(),
+            lines: [{ sku: item.sku, qty: 1, unitCents: item.cents }],
+          }),
+        })
+        return (await res.json()) as { orderNumber: string; paypalOrderId: string }
+      }, ECHO_ITEM)
+      await page.goto(`${STORE}/orders/${created.orderNumber}`, { waitUntil: 'networkidle' })
+      await shot.hold(900)
+      const status = page.locator('header p.rounded-full')
+      const shipments = page.getByRole('heading', { name: 'Shipments' }).locator('..')
+      const payment = page.getByRole('heading', { name: 'Payment' }).locator('..')
+      await shot.mark('unpaid', page.locator('article'), {
+        orderNumber: created.orderNumber,
+        paypalOrderId: created.paypalOrderId,
+      })
+      await shot.mark('status', status)
+      await shot.mark('items', page.getByRole('heading', { name: 'Items' }).locator('..'))
+      await shot.mark('payment', payment)
+      await shot.mark('shipments', shipments)
+      await shot.moveTo(status, 900)
+      await shot.hold(1800)
+      await shot.moveTo(shipments.getByText('Nothing has shipped.'), 900)
+      await shot.hold(2200)
+      // The "paid" message, as anyone could send it: PayPal's event shape, no signature headers.
+      const event = {
+        id: `WH-BYHAND-${Date.now().toString(36).toUpperCase()}`,
+        event_type: 'PAYMENT.CAPTURE.COMPLETED',
+        create_time: new Date().toISOString(),
+        resource: {
+          id: 'MADE-UP-CAPTURE',
+          status: 'COMPLETED',
+          custom_id: created.orderNumber,
+          amount: { currency_code: 'USD', value: (ECHO_ITEM.cents / 100).toFixed(2) },
+        },
+      }
+      const body = JSON.stringify(event)
+      // Sent with curl, exactly as the film's terminal shows it.
+      const url = `${STORE}/api/paypal/webhook`
+      const args = ['-s', '-X', 'POST', url, '-H', 'content-type: application/json', '-d', body]
+      await shot.mark('send', undefined, { request: body, url })
+      const answer = execFileSync('curl', [...args, '-w', '\\n%{http_code}'], { encoding: 'utf8' })
+      const [response = '', code = ''] = answer.split('\n')
+      await shot.mark('answered', undefined, { status: code, response })
+      await shot.hold(1600)
+      await page.reload({ waitUntil: 'networkidle' })
+      await shot.hold(400)
+      await shot.mark('shipped', page.locator('article'))
+      await shot.mark('status-after', status)
+      await shot.mark('payment-after', payment)
+      await shot.mark('shipments-after', shipments)
+      await shot.moveTo(status, 800)
+      await shot.hold(1500)
+      await shot.moveTo(shipments.getByText(/Shipment 1/), 900)
+      await shot.hold(1500)
+      const paypal = await paypalOrder(created.paypalOrderId)
+      await shot.mark('paypal', undefined, {
+        status: paypal.status,
+        captures: String(paypal.captures),
+      })
+      await shot.hold(5000)
+    },
+  },
+  {
+    name: 'w-site',
+    shows: "Shakedown's own site: the opening, then the cast, each customer from hell in turn.",
+    async run(shot) {
+      const { page } = shot
+      await page.goto(`${SITE}/`, { waitUntil: 'networkidle' })
+      await shot.hold(800)
+      await shot.mark('hero', page.locator('main h1').first())
+      await shot.mark('problem', page.getByText('Every test passed.', { exact: false }).first())
+      await shot.hold(3500)
+      const cast = page.locator('#cast')
+      await cast.scrollIntoViewIfNeeded()
+      await page.evaluate(() =>
+        document.querySelector('#cast')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      )
+      await shot.hold(1400)
+      await shot.mark('cast', page.locator('#cast .cast-grid'))
+      for (const name of [
+        'The Double-Clicker',
+        'The Echo',
+        'The Cart Shuffler',
+        'The Bouncer',
+        'The Policy Lawyer',
+      ]) {
+        const slot = page.locator('.cast-slot').filter({ hasText: name }).first()
+        await shot.mark(`card:${name}`, slot)
+        await shot.moveTo(slot, 800)
+        await shot.hold(1300)
+      }
+      await shot.hold(2500)
+    },
+  },
+  {
+    name: 'report',
+    shows:
+      "The report the CLI writes, out/cli/.shakedown/report.html, rendered by the CLI's own code from the recorded sandbox run (scripts/cli-output.ts).",
+    async run(shot) {
+      const { page } = shot
+      const file = path.resolve(import.meta.dirname, '../out/cli/.shakedown/report.html')
+      await page.goto(`file://${file}`, { waitUntil: 'load' })
+      await shot.hold(1200)
+      await shot.mark('top', page.locator('body'))
+      const check = (text: string) => page.locator('.check').filter({ hasText: text }).first()
+      for (const [label, text] of [
+        ['double', 'charged once'],
+        ['echo', 'unverified webhook'],
+      ] as const) {
+        const target = check(text)
+        await page.evaluate(
+          (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+          await target.elementHandle(),
+        )
+        await shot.hold(1200)
+        await shot.mark(label, target)
+        await shot.moveTo(target.locator('.evidence'), 900)
+        await shot.hold(2400)
+      }
     },
   },
   {

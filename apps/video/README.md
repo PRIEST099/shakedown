@@ -7,6 +7,7 @@ and the scene list are in `docs/video/VIDEO_PIPELINE.md` (in the workspace, besi
 | Output | Composition | Command |
 |---|---|---|
 | `out/shakedown-animatic.mp4`: the 16:9 cut with the voiceover as captions | `Demo` | `pnpm animatic` |
+| `out/shakedown-walkthrough.mp4`: the second 16:9 cut, problem first, as a screen walkthrough in a male scratch voice | `Walkthrough` | `pnpm walkthrough` |
 | `out/shakedown-teaser.mp4`: 40 s, 1080×1920, loops | `Teaser` | `pnpm teaser` |
 | `out/shakedown-thumbnail.png`: 3840×2160, for YouTube | `Thumbnail` | `pnpm thumbnail` |
 | `out/shakedown-devpost-thumbnail.png`: 3000×2000 (3:2), for Devpost | `DevpostThumbnail` | `pnpm thumbnail:devpost` |
@@ -69,6 +70,27 @@ closed captions as an SRT file instead of burning them in.
 `src/timeline.ts` works out every cut from the takes' event logs: the speed-ramped segments, the
 frames where each leak prints and where the re-run seals. The scenes cut with it and the score is
 timed from it, so picture and sound can't drift apart.
+
+## The walkthrough
+
+A second cut, kept beside the first so the two can be compared. It starts from nothing: Leaky
+Llama, what happens when someone pays, the double click (drawn, with the recorded run's two
+captures), and the echo for real (`w-echo`: an unpaid order, a "paid" message sent by hand with
+`curl`, the order shipping, PayPal's record of it read afterwards). Then Shakedown, the CLI run
+in a terminal (`pnpm cli-output` renders it with the CLI's own code from the recorded runs), the
+report, the fixed shop and CI.
+
+    pnpm capture w-store w-echo report        # the store running on localhost:3100
+    SITE_URL=https://shakedown-web.onrender.com pnpm capture w-site
+    pnpm conform w-store w-echo w-site report
+    pnpm cli-output
+    pnpm voice --film=walkthrough             # the male scratch voice (am_michael)
+    pnpm vo-sheet --film=walkthrough          # VOICEOVER-walkthrough.md
+    pnpm compose
+    pnpm walkthrough
+
+Its scenes are `w-*` in `src/walkthrough/script.ts`, each sized from its recorded takes plus the
+pauses a speaker would leave; the cuts are in `src/walkthrough/timeline.ts`.
 
 ## Honesty rules
 

@@ -33,6 +33,9 @@ import {
   type Take,
   teaserCut,
 } from '../src/timeline'
+import { LEAKY } from '../src/walkthrough/cli'
+import { W_FRAMES, W_SCENES, W_START, type WSceneId } from '../src/walkthrough/script'
+import { cliTimes, echoCut, said as wSaid } from '../src/walkthrough/timeline'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const RATE = 48_000
@@ -366,6 +369,81 @@ function scoreTeaser() {
   finish('teaser')
 }
 
+/**
+ * The walkthrough: a person talking over their screen, so the music stays a quiet bed, warm and
+ * unhurried, with a few sounds where something happens: two presses and two charges, the echo
+ * shipping, the receipt's total, the seal.
+ */
+function scoreWalkthrough() {
+  begin(W_FRAMES / FPS)
+  const wsec = (id: WSceneId) => W_START[id] / FPS
+  const wend = (id: WSceneId) =>
+    wsec(id) + (W_SCENES.find((scene) => scene.id === id)?.seconds ?? 0)
+  const at = (id: WSceneId, sentence: number, phrase?: string) =>
+    wsec(id) + wSaid(id, sentence, phrase) / FPS
+  // A slow I–vi–IV–V in D, a chord every two bars, under everything but the close.
+  const SLOW = 60 / 84
+  const CHORDS = [
+    [50, 57, 62, 66],
+    [47, 54, 59, 62],
+    [43, 55, 59, 62],
+    [45, 52, 57, 61],
+  ]
+  const bar = SLOW * 8
+  for (let t = 0, n = 0; t < wsec('w-close'); t += bar, n += 1) {
+    const chord = CHORDS[n % CHORDS.length] ?? []
+    add(t, pad(chord, Math.min(bar + 0.6, wsec('w-close') - t + 0.6)), 0.26)
+    // A plucked arpeggio, quiet, on the half beats of the first bar of each chord.
+    for (let k = 0; k < 6; k += 1)
+      add(t + k * SLOW, pluck((chord[k % chord.length] ?? 50) + 12, 1.4), 0.07, k % 2 ? 0.3 : -0.3)
+  }
+  add(0.1, bell(81, 2), 0.12)
+
+  // The three steps of a purchase, and the step that leaks.
+  for (const [i, sentence] of [1, 2, 3].entries())
+    add(at('w-flow', sentence), pluck(74 + ([0, 4, 7][i] ?? 0), 1.2), 0.18, i % 2 ? 0.3 : -0.3)
+  add(at('w-flow', 4, 'leaks'), leak(), 0.16)
+
+  // The double click: two presses, then two charges.
+  add(at('w-double', 1, 'presses'), tick(1), 0.35)
+  add(at('w-double', 1, 'again'), tick(1), 0.35)
+  add(at('w-double', 2, 'charged'), leak(), 0.2, -0.3)
+  add(at('w-double', 2, 'charged') + 10 / FPS, leak(), 0.2, 0.3)
+  add(at('w-double', 2, '$'), bass(38, 1.2), 0.3)
+
+  // The echo: Enter on the curl, then the order ships.
+  const echo = echoCut(take('w-echo'))
+  add(wsec('w-echo') + echo.enter / FPS, tick(1), 0.3)
+  add(wsec('w-echo') + echo.shipped / FPS, leak(), 0.26)
+  add(wsec('w-echo') + echo.shipped / FPS, bass(38, 1.4), 0.32)
+
+  // "So I built Shakedown": a lift, and a pluck as each customer is named.
+  add(at('w-meet', 1), bell(78, 2.2), 0.14)
+  for (let i = 3; i <= 7; i += 1)
+    add(at('w-meet', i), pluck(69 + (i - 3) * 2, 1.2), 0.15, -0.5 + (i - 3) * 0.25)
+
+  // The run: a soft tick per customer line, and the total landing on "Eight leaks".
+  const cli = cliTimes()
+  for (const [i, frame] of cli.progress.entries())
+    add(
+      wsec('w-cli') + frame / FPS,
+      LEAKY.progress[i]?.some(([, tone]) => tone === 'leak') ? leak() : tick(0.6),
+      0.09,
+    )
+  add(at('w-receipt', 0), bass(38, 1.6), 0.4)
+
+  // The fix: the seal as the voice says nothing leaks.
+  add(at('w-fix', 1), sealed(), 0.45)
+
+  // The close: the bell motif, then out.
+  add(wsec('w-close'), pad([50, 54, 57, 62, 66], wend('w-close') - wsec('w-close')), 0.28)
+  for (const [i, m] of [74, 78, 81, 86].entries())
+    add(at('w-close', 1) + i * SLOW, bell(m, 2.6), 0.12)
+  fadeIn(0.4)
+  fadeOut(2)
+  finish('walkthrough')
+}
+
 function fadeIn(seconds: number) {
   for (let i = 0; i < Math.min(N, seconds * RATE); i += 1) {
     const k = i / (seconds * RATE)
@@ -457,6 +535,7 @@ function normalise(input: string, output: string) {
 
 const sealedAt = scoreFilm()
 scoreTeaser()
+scoreWalkthrough()
 console.log(
-  `Composed the film (${(DEMO_FRAMES / FPS).toFixed(1)} s; SEALED at ${sealedAt.toFixed(2)} s) and the teaser. Wrote public/audio/score.wav and teaser.wav.`,
+  `Composed the film (${(DEMO_FRAMES / FPS).toFixed(1)} s; SEALED at ${sealedAt.toFixed(2)} s), the teaser and the walkthrough. Wrote public/audio/score.wav, teaser.wav and walkthrough.wav.`,
 )
