@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### @shakedown-dev/cli 0.2.2 (2026-10-07)
+
+- **Search keywords on npm** (paypal, paypal-sandbox, checkout, payments, webhooks, testing, and more), so searches like "paypal checkout testing" can find the package. No code changes.
+
 ### @shakedown-dev/cli 0.2.1: what checking the published 0.2.0 found (2026-10-07)
 
 - **Checked with npx:** the published 0.2.0 was run with `npx` against nine codebases and two live
