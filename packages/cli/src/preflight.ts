@@ -19,6 +19,8 @@ export interface Check {
   label: string
   ok: boolean
   detail: string
+  /** Not a blocker, but worth knowing: printed with a "!". */
+  warn?: boolean
 }
 
 export interface PreflightResult {
@@ -151,24 +153,38 @@ export async function preflightTarget(options: TargetCheckOptions): Promise<Pref
     const probe = `${origin}${fillPath(routes.probe.path, 'SHAKEDOWN-PREFLIGHT')}`
     const withSecret = await http(probe, { headers: { [PROBE_HEADER]: options.probeSecret } })
     const without = await http(probe)
+    // A probe route answers in JSON even for an order it doesn't know; a store with no such route
+    // gives its framework's 404 page instead.
+    const answer: unknown = await withSecret.json().catch(() => undefined)
+    const noRoute =
+      withSecret.status === 404 &&
+      without.status === 404 &&
+      (answer === null || typeof answer !== 'object')
     checks.push(
-      withSecret.status === 403
+      noRoute
         ? {
-            label: 'Probe secret',
-            ok: false,
-            detail: 'the store refused it: give both sides the same secret',
+            label: 'Probe route',
+            ok: true,
+            warn: true,
+            detail: `none at ${routes.probe.path} (HTTP 404). Checks that need your store's own records will come back inconclusive; the double charge is judged from PayPal's alone.`,
           }
-        : without.status !== 403
+        : withSecret.status === 403
           ? {
               label: 'Probe secret',
               ok: false,
-              detail: `the probe API answered without the secret (HTTP ${without.status}); it must refuse anyone without it`,
+              detail: 'the store refused it: give both sides the same secret',
             }
-          : {
-              label: 'Probe secret',
-              ok: true,
-              detail: 'accepted, and the probe API refuses requests without it',
-            },
+          : without.status !== 403
+            ? {
+                label: 'Probe secret',
+                ok: false,
+                detail: `the probe API answered without the secret (HTTP ${without.status}); it must refuse anyone without it`,
+              }
+            : {
+                label: 'Probe secret',
+                ok: true,
+                detail: 'accepted, and the probe API refuses requests without it',
+              },
     )
   }
   return { exitCode: checks.every((c) => c.ok) ? EXIT.pass : EXIT.preflight, checks }

@@ -1,4 +1,4 @@
-import type { Route } from './source'
+import { closeOf, type Route, type SourceFile } from './source'
 
 /**
  * What a handler expects in its request body and puts in its answer, read from its code. These
@@ -16,6 +16,9 @@ export interface BodyGuess {
 
 const PLACEHOLDER: [RegExp, string][] = [
   [/^(?:cart|items|lines|lineItems|line_items|products|basket|order_?items)$/i, '{{lines}}'],
+  // A checkout of one product: the first line's.
+  [/^(?:itemId|item_id|productId|product_id|sku|variantId|product)$/i, '{{sku}}'],
+  [/^(?:quantity|qty)$/i, '{{qty}}'],
   [/^(?:email|customerEmail|payerEmail|buyerEmail|receiptEmail)$/i, '{{email}}'],
   [
     /^(?:checkoutKey|idempotencyKey|idempotency_key|requestId|checkoutId|attemptId)$/i,
@@ -60,14 +63,21 @@ export function bodyOf(route: Route): BodyGuess {
     for (const name of fieldsOf(m[1] ?? '')) names.add(name)
   // const body = await req.json(); body.cart / req.body.cart
   const bodyVar =
-    /(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*(?:await\s+)?(?:\w+\.json\(\)|req(?:uest)?\.body|readJson)/.exec(
+    /(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*(?:await\s+)?(?:\w+\.json\(\)|_?req(?:uest)?\.body|readJson)/.exec(
       own,
     )?.[1]
-  for (const v of [bodyVar, 'req.body', 'request.body'].filter(Boolean) as string[]) {
-    const escaped = v.replace('.', '\\.')
-    for (const m of own.matchAll(new RegExp(`\\b${escaped}\\.([A-Za-z_$][\\w$]*)`, 'g')))
+  if (bodyVar) {
+    for (const m of own.matchAll(new RegExp(`\\b${bodyVar}\\.([A-Za-z_$][\\w$]*)`, 'g')))
       names.add(m[1] ?? '')
   }
+  // req.body.cart, _req.body.itemId, ctx.request.body.items
+  for (const m of own.matchAll(/\b(?:_?req|request|ctx\.request|event)\.body\.([A-Za-z_$][\w$]*)/g))
+    names.add(m[1] ?? '')
+  // const { cart } = _req.body
+  for (const m of own.matchAll(
+    /(?:const|let|var)\s*\{([^}]*)\}\s*=\s*(?:_?req|request|ctx\.request)\.body\b/g,
+  ))
+    for (const name of fieldsOf(m[1] ?? '')) names.add(name)
   const fields = [...names].map((name) => ({ name, value: placeholder(name, PLACEHOLDER) }))
   // The cart's line fields: a named line type, or what the code reads off each item.
   const lineNames = new Set<string>()
@@ -109,10 +119,10 @@ export function answerOf(route: Route): AnswerGuess {
     for (const name of fieldsOf(m[1] ?? '')) fields.add(name)
   }
   const list = [...fields]
-  // `res.json(jsonResponse)` or `return Response.json(order)`: PayPal's order, passed through.
+  // `res.json(jsonResponse)`, `res.json(data.result)`: PayPal's order, passed through. An error
+  // answer elsewhere in the handler (`json({ error })`) doesn't change that.
   const passesPayPalThrough =
-    list.length === 0 &&
-    /(?:\.json|json)\(\s*(?:jsonResponse|order|response|data|result|captureData|orderData)\b/.test(
+    /(?:\.json|json|\.send)\(\s*(?:jsonResponse|order|response|data(?:\.result)?|result|captureData|orderData|payload|paypalOrder)\s*\)/.test(
       own,
     )
   const paypalOrderId = passesPayPalThrough
@@ -142,4 +152,81 @@ export function catalogOf(route: Route, extra = '') {
     price: price ?? 'price',
     priceUnit: price && /cents/i.test(price) ? ('cents' as const) : ('dollars' as const),
   }
+}
+
+/** The top-level entries of an object literal starting at `open`, each with its value's code. */
+function entriesOf(text: string, open: number): { key: string; value: string }[] {
+  const inner = text.slice(open + 1, closeOf(text, open))
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < inner.length; i += 1) {
+    const c = inner[i]
+    if (c === '"' || c === "'" || c === '`') {
+      for (i += 1; i < inner.length && inner[i] !== c; i += 1) if (inner[i] === '\\') i += 1
+      continue
+    }
+    if (c === '/' && inner[i + 1] === '/') {
+      const end = inner.indexOf('\n', i)
+      i = end === -1 ? inner.length : end
+      continue
+    }
+    if (c === '{' || c === '[' || c === '(') depth += 1
+    else if (c === '}' || c === ']' || c === ')') depth -= 1
+    else if (c === ',' && depth === 0) {
+      parts.push(inner.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(inner.slice(start))
+  const out: { key: string; value: string }[] = []
+  for (const part of parts) {
+    const clean = part.replace(/\/\/[^\n]*/g, '').trim()
+    if (!clean || clean.startsWith('...')) continue
+    const m = /^['"]?([A-Za-z_$][\w$]*)['"]?\s*(?::\s*([\s\S]*))?$/.exec(clean)
+    if (m) out.push({ key: m[1] ?? '', value: (m[2] ?? m[1] ?? '').trim() })
+  }
+  return out
+}
+
+/**
+ * How the store's own pages call a route: `fetch('/api/orders', { body: JSON.stringify({ cart:
+ * [{ id, quantity }] }) })`, or `axios.post('/api/orders', { ... })`. PayPal's sample keeps the
+ * cart's shape here, not in the server.
+ */
+export function clientBodyOf(
+  files: readonly SourceFile[],
+  routePath: string,
+): BodyGuess | undefined {
+  const escaped = routePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const call = new RegExp(`(?:fetch|axios\\.post|\\.post|\\$fetch)\\(\\s*['"\`]${escaped}['"\`]`)
+  for (const file of files) {
+    const at = call.exec(file.text)
+    if (!at) continue
+    const open = file.text.indexOf('(', at.index)
+    const args = file.text.slice(open, closeOf(file.text, open) + 1)
+    const json = /JSON\.stringify\(\s*\{/.exec(args)
+    const objectAt = json
+      ? json.index + json[0].length - 1
+      : args.indexOf('{', args.indexOf(',') + 1)
+    if (objectAt <= 0) continue
+    const entries = entriesOf(args, objectAt)
+    if (entries.length === 0) continue
+    const list = entries.find((entry) => entry.value.startsWith('['))
+    const firstItem = list ? list.value.indexOf('{') : -1
+    return {
+      fields: entries.map((entry) => ({
+        name: entry.key,
+        value: placeholder(entry.key, PLACEHOLDER),
+      })),
+      line:
+        list && firstItem !== -1
+          ? entriesOf(list.value, firstItem).map((entry) => ({
+              name: entry.key,
+              value: placeholder(entry.key, LINE_PLACEHOLDER),
+            }))
+          : [],
+    }
+  }
+  return undefined
 }

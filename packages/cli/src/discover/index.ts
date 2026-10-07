@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { DEFAULT_ROUTES, type RouteMap } from '@shakedown/core'
 import { type Picks, pick, ROLE_TEXT, ROLES, type Role, type Scored } from './classify'
-import { answerOf, bodyOf, catalogOf } from './shape'
-import { closeOf, type Route, readSources, routesOf, type SourceFile } from './source'
+import { answerOf, type BodyGuess, bodyOf, catalogOf, clientBodyOf } from './shape'
+import { closeOf, lineAt, type Route, readSources, routesOf, type SourceFile } from './source'
 
 /**
  * `shakedown discover`: read a store's source code, find the routes its checkout really uses,
@@ -24,6 +24,16 @@ export interface Discovery {
   checks: string[]
   /** Set when no catalog route was found, so the config must list what the store sells. */
   needsCatalog: boolean
+  /** Patterns in the code worth a look before any run, each with the lines behind it. */
+  risks: Risk[]
+  /** The cast to send: without the Echo when there is no webhook listener to send it to. */
+  cast?: string[]
+}
+
+export interface Risk {
+  title: string
+  detail: string
+  evidence: { file: string; line: number; code: string }[]
 }
 
 export function discover(root: string): Discovery {
@@ -63,7 +73,10 @@ export function guessUrl(root: string, files: readonly SourceFile[]): string {
   const port =
     /(?:--port|-p)[ =](\d{4,5})/.exec(scripts)?.[1] ??
     files
-      .map((file) => /PORT\)?\s*(?:\?\?|\|\|)\s*(\d{4,5})|\.listen\(\s*(\d{4,5})/.exec(file.text))
+      .map((file) =>
+        // PORT ?? 8888, PORT || 3000, { PORT = 8080 } = process.env, .listen(4000)
+        /PORT\)?\s*(?:\?\?|\|\||=)\s*(\d{4,5})|\.listen\(\s*(\d{4,5})/.exec(file.text),
+      )
       .find(Boolean)
       ?.slice(1)
       .find(Boolean) ??
@@ -83,7 +96,13 @@ export function discoverIn(files: readonly SourceFile[]): Discovery {
 
   const order = best.createOrder?.route
   if (order) {
-    const body = bodyOf(order)
+    // The server's own reading of its body, filled in from how the store's pages call it.
+    const server = bodyOf(order)
+    const client = clientBodyOf(files, order.path)
+    const body: BodyGuess = {
+      fields: server.fields.length ? server.fields : (client?.fields ?? []),
+      line: server.line.length ? server.line : (client?.line ?? []),
+    }
     const answer = answerOf(order)
     const speaksOurs =
       isDefault('createOrder', order) &&
@@ -190,7 +209,9 @@ export function discoverIn(files: readonly SourceFile[]): Discovery {
   if (order && !capture)
     checks.unshift('No route that captures a PayPal order was found; set routes.capture by hand.')
   if (order && !webhook)
-    checks.push('No PayPal webhook listener was found; the Echo will be sent to the default path.')
+    checks.push(
+      'No PayPal webhook listener was found, so the config leaves the Echo out of the cast.',
+    )
 
   return {
     files: files.length,
@@ -201,7 +222,120 @@ export function discoverIn(files: readonly SourceFile[]): Discovery {
     map: map,
     checks,
     needsCatalog: !catalog,
+    risks: risksOf(files, routes, picks),
+    ...(order && !webhook ? { cast: ['double-clicker', 'cart-shuffler', 'bouncer'] } : {}),
   }
+}
+
+/** The first line of the pieces that matches, as evidence. */
+function lineOf(route: Route, pattern: RegExp) {
+  for (const piece of route.pieces) {
+    const match = pattern.exec(piece.text)
+    if (!match) continue
+    const before = piece.text.slice(0, match.index)
+    const start = before.lastIndexOf('\n') + 1
+    const end = piece.text.indexOf('\n', match.index)
+    return {
+      file: piece.file,
+      line: piece.line + (before.match(/\n/g) ?? []).length,
+      code: piece.text
+        .slice(start, end === -1 ? undefined : end)
+        .trim()
+        .slice(0, 120),
+    }
+  }
+  return undefined
+}
+
+/** A call that asks PayPal what really happened to a payment. */
+const ASKS_PAYPAL =
+  /v2\/checkout\/orders|ordersController\.|\.captureOrder\(|\.getOrder\(|OrdersGetRequest|OrdersCaptureRequest|api-m(?:\.sandbox)?\.paypal\.com|paypal\.orders\./i
+const MARKS_PAID =
+  /\b(?:isPaid|is_paid|paid)\s*=\s*true|\bpaidAt\s*=|\bstatus\s*[:=]\s*['"](?:paid|PAID)['"]|paymentStatus\s*[:=]\s*['"](?:paid|PAID|completed|COMPLETED)['"]/
+const FROM_REQUEST = /\b(?:_?req|request|ctx\.request)\.body\b|await\s+(?:_?req|request)\.json\(\)/
+
+/**
+ * Patterns worth a look before any run. Each is a hint, with the lines behind it: the cast is what
+ * proves a leak, against the running store.
+ */
+function risksOf(files: readonly SourceFile[], routes: readonly Route[], picks: Picks): Risk[] {
+  const risks: Risk[] = []
+  const { best } = picks
+
+  // An order marked paid on the browser's word: the page captures with PayPal's buttons, then
+  // tells the server, which never asks PayPal.
+  for (const route of routes) {
+    if (!/POST|PUT|PATCH|\*/.test(route.method) || route === best.webhook?.route) continue
+    const paid = lineOf(route, MARKS_PAID)
+    const reads = lineOf(route, FROM_REQUEST)
+    if (!paid || !reads || route.pieces.some((piece) => ASKS_PAYPAL.test(piece.text))) continue
+    const browser = files
+      .map((file) => {
+        const at = /actions\.order\.capture\(|\.order\.capture\(\)/.exec(file.text)
+        return at
+          ? { file: file.rel, line: lineAt(file, at.index), code: 'actions.order.capture()' }
+          : undefined
+      })
+      .find(Boolean)
+    risks.push({
+      title: `${route.method === '*' ? 'ANY' : route.method} ${route.path} marks an order paid on the browser's word`,
+      detail:
+        'It records the payment from what the request says and never asks PayPal. Anyone who can call it can mark an order paid without paying. Look the order up at PayPal (GET /v2/checkout/orders/:id) and check its capture is COMPLETED for the right amount before marking it paid.',
+      evidence: [paid, reads, ...(browser ? [browser] : [])],
+    })
+  }
+
+  const order = best.createOrder?.route
+  if (
+    order &&
+    !order.pieces.some((piece) =>
+      /PayPal-Request-Id|paypalRequestId|requestId|idempoten/i.test(piece.text),
+    )
+  ) {
+    // PayPal's own call is the best evidence; the store's wrapper around it, the next best.
+    const at =
+      lineOf(
+        order,
+        /v2\/checkout\/orders['"`]|ordersController\.createOrder|OrdersCreateRequest/,
+      ) ?? lineOf(order, /createOrder\(/)
+    risks.push({
+      title: `${order.method} ${order.path} sends no idempotency key`,
+      detail:
+        'Two submits of one checkout open two PayPal orders, and a customer who presses Pay twice can pay twice. Send one PayPal-Request-Id per checkout attempt. The Double-Clicker tests this.',
+      evidence: at ? [at] : [],
+    })
+  }
+
+  const webhook = best.webhook?.route
+  if (
+    webhook &&
+    !webhook.pieces.some((piece) => /verify-webhook-signature|verifyWebhook/i.test(piece.text))
+  ) {
+    const at = lineOf(webhook, /event_type|PAYMENT\.CAPTURE/)
+    risks.push({
+      title: `${webhook.method} ${webhook.path} never asks PayPal to verify a signature`,
+      detail:
+        "Anyone can send it a 'paid' event. Call verify-webhook-signature with the raw body before acting. The Echo tests this.",
+      evidence: at ? [at] : [],
+    })
+  }
+
+  // PayPal's older v1 Payments API: out of the cast's reach.
+  for (const file of files) {
+    const at =
+      /paypal-rest-sdk|\.payment\.create\(|\/v1\/payments\/payment|\.payment\.execute\(/.exec(
+        file.text,
+      )
+    if (!at) continue
+    risks.push({
+      title: "This store uses PayPal's older v1 Payments API",
+      detail:
+        "Shakedown's cast tests checkouts on Orders v2, PayPal's current API, so it can't test this one yet. PayPal recommends moving to Orders v2.",
+      evidence: [{ file: file.rel, line: lineAt(file, at.index), code: at[0] }],
+    })
+    break
+  }
+  return risks
 }
 
 // ---------- output ----------
@@ -234,6 +368,8 @@ export function configText(found: Discovery, url: string, today: string): string
   if (found.needsCatalog) {
     target.catalog = [{ sku: 'CHANGE-ME', name: 'What you sell', priceCents: 1000 }]
   }
+  const config: Record<string, unknown> = { target }
+  if (found.cast) config.cast = found.cast
   const checks = found.checks.length
     ? `\n *\n * Check before the first run:\n${found.checks.map((c) => ` *  - ${c}`).join('\n')}`
     : ''
@@ -244,7 +380,7 @@ export function configText(found: Discovery, url: string, today: string): string
  */
 import { defineConfig } from '@shakedown-dev/cli'
 
-export default defineConfig(${ts({ target })})
+export default defineConfig(${ts(config)})
 `
 }
 
@@ -258,7 +394,7 @@ const where = (entry: Scored) => {
 const MISSING: Record<Role, string> = {
   createOrder: 'not found',
   capture: 'not found',
-  webhook: 'not found: the Echo is sent to the default path',
+  webhook: 'not found: the Echo is left out of the cast',
   catalog: 'not found: list what you sell in target.catalog',
   probe: 'not found: add it so Shakedown can see what your store shipped',
   support: 'not found: only the Policy Lawyer needs one',
@@ -304,6 +440,14 @@ export function report(found: Discovery, root: string): string {
     !found.needsCatalog
   ) {
     lines.push('', '  This store already speaks Shakedown’s own contract: no route map needed.')
+  }
+  if (found.risks.length) {
+    lines.push('', '  Worth checking (hints from the code; a run is what proves a leak):')
+    for (const risk of found.risks) {
+      lines.push(`    ! ${risk.title}`)
+      for (const e of risk.evidence) lines.push(`        ${e.file}:${e.line}  ${e.code}`)
+      lines.push(`      ${risk.detail}`)
+    }
   }
   if (found.checks.length) {
     lines.push('', '  To check:')

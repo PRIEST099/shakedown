@@ -90,7 +90,31 @@ export function readSources(root: string): SourceFile[] {
   return files
 }
 
-export function sourceOf(rel: string, text: string): SourceFile {
+/**
+ * The code with its comments blanked out, newlines kept, so offsets and line numbers still hold.
+ * A comment that says "no idempotency key" must not count as code that has one.
+ */
+export function blankComments(text: string): string {
+  const out = text.split('')
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i]
+    if (c === '"' || c === "'" || c === '`') {
+      for (i += 1; i < text.length && text[i] !== c; i += 1) if (text[i] === '\\') i += 1
+      continue
+    }
+    if (c === '/' && (text[i + 1] === '/' || text[i + 1] === '*')) {
+      const block = text[i + 1] === '*'
+      const end = block ? text.indexOf('*/', i + 2) + 2 : text.indexOf('\n', i)
+      const stop = end <= 1 || end === -1 ? text.length : end
+      for (let j = i; j < stop; j += 1) if (out[j] !== '\n') out[j] = ' '
+      i = stop - 1
+    }
+  }
+  return out.join('')
+}
+
+export function sourceOf(rel: string, raw: string): SourceFile {
+  const text = blankComments(raw)
   const starts = [0]
   for (let i = 0; i < text.length; i += 1) if (text[i] === '\n') starts.push(i + 1)
   return { rel, text, starts }
@@ -169,25 +193,46 @@ const KEYWORDS = new Set([
 
 /** A function's code, from where its name appears to the end of its body. */
 function bodyFrom(file: SourceFile, start: number, from: number): string {
-  // Past the parameters, to the body: a block, or for an arrow, its expression.
-  const params = file.text.indexOf('(', from)
+  const text = file.text
+  // Past the parameters, and past a return type (`: Promise<{ id: string }>`), to the body: a
+  // block, or for an arrow, its expression.
+  const params = text.indexOf('(', from)
   if (params === -1) return ''
-  const afterParams = closeOf(file.text, params) + 1
-  const rest = file.text.slice(afterParams, afterParams + 400)
+  let i = closeOf(text, params) + 1
+  while (i < text.length && /\s/.test(text[i] ?? '')) i += 1
+  if (text[i] === ':') {
+    let angle = 0
+    let typed = false
+    for (i += 1; i < text.length; i += 1) {
+      const c = text[i] ?? ''
+      if (c === '<') angle += 1
+      else if (c === '>' && text[i - 1] !== '=') angle -= 1
+      else if (c === '=' && text[i + 1] === '>' && angle === 0) break
+      else if (c === '{' || c === '(' || c === '[') {
+        // An object type inside a generic, or a return type that is itself an object type.
+        if (angle > 0 || !typed) {
+          i = closeOf(text, i)
+          typed = true
+          continue
+        }
+        if (c === '{') break
+      }
+      if (!/\s/.test(c)) typed = true
+    }
+  }
+  const rest = text.slice(i, i + 400)
   const brace = rest.search(/\{/)
   const arrow = rest.search(/=>/)
   if (arrow !== -1 && (brace === -1 || arrow < brace)) {
-    const bodyAt = afterParams + arrow + 2
-    const first = file.text.slice(bodyAt).search(/\S/)
+    const bodyAt = i + arrow + 2
+    const first = text.slice(bodyAt).search(/\S/)
     const at = bodyAt + Math.max(0, first)
-    if (file.text[at] === '{' || file.text[at] === '(') {
-      return file.text.slice(start, closeOf(file.text, at) + 1)
-    }
-    const end = file.text.indexOf('\n', at)
-    return file.text.slice(start, end === -1 ? undefined : end)
+    if (text[at] === '{' || text[at] === '(') return text.slice(start, closeOf(text, at) + 1)
+    const end = text.indexOf('\n', at)
+    return text.slice(start, end === -1 ? undefined : end)
   }
   if (brace === -1) return ''
-  return file.text.slice(start, closeOf(file.text, afterParams + brace) + 1)
+  return text.slice(start, closeOf(text, i + brace) + 1)
 }
 
 /** Every named function, arrow function and method in the project. */
@@ -213,6 +258,19 @@ export function definitionsOf(files: readonly SourceFile[]): Map<string, Definit
         const start = (match.index ?? 0) + match[0].indexOf(name)
         add(file, name, start, start + name.length)
       }
+    }
+    // A handler wrapped in a helper: const pay = asyncHandler(async (req, res) => { ... })
+    for (const match of file.text.matchAll(
+      /(?:^|[^\w$.])(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*[A-Za-z_$][\w$.]*\(\s*(?:async\s+)?(?:function\b[^(]*)?\(/g,
+    )) {
+      const name = match[1] ?? ''
+      if (KEYWORDS.has(name) || out.has(name)) continue
+      const start = (match.index ?? 0) + match[0].indexOf(name)
+      const open = file.text.indexOf('(', start + name.length)
+      const text = file.text.slice(start, closeOf(file.text, open) + 1)
+      out.set(name, [
+        { name, file: file.rel, line: lineAt(file, start), text: text.slice(0, 20_000) },
+      ])
     }
   }
   return out
@@ -380,6 +438,120 @@ function declaredRoutes(files: readonly SourceFile[]) {
         extra,
       })
     }
+    // router.route('/:id/pay').get(auth, getOrder).put(auth, updateOrderToPay)
+    for (const match of file.text.matchAll(
+      /\b([A-Za-z_$][\w$]*)\.route\(\s*(['"`])(\/[^'"`]*)\2\s*\)/g,
+    )) {
+      const receiver = match[1] ?? ''
+      let at = (match.index ?? 0) + match[0].length
+      const line = lineAt(file, match.index ?? 0)
+      for (;;) {
+        const call = /^\s*\.(get|post|put|patch|delete)\(/.exec(file.text.slice(at))
+        if (!call) break
+        const open = at + call[0].length - 1
+        const close = closeOf(file.text, open)
+        const text = file.text.slice(match.index ?? 0, close + 1)
+        const args = file.text.slice(open + 1, close)
+        const extra = [...args.matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=,|$)/g)].map(
+          (m) => m[1] ?? '',
+        )
+        out.push({
+          method: (call[1] ?? 'get').toUpperCase(),
+          path: `${receiver === 'app' ? '' : prefix}${match[3] ?? ''}` || '/',
+          file: file.rel,
+          line,
+          framework: 'Express-style router',
+          own: { file: file.rel, line, text },
+          extra,
+        })
+        at = close + 1
+      }
+    }
+  }
+  return out
+}
+
+/** A route pattern written as a regular expression, e.g. ^\/api\/orders\/([^/]+)\/capture$, as a path. */
+const fromRegex = (source: string) =>
+  source
+    .replace(/^\^/, '')
+    .replace(/\$$/, '')
+    .replace(/\\\//g, '/')
+    .replace(/\((?:\?<(\w+)>)?[^)]*\)/g, (_, name?: string) => `:${name ?? 'id'}`)
+
+const METHOD_IN = /method\s*===?\s*['"](GET|POST|PUT|PATCH|DELETE)['"]/
+
+/**
+ * Routes a server picks by hand, as Workers and plain Node servers do: `if (path === '/api/orders'
+ * && request.method === 'POST') { ... }`, or `path.match(/^\/api\/orders\/([^/]+)\/capture$/)`.
+ */
+function comparedRoutes(file: SourceFile) {
+  const out: (Omit<Route, 'pieces'> & { own: Piece })[] = []
+  const patterns: [RegExp, (m: RegExpMatchArray) => string][] = [
+    [/\b(?:pathname|path|url\.pathname)\s*===?\s*(['"`])(\/[^'"`]*)\1/g, (m) => m[2] ?? '/'],
+    [
+      /\b(?:pathname|path)\.match\(\s*\/((?:\\.|\[[^\]\n]*\]|[^/\\\n])+)\/[a-z]*\s*\)/g,
+      (m) => fromRegex(m[1] ?? ''),
+    ],
+  ]
+  for (const [pattern, pathOf] of patterns) {
+    for (const match of file.text.matchAll(pattern)) {
+      const at = match.index ?? 0
+      // The condition this sits in (or the one right after, for a match() stored in a variable).
+      const window = file.text.slice(at, at + 240)
+      const method = METHOD_IN.exec(file.text.slice(Math.max(0, at - 120), at + 240))?.[1]
+      const brace = window.search(/\)\s*\{/)
+      if (brace === -1) continue
+      const open = at + window.indexOf('{', brace)
+      const line = lineAt(file, at)
+      out.push({
+        method: method ?? '*',
+        path: pathOf(match),
+        file: file.rel,
+        line,
+        framework: 'routed by hand (Worker or plain Node)',
+        own: { file: file.rel, line, text: file.text.slice(at, closeOf(file.text, open) + 1) },
+      })
+    }
+  }
+  return out
+}
+
+/** NestJS-style controllers: @Controller('payments') with @Post('orders') on a method. */
+function decoratedRoutes(file: SourceFile) {
+  const out: (Omit<Route, 'pieces'> & { own: Piece })[] = []
+  if (!file.text.includes('@Controller(')) return out
+  const prefix = /@Controller\(\s*(?:['"`]([^'"`]*)['"`])?/.exec(file.text)?.[1] ?? ''
+  for (const match of file.text.matchAll(
+    /@(Get|Post|Put|Patch|Delete)\(\s*(?:['"`]([^'"`]*)['"`])?\s*\)/g,
+  )) {
+    const at = match.index ?? 0
+    // Past any other decorators (@HttpCode(200)) to the method's name.
+    let i = at + match[0].length
+    for (;;) {
+      const rest = file.text.slice(i)
+      const next = /^\s*@[A-Za-z_$][\w$.]*/.exec(rest)
+      if (!next) break
+      i += next[0].length
+      if (file.text[i] === '(') i = closeOf(file.text, i) + 1
+    }
+    const name =
+      /^\s*(?:(?:public|private|protected|async|static)\s+)*([A-Za-z_$][\w$]*)\s*\(/.exec(
+        file.text.slice(i),
+      )
+    if (!name) continue
+    const nameAt = i + name[0].indexOf(name[1] ?? '')
+    const text = bodyFrom(file, at, nameAt)
+    if (!text) continue
+    const line = lineAt(file, at)
+    out.push({
+      method: (match[1] ?? 'GET').toUpperCase(),
+      path: joinPath([...prefix.split('/'), ...(match[2] ?? '').split('/')]),
+      file: file.rel,
+      line,
+      framework: 'NestJS controller',
+      own: { file: file.rel, line, text },
+    })
   }
   return out
 }
@@ -442,6 +614,7 @@ export function routesOf(files: readonly SourceFile[]): Route[] {
     }
   }
   found.push(...declaredRoutes(files))
+  for (const file of files) found.push(...comparedRoutes(file), ...decoratedRoutes(file))
   return found.map(({ own, extra, ...route }) => ({
     ...route,
     pieces: withCallees(own, definitions, extra),

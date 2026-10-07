@@ -124,7 +124,9 @@ async function main(argv: string[]): Promise<number> {
   if (command === 'preflight') {
     const result = await runPreflight(flags)
     for (const check of result.checks) {
-      console.log(`${check.ok ? '✓' : '✗'} ${check.label.padEnd(22)} ${check.detail}`)
+      console.log(
+        `${check.warn ? '!' : check.ok ? '✓' : '✗'} ${check.label.padEnd(22)} ${check.detail}`,
+      )
     }
     console.log(
       result.exitCode === EXIT.pass

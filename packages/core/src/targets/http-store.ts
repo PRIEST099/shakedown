@@ -142,7 +142,10 @@ export async function httpStoreTarget(options: HttpStoreOptions): Promise<Target
         entry.unitCents ?? catalog.find((item) => item.sku === entry.sku)?.priceCents ?? 0
       return sum + price * entry.qty
     }, 0)
+    // A checkout of one product reads its first line's fields at the top level.
+    const first = input.lines?.[0]
     return {
+      ...(first ? lineVars(first, catalog) : {}),
       lines: input.lines?.map((entry) => render(line, lineVars(entry, catalog))),
       email: input.email,
       checkoutKey: input.checkoutKey,

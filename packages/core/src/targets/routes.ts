@@ -25,7 +25,8 @@ export interface RouteSpec {
 /**
  * Opening a checkout. Body placeholders: {{lines}}, {{email}}, {{checkoutKey}}, {{totalCents}},
  * {{total}} (dollars, e.g. "24.00") and {{currency}}. Each cart line is written with `line`, whose
- * placeholders are {{sku}}, {{qty}}, {{unitCents}}, {{unitPrice}} (dollars) and {{name}}.
+ * placeholders are {{sku}}, {{qty}}, {{unitCents}}, {{unitPrice}} (dollars) and {{name}}; a
+ * checkout of one product can use those at the top level too, for its first line.
  */
 export interface CreateOrderRoute extends RouteSpec {
   body?: Template

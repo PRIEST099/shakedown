@@ -163,6 +163,166 @@ describe('discover, across frameworks', () => {
     expect(found.map.webhook).toBeUndefined()
   })
 
+  it('reads a Worker that routes by hand, a regular-expression route included', () => {
+    const found = discoverIn([
+      sourceOf(
+        'src/index.ts',
+        `export default {
+          async fetch(request: Request, env: Env): Promise<Response> {
+            const path = new URL(request.url).pathname
+            if (path === "/api/orders" && request.method === "POST") {
+              const { items, customerEmail } = await request.json()
+              return Response.json(await createPayPalOrder(env, total))
+            }
+            const captureMatch = path.match(/^\\/api\\/orders\\/([^/]+)\\/capture$/);
+            if (captureMatch && request.method === "POST") {
+              return Response.json(await capturePayPalOrder(env, captureMatch[1]))
+            }
+            return new Response('not found', { status: 404 })
+          },
+        }`,
+      ),
+      sourceOf(
+        'src/paypal.ts',
+        `export async function createPayPalOrder(env: Env, total: string): Promise<{ id: string }> {
+          const res = await fetch(\`\${api}/v2/checkout/orders\`, { method: "POST" })
+          return res.json()
+        }
+        export async function capturePayPalOrder(env: Env, id: string): Promise<{ status: string }> {
+          const res = await fetch(\`\${api}/v2/checkout/orders/\${id}/capture\`, { method: "POST" })
+          return res.json()
+        }`,
+      ),
+    ])
+    expect(found.picks.best.createOrder?.route.path).toBe('/api/orders')
+    expect(found.picks.best.capture?.route.path).toBe('/api/orders/:id/capture')
+    expect(found.map.createOrder?.body).toEqual({ items: '{{lines}}', customerEmail: '{{email}}' })
+  })
+
+  it('reads NestJS controllers', () => {
+    const found = discoverIn([
+      sourceOf(
+        'src/payments.controller.ts',
+        `@Controller('payments')
+        export class PaymentsController {
+          @Post('orders')
+          async create(@Body() body: { cart: Line[] }) {
+            return this.ordersController.createOrder({ body: { intent: 'CAPTURE' } })
+          }
+          @Post('orders/:id/capture')
+          async capture(@Param('id') id: string) {
+            return this.ordersController.captureOrder({ id })
+          }
+        }`,
+      ),
+    ])
+    expect(found.picks.best.createOrder?.route.path).toBe('/payments/orders')
+    expect(found.picks.best.capture?.route.path).toBe('/payments/orders/:id/capture')
+  })
+
+  it('reads the cart’s shape from how the store’s own page calls the route', () => {
+    const found = discoverIn([
+      sourceOf(
+        'server/server.js',
+        `app.post("/api/orders", async (req, res) => {
+          const { cart } = req.body
+          const { jsonResponse, httpStatusCode } = await createOrder(cart)
+          res.status(httpStatusCode).json(jsonResponse)
+        })
+        const createOrder = async (cart) => ordersController.createOrder({ body: { intent: 'CAPTURE' } })`,
+      ),
+      sourceOf(
+        'client/app.js',
+        `const response = await fetch("/api/orders", {
+          method: "POST",
+          body: JSON.stringify({ cart: [{ id: "YOUR_PRODUCT_ID", quantity: "2" }] }),
+        })`,
+      ),
+    ])
+    expect(found.map.createOrder).toMatchObject({
+      body: { cart: '{{lines}}' },
+      line: { id: '{{sku}}', quantity: '{{qty}}' },
+      answer: { paypalOrderId: 'id' },
+    })
+  })
+})
+
+describe('what discover flags as worth checking', () => {
+  it('an order marked paid on the browser’s word, with the lines behind it', () => {
+    const found = discoverIn([
+      sourceOf('routes/orders.js', `router.route('/:id/pay').put(protect, updateOrderToPay)`),
+      sourceOf(
+        'server.js',
+        `import orders from './routes/orders.js'\napp.use('/api/orders', orders)`,
+      ),
+      sourceOf(
+        'controllers/orders.js',
+        `const updateOrderToPay = asyncHandler(async (req, res) => {
+          const order = await Order.findById(req.params.id)
+          order.isPaid = true
+          order.paymentResult = { id: req.body.id, status: req.body.status }
+          res.json(await order.save())
+        })`,
+      ),
+      sourceOf(
+        'frontend/Pay.jsx',
+        `onApprove={(data, actions) => actions.order.capture().then(pay)}`,
+      ),
+    ])
+    const risk = found.risks.find((r) => /browser's word/.test(r.title))
+    expect(risk?.title).toBe("PUT /api/orders/:id/pay marks an order paid on the browser's word")
+    expect(risk?.evidence.map((e) => e.file)).toEqual([
+      'controllers/orders.js',
+      'controllers/orders.js',
+      'frontend/Pay.jsx',
+    ])
+  })
+
+  it('not when the route asks PayPal first', () => {
+    const found = discoverIn([
+      sourceOf(
+        'routes/pay.js',
+        `app.put('/api/orders/:id/pay', async (req, res) => {
+          const paid = await ordersController.getOrder({ id: req.body.paypalOrderId })
+          if (paid.result.status === 'COMPLETED') order.isPaid = true
+        })`,
+      ),
+    ])
+    expect(found.risks.filter((r) => /browser's word/.test(r.title))).toEqual([])
+  })
+
+  it('a checkout without an idempotency key, and a listener that never verifies', () => {
+    const found = discover(path.join(REPO, 'examples/standard-checkout'))
+    const titles = found.risks.map((r) => r.title)
+    expect(titles).toContain('POST /api/orders sends no idempotency key')
+    expect(titles).toContain('POST /webhooks/paypal never asks PayPal to verify a signature')
+  })
+
+  it('PayPal’s older v1 Payments API, which the cast doesn’t test', () => {
+    const found = discoverIn([
+      sourceOf(
+        'lib/paypal.js',
+        `const paypal = require('paypal-rest-sdk')\npaypal.payment.create(payment, cb)`,
+      ),
+    ])
+    expect(found.risks[0]?.title).toMatch(/older v1 Payments API/)
+  })
+
+  it('leaves the Echo out of the cast when there is no webhook listener', () => {
+    const found = discover(path.join(REPO, 'examples/standard-checkout'))
+    expect(found.cast).toBeUndefined()
+    const noHook = discoverIn([
+      sourceOf(
+        'server.js',
+        `app.post('/api/orders', async (req, res) => res.json(await ordersController.createOrder({})))
+         app.post('/api/orders/:id/capture', async (req, res) => res.json(await ordersController.captureOrder({})))`,
+      ),
+    ])
+    expect(noHook.cast).toEqual(['double-clicker', 'cart-shuffler', 'bouncer'])
+  })
+})
+
+describe('discover, when there is nothing to find', () => {
   it('says so when there is no checkout to find', () => {
     const found = discoverIn([sourceOf('index.js', 'console.log("hello")')])
     expect(found.picks.best.createOrder).toBeUndefined()

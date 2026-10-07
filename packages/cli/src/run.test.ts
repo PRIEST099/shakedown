@@ -257,6 +257,17 @@ describe('preflight against a store', () => {
     expect(open.checks.at(-1)?.detail).toContain('answered without the secret')
   })
 
+  it('warns, without failing, when a store has no probe route at all', async () => {
+    const result = await preflightTarget({
+      url: origin,
+      probeSecret: SECRET,
+      routes: { probe: { path: '/no-such-route/:id' } },
+    })
+    expect(result.exitCode).toBe(EXIT.pass)
+    expect(result.checks.at(-1)).toMatchObject({ label: 'Probe route', ok: true, warn: true })
+    expect(result.checks.at(-1)?.detail).toContain('inconclusive')
+  })
+
   it('stops at the safety lock for a store you have not verified, and at a dead port', async () => {
     const locked = await preflightTarget({
       url: 'https://shop.example.com',

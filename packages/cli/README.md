@@ -53,19 +53,35 @@ them in your code:
 npx @shakedown-dev/cli discover --write
 ```
 
-`discover` reads your project's source (Next.js app and pages routers, SvelteKit, Nuxt server routes,
-and Express-style routers such as Express, Fastify and Hono). It follows each handler into the
-functions it calls, and names the route that creates a PayPal order, the one that captures it, your
-webhook listener and your product list. Each comes with the line of code that gave it away. It also
-reads how each one talks: the cart's shape, and where PayPal's order ID comes back. `--write` saves
-that as `target.routes` in `shakedown.config.ts`, with anything it could not read listed for you to
-check. It only reads files on your machine and sends nothing.
+`discover` reads your project's source code. It knows:
+- Next.js (app and pages routers), SvelteKit and Nuxt server routes;
+- Express-style routers (Express, Fastify, Hono), mount prefixes and `router.route()` chains included;
+- NestJS controllers;
+- Workers and plain Node servers that route by hand (`if (path === '/api/orders')`).
+
+It follows each handler into the functions it calls. It names the route that creates a PayPal
+order, the one that captures it, your webhook listener and your product list, each with the line of
+code that gave it away. It also reads how each one talks: the cart's shape (from your server, or
+from how your own pages call it), and where PayPal's order ID comes back. `--write` saves that as
+`target.routes` in `shakedown.config.ts`, with anything it could not read listed for you to check.
+It only reads files on your machine and sends nothing.
+
+It also flags patterns worth a look before any run, each with the lines behind it:
+- a route that marks an order paid on the browser's word, never asking PayPal;
+- an order created with no idempotency key;
+- a webhook listener that never verifies a signature;
+- PayPal's older v1 Payments API, which the cast can't test.
+
+These are hints; a run is what proves a leak.
 [Trailhead Outfitters](https://github.com/PRIEST099/shakedown/tree/main/examples/standard-checkout)
 is a store built like PayPal's standard checkout sample, with its discovered config beside it.
 
-What it can't write for you is the probe route. It's one read-only route that tells Shakedown what
-your store believes about an order: what it shipped, and what it thinks was captured. Shakedown
-reads PayPal's side from PayPal; this route is how it reads yours.
+What it can't find is the probe route, because stores don't have one until they add it. It's one
+read-only route that tells Shakedown what your store believes about an order: what it shipped, and
+what it thinks was captured. That lives in your database, and no ordinary route exposes it.
+Shakedown reads PayPal's side from PayPal; this route is how it reads yours. Without it, the
+checks that need it come back inconclusive and say why. The double charge is judged from PayPal's
+records alone, so it still runs.
 
 Without a route map, Shakedown expects its own contract, which
 [Leaky Llama](https://github.com/PRIEST099/shakedown/tree/main/apps/leaky-llama) speaks:

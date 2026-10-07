@@ -77,7 +77,7 @@ const SIGNALS: Signal[] = [
     role: 'catalog',
     weight: 3,
     says: 'a product list route',
-    path: /catalog|products?(?:\/?$)|items(?:\/?$)|inventory|menu/i,
+    path: /catalog|products?(?:\/?$)|items(?:\/?$)|inventory/i,
   },
   { role: 'catalog', weight: 1, says: 'GET', method: /GET|\*/ },
   { role: 'catalog', weight: 1, says: 'has prices', code: /price/i },

@@ -15,6 +15,25 @@
   calls and event names only that job touches. It reads the cart's shape and where PayPal's order ID
   comes back, and prints each finding with the line of code behind it. It reads files only and
   sends nothing.
+- **Tried on seven public projects with PayPal checkouts:**
+  - **PayPal's official sample, PayPal's dev-team Express example, and a Cloudflare Worker:** their
+    create and capture routes were found, with the cart's shape and where PayPal's order ID comes
+    back.
+  - **Two open-source shops:** discover flags the route that marks an order paid on the browser's
+    word, which no request to PayPal ever confirms.
+  - **One uses PayPal's v1 API,** which it names as out of reach.
+  - **One is a framework plugin with no HTTP routes.**
+  - **This added:** Workers and plain Node servers that route by hand, `router.route()` chains,
+    handlers wrapped in helpers, NestJS controllers, TypeScript return types, reading the cart's
+    shape from the store's own pages, and comments no longer counted as code.
+- **Worth checking:** discover now flags four patterns, each with the lines behind it:
+  - a payment the browser confirms;
+  - no idempotency key;
+  - an unverified webhook listener;
+  - the v1 API.
+
+  With no webhook listener, the config it writes leaves the Echo out.
+- **@shakedown-dev/cli 0.2.0.**
 - **A second demo store, Trailhead Outfitters** (`examples/standard-checkout`): built like PayPal's
   standard checkout sample, with no dependencies. `discover` found all its routes. A sandbox run
   against it found its six deliberate leaks and passed the two checks it gets right.
