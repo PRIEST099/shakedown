@@ -41,9 +41,11 @@ function checkHtml(check: ReportCheck): string {
 export function htmlReport(report: ShakedownReport): string {
   const { campaign, totals } = report
   const verdict =
-    totals.leaks === 0
-      ? '<p class="stamp sealed">Sealed</p>'
-      : `<p class="stamp leak">${totals.leaks} ${totals.leaks === 1 ? 'leak' : 'leaks'}</p>`
+    totals.leaks > 0
+      ? `<p class="stamp leak">${totals.leaks} ${totals.leaks === 1 ? 'leak' : 'leaks'}</p>`
+      : totals.sealed > 0
+        ? '<p class="stamp sealed">Sealed</p>'
+        : '<p class="stamp">Inconclusive</p>'
   const personas = report.personas
     .map(
       (persona) => `<section class="persona">

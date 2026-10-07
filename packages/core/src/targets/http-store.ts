@@ -109,6 +109,12 @@ export async function httpStoreTarget(options: HttpStoreOptions): Promise<Target
     })
   }
 
+  // With the products given in the config there is no catalog request to fail on, so check the
+  // store answers at all: a run against a store that isn't running must stop, not judge nothing.
+  if (options.catalog || routes.catalog === false) {
+    await http(`${base}${routes.createOrder.path}`, { method: 'OPTIONS' })
+  }
+
   const catalog: CatalogItem[] =
     options.catalog ??
     (await (async () => {

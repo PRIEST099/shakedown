@@ -72,6 +72,13 @@ export function preflight(source: Record<string, string | undefined>): Preflight
         : 'missing: add it to .env.local',
     },
     {
+      label: 'SHAKEDOWN_PROBE_SECRET',
+      ok: Boolean(env.SHAKEDOWN_PROBE_SECRET),
+      detail: env.SHAKEDOWN_PROBE_SECRET
+        ? describeSecret(env.SHAKEDOWN_PROBE_SECRET)
+        : 'missing: run needs it. Add 16 or more characters to .env.local, and the same to your store',
+    },
+    {
       label: 'ANTHROPIC_API_KEY',
       ok: true,
       detail: `${describeSecret(env.ANTHROPIC_API_KEY)} (only for --explain, and to read a refund policy)`,
@@ -151,8 +158,12 @@ export async function preflightTarget(options: TargetCheckOptions): Promise<Pref
     checks.push({ label: 'Probe secret', ok: false, detail: 'SHAKEDOWN_PROBE_SECRET is not set' })
   } else {
     const probe = `${origin}${fillPath(routes.probe.path, 'SHAKEDOWN-PREFLIGHT')}`
-    const withSecret = await http(probe, { headers: { [PROBE_HEADER]: options.probeSecret } })
-    const without = await http(probe)
+    const method = routes.probe.method ?? 'GET'
+    const withSecret = await http(probe, {
+      method,
+      headers: { [PROBE_HEADER]: options.probeSecret },
+    })
+    const without = await http(probe, { method })
     // A probe route answers in JSON even for an order it doesn't know; a store with no such route
     // gives its framework's 404 page instead.
     const answer: unknown = await withSecret.json().catch(() => undefined)

@@ -188,6 +188,13 @@ describe('a store with routes of its own', () => {
     expect(target.checkout?.catalog).toEqual([{ sku: 'SOCK', name: 'Socks', priceCents: 1800 }])
   })
 
+  it('stops when the store isn’t answering, even with the products given in the config', async () => {
+    const down = (async () => {
+      throw new TypeError('fetch failed')
+    }) as unknown as typeof globalThis.fetch
+    await expect(connect(down)).rejects.toThrow(/fetch failed/)
+  })
+
   it('says how to go on when a store has no catalog route and the config gives none', async () => {
     const store = paypalSampleStore()
     await expect(

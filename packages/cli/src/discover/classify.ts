@@ -71,6 +71,12 @@ const SIGNALS: Signal[] = [
     code: /PAYMENT\.CAPTURE\.(?:COMPLETED|DENIED|DECLINED|REFUNDED|PENDING)|CHECKOUT\.ORDER\.(?:APPROVED|COMPLETED)|event_type/,
   },
   { role: 'webhook', weight: 2, says: 'a webhook route', path: /webhook|ipn|notif|hook/i },
+  {
+    role: 'webhook',
+    weight: 3,
+    says: 'a PayPal webhook route',
+    path: /webhooks?\/paypal|paypal[-_/]?webhooks?/i,
+  },
   { role: 'webhook', weight: -3, says: 'not POST', method: /GET/ },
   // What the store sells.
   {

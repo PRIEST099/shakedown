@@ -428,7 +428,7 @@ export function report(found: Discovery, root: string): string {
   if (order) {
     lines.push('', '  Read from the code (check these):')
     lines.push(
-      `    ${order.method} ${order.path} sends ${order.body ? JSON.stringify(order.body) : 'Shakedown’s own body'}`,
+      `    ${order.method} ${order.path} sends ${order.body ? JSON.stringify(order.body) : 'a body discover could not read (see below)'}`,
     )
     if (order.line) lines.push(`    each cart line as ${JSON.stringify(order.line)}`)
     if (order.answer?.paypalOrderId)

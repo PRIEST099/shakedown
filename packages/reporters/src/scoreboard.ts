@@ -145,9 +145,12 @@ export function scoreboard(
   lines.push('')
   lines.push(
     `  ${
-      totals.leaks === 0
-        ? ink.sealed(ink.invert('  SEALED  '))
-        : ink.leak(ink.invert(`  ${totals.leaks} ${totals.leaks === 1 ? 'LEAK' : 'LEAKS'}  `))
+      totals.leaks > 0
+        ? ink.leak(ink.invert(`  ${totals.leaks} ${totals.leaks === 1 ? 'LEAK' : 'LEAKS'}  `))
+        : totals.sealed > 0
+          ? ink.sealed(ink.invert('  SEALED  '))
+          : // Nothing leaked, but nothing held either: no check could be judged.
+            ink.invert('  INCONCLUSIVE  ')
     }`,
   )
   if (report.campaign.stoppedEarly)

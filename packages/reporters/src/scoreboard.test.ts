@@ -3,6 +3,8 @@ import { runCampaign } from '@shakedown/core'
 import type { FixtureTarget } from '@shakedown/core/testing'
 import { LEAKY, SEALED, startFixtureTarget } from '@shakedown/core/testing'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { markdownComment } from './markdown'
+import { buildReport } from './report'
 import { scoreboard } from './scoreboard'
 
 let fixture: FixtureTarget
@@ -35,6 +37,33 @@ describe('scoreboard', () => {
     expect(text).toMatch(/At risk\s+\$\d+\.\d{2} merchant/)
     expect(text).toContain('Fix: Call verify-webhook-signature')
     expect(text).toContain('✗ An unverified webhook never releases goods')
+  })
+
+  it('says INCONCLUSIVE, never SEALED, when no check could be judged', async () => {
+    // The fixture has no checkout, so the Bouncer's scenario is skipped: nothing leaked, nothing held.
+    fixture.setFlags(SEALED)
+    const text = scoreboard(
+      await runCampaign({ target: fixture.adapter, cast: ['bouncer'], seed: 2026 }),
+    )
+    expect(text).toContain('INCONCLUSIVE')
+    expect(text).not.toContain('SEALED')
+  })
+
+  it('never marks a customer Sealed in the pull-request comment when none of its checks held', async () => {
+    fixture.setFlags(SEALED)
+    const result = await runCampaign({ target: fixture.adapter, cast: ['echo'], seed: 2026 })
+    // Rewrite every verdict as inconclusive, as a store with no probe route would leave them.
+    const report = buildReport(result)
+    for (const persona of report.personas)
+      for (const scenario of persona.scenarios)
+        for (const check of scenario.checks) check.verdict = 'inconclusive'
+    report.totals.sealed = 0
+    report.totals.leaks = 0
+    const md = markdownComment(report)
+    expect(md).toContain('Shakedown: inconclusive')
+    expect(md).toContain('⚪ Inconclusive')
+    expect(md).not.toContain('🟢 Sealed')
+    expect(md).toMatch(/- \*\*The Echo: /)
   })
 
   it('prints a sealed receipt with every property that held', async () => {

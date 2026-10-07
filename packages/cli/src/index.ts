@@ -25,7 +25,6 @@ Usage:
   npx @shakedown-dev/cli comment              In GitHub Actions: post the scoreboard on the PR
 
 Run options:
-  --target <url>        Your store (or set target.url in shakedown.config.ts)
   --cast <names>        Comma list: double-clicker, cart-shuffler, echo, bouncer, policy-lawyer
   --seed <n>            The same seed replays the same customers and amounts
   --budget <usd>        Claude spend this run may add (default 0: replayed answers only)
@@ -36,12 +35,15 @@ Run options:
   --out <dir>           Where reports go (default .shakedown)
 
 Common options:
+  --target <url>        Your store, for run, preflight and discover (discover writes it in the config)
   --config <file>       Default: the first shakedown.config.{ts,mts,js,mjs,json,yaml,yml} here
   --env-file <file>     Default: .env.local, if it exists
   --format <name>       report only: html, terminal, markdown, junit or json
-  --write               discover only: save the route map as shakedown.config.ts
+  --write               discover only: save the route map as shakedown.config.ts, or as
+                        shakedown.config.discovered.ts beside a config you already have
 
-Exit codes: 0 pass · 1 leaks · 2 inconclusive (strict) · 3 safety lock · 4 config · 5 preflight
+Exit codes: 0 pass · 1 leaks · 2 inconclusive (strict) · 3 safety lock · 4 config · 5 not ready
+(discover: 5 when it finds no route that creates and captures a PayPal order)
 Sandbox only. Your credentials never leave this machine.`
 
 function parse(argv: string[]) {

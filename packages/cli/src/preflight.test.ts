@@ -5,9 +5,15 @@ import { preflight } from './preflight'
 describe('preflight', () => {
   it('passes with sandbox credentials and never prints the secret', () => {
     const secret = 'sandbox-secret-value-123'
-    const result = preflight({ PAYPAL_CLIENT_ID: 'client-id', PAYPAL_CLIENT_SECRET: secret })
+    const probe = 'probe-secret-value-4567'
+    const result = preflight({
+      PAYPAL_CLIENT_ID: 'client-id',
+      PAYPAL_CLIENT_SECRET: secret,
+      SHAKEDOWN_PROBE_SECRET: probe,
+    })
     expect(result.exitCode).toBe(EXIT.pass)
     expect(JSON.stringify(result)).not.toContain(secret)
+    expect(JSON.stringify(result)).not.toContain(probe)
   })
 
   it('fails preflight when credentials are missing', () => {
@@ -16,6 +22,7 @@ describe('preflight', () => {
     expect(result.checks.filter((c) => !c.ok).map((c) => c.label)).toEqual([
       'PAYPAL_CLIENT_ID',
       'PAYPAL_CLIENT_SECRET',
+      'SHAKEDOWN_PROBE_SECRET',
     ])
   })
 

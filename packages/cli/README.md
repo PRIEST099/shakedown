@@ -36,7 +36,7 @@ in the current folder (`--env-file` picks another). It never prints them.
 
 | Variable | What it's for |
 |---|---|
-| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Your **sandbox** app. Shakedown reads PayPal's side of each order with them. Without them, the checkout customers are skipped. |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Your **sandbox** app. Shakedown reads PayPal's side of each order with them. Without them, `run` skips the checkout customers and `preflight` reports them missing. |
 | `SHAKEDOWN_PROBE_SECRET` | 16+ characters, shared with your store's probe route (below). Required. |
 | `SHAKEDOWN_VERIFICATION_TOKEN` | For a store that isn't on localhost or a private network: serve it at `/.well-known/shakedown.txt`. |
 | `ANTHROPIC_API_KEY` | Optional. Claude is used only by `--explain`, and to read your refund policy when the config doesn't give it. |
@@ -126,11 +126,14 @@ strict: true
 |---|---|---|
 | `target.url` | — | Your store: localhost or a private address, or an allow-listed host |
 | `target.allowHosts` | `[]` | Public hosts you own; each must serve `SHAKEDOWN_VERIFICATION_TOKEN` |
+| `target.routes` | Shakedown's own | Your routes, when they aren't Shakedown's contract: see [Routes of your own](#routes-of-your-own) |
+| `target.catalog` | — | What you sell, `[{ sku, name, priceCents }]`, when your store has no product list route |
 | `cast` | the four without AI | Who to send |
 | `seed` | `2026` | |
+| `switches` | — | Demo stores only: `'leaky'`, `'sealed'`, or one per customer |
 | `policy` | — | Your refund policy as rules, for the Policy Lawyer. Without it, Claude reads your store's `/api/policy` |
 | `budget.aiUsd` | `0` | Claude spend this run may add. At 0, only replayed answers are used |
-| `budget.minutes` | `10` | Stop the campaign after this long |
+| `budget.minutes` | `10` | Stop the campaign after this long (at most 60) |
 | `budget.requests` | `200` | Stop after this many requests to your store and PayPal |
 | `explain` | `false` | Explain each leak in plain words with Claude |
 | `strict` | `false` | Exit 2 when anything was inconclusive or skipped |
@@ -161,14 +164,16 @@ target: {
       answer: { status: 'status', captureId: 'purchase_units.0.payments.captures.0.id' },
     },
     webhook: { path: '/webhooks/paypal' },
-    catalog: { path: '/api/products', sku: 'id', name: 'title', price: 'price', priceUnit: 'dollars' },
+    // `items`: where the list is in the answer ('' when the answer is the list itself)
+    catalog: { path: '/api/products', items: '', sku: 'id', name: 'title', price: 'price', priceUnit: 'dollars' },
     probe: { path: '/shakedown/orders/:id' },
     support: false, // no support assistant
   },
 },
 ```
 
-A store without a product list sets `catalog: false` and lists what it sells in `target.catalog`
+Every route also takes a `method` (`GET`, `POST`, `PUT` or `PATCH`; the default suits the route). A
+store without a product list sets `catalog: false` and lists what it sells in `target.catalog`
 (`[{ sku, name, priceCents }]`). A store that keeps no order number of its own is known by PayPal's
 order ID, and so is its probe route. Headers can carry placeholders too (`{ 'Idempotency-Key':
 '{{checkoutKey}}' }`), but never secrets: those stay in `.env.local`.
@@ -186,13 +191,15 @@ order ID, and so is its probe route. Headers can carry placeholders too (`{ 'Ide
 | `run.json` | The raw ledger, so a fixed grader can judge the run again without re-running it |
 
 Options: `--target`, `--cast double-clicker,echo`, `--seed`, `--budget <usd>`, `--explain`, `--strict`,
-`--ci` (no animation), `--out <dir>`, `--config`, `--env-file`.
+`--ci` (no animation), `--out <dir>`, `--config`, `--env-file`, and for demo stores `--switches leaky|sealed`.
+A run that judged nothing (no check leaked or held) says INCONCLUSIVE, never SEALED.
 
 **`report`** opens the last HTML report, or prints the last run in another format without re-running
-it: `--format terminal|markdown|junit|json`.
+it: `--format html|terminal|markdown|junit|json`.
 
 **`preflight`** checks the environment, the sandbox lock, that the target is allowed and answering, and
-that its probe route takes your secret and refuses requests without it.
+that its probe route takes your secret and refuses requests without it. A store with no probe route
+gets a warning, not a failure. With no target given or configured, it checks only your setup.
 
 **`discover [folder]`** finds your checkout's routes in your source code (see above). `--write` saves
 them as `shakedown.config.ts`, or as `shakedown.config.discovered.ts` beside a config you already
@@ -206,11 +213,11 @@ one comment on later pushes. It uses the workflow's own `GITHUB_TOKEN`.
 | Code | Meaning |
 |---|---|
 | 0 | Pass |
-| 1 | Leaks found |
+| 1 | Leaks found (`discover`: never) |
 | 2 | Inconclusive (strict mode only) |
 | 3 | Safety lock: a non-sandbox PayPal environment, or a target you haven't verified |
-| 4 | Config error |
-| 5 | Preflight failed: the store isn't answering |
+| 4 | Config error, including a missing `SHAKEDOWN_PROBE_SECRET` for `run` |
+| 5 | Not ready: the store isn't answering. From `preflight`, also: a PayPal credential or the probe secret is missing, or the probe route takes the wrong secret. From `discover`: no route that creates and captures a PayPal order was found |
 
 ## In CI
 

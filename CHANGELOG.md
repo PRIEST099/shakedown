@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### @shakedown-dev/cli 0.2.1: what checking the published 0.2.0 found (2026-10-07)
+
+- **Checked with npx:** the published 0.2.0 was run with `npx` against nine codebases and two live
+  sandbox stores, and every result matched. A fresh-eyes check of the npm page found the rest.
+- **Fixed: `run --explain`, and the Policy Lawyer without a written policy, crashed.** The Claude SDK
+  needs `zod` as a peer, and the package never installed it. It's now a dependency. (0.1.x had the
+  same fault.)
+- **Fixed: a run that judged nothing said SEALED.** With nothing leaked and nothing held:
+  - the receipt, the HTML report and the pull-request comment now say INCONCLUSIVE;
+  - the comment no longer marks such a customer "Sealed", and lists why each check couldn't be
+    judged.
+- **Fixed: a store that isn't running stopped nothing** when the config lists the products: `run`
+  went on, judged nothing and exited 0. It now checks the store answers first, and exits 5.
+- **discover** counts a POST route at a PayPal webhook path (`/webhooks/paypal`) as the listener
+  even when its handler shows nothing more. It no longer says "Shakedown's own body" for a body it
+  couldn't read.
+- **preflight checks for `SHAKEDOWN_PROBE_SECRET`** with or without a target, so it can't say
+  "Ready" before a run that would fail. Its probe check uses the route's own `method`.
+- **Docs:**
+  - The help puts `--target` with preflight and discover too, and says where `--write` saves.
+  - The README covers `target.routes`, `target.catalog` and `switches` in the settings table,
+    every exit code (including discover's), route `method` and `catalog.items`, and preflight's
+    probe warning.
+
 ### Discover: Shakedown at any store's routes (2026-10-07)
 
 - **Route maps.** `target.routes` in the config says where a store's checkout lives and how it talks:

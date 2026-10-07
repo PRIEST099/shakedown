@@ -13,9 +13,11 @@ const code = (value: string) => `\`${value.replace(/`/g, "'").replace(/\n/g, ' '
 export function markdownComment(report: ShakedownReport): string {
   const { totals, campaign } = report
   const headline =
-    totals.leaks === 0
-      ? `**Shakedown: sealed.** None of the ${totals.personasTested} customers from hell got through.`
-      : `**Shakedown: ${totals.personasLeaking} of ${totals.personasTested} customers from hell got through.** ${money(totals.merchantLeakCents)} at risk for the merchant, ${money(totals.customerHarmCents)} for customers.`
+    totals.leaks === 0 && totals.sealed === 0
+      ? `**Shakedown: inconclusive.** No check could be judged: see why below.`
+      : totals.leaks === 0
+        ? `**Shakedown: sealed.** None of the ${totals.personasTested} customers from hell got through.`
+        : `**Shakedown: ${totals.personasLeaking} of ${totals.personasTested} customers from hell got through.** ${money(totals.merchantLeakCents)} at risk for the merchant, ${money(totals.customerHarmCents)} for customers.`
 
   const rows = report.personas.map((persona) => {
     const checks = persona.scenarios.flatMap((scenario) => scenario.checks)
@@ -26,7 +28,10 @@ export function markdownComment(report: ShakedownReport): string {
       ? 'Skipped'
       : leaks.length
         ? `🔴 ${leaks.length} ${leaks.length === 1 ? 'leak' : 'leaks'}`
-        : '🟢 Sealed'
+        : checks.some((check) => check.verdict === 'sealed')
+          ? '🟢 Sealed'
+          : // Nothing leaked, nothing held: none of its checks could be judged.
+            '⚪ Inconclusive'
     const risk = leaks.length
       ? [merchant && `${money(merchant)} merchant`, customer && `${money(customer)} customer`]
           .filter(Boolean)
@@ -52,6 +57,22 @@ ${check.evidence.map((item) => `- **${cell(item.label)}:** ${code(item.value)}`)
         ),
     ),
   )
+
+  // When nothing could be judged, say why, check by check.
+  const unjudged =
+    totals.leaks === 0 && totals.sealed === 0
+      ? report.personas.flatMap((persona) =>
+          persona.scenarios.flatMap((scenario) =>
+            scenario.checks
+              .filter((check) => check.verdict === 'inconclusive')
+              .map(
+                (check) =>
+                  `- **${cell(persona.name)}: ${text(check.title)}.** ${text(check.detail)}`,
+              ),
+          ),
+        )
+      : []
+  if (unjudged.length) details.push(unjudged.join('\n'))
 
   return `${COMMENT_MARKER}
 ${headline}

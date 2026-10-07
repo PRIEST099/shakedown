@@ -298,6 +298,19 @@ describe('what discover flags as worth checking', () => {
     expect(titles).toContain('POST /webhooks/paypal never asks PayPal to verify a signature')
   })
 
+  it('a POST route at a PayPal webhook path counts as the listener, even with no signals inside', () => {
+    const found = discoverIn([
+      sourceOf(
+        'server.js',
+        `app.post('/api/orders', async (req, res) => res.json(await ordersController.createOrder({})))
+         app.post('/api/orders/:id/capture', async (req, res) => res.json(await ordersController.captureOrder({})))
+         app.post('/webhooks/paypal', async (req, res) => { handle(req.body); res.sendStatus(200) })`,
+      ),
+    ])
+    expect(found.map.webhook?.path).toBe('/webhooks/paypal')
+    expect(found.cast).toBeUndefined()
+  })
+
   it('PayPal’s older v1 Payments API, which the cast doesn’t test', () => {
     const found = discoverIn([
       sourceOf(
