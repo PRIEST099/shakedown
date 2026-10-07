@@ -33,26 +33,51 @@ export function introCut(store: Take) {
   )
 }
 
-/** A purchase: the guide into the cart, the checkout, PayPal's button; the steps as they're said. */
+/**
+ * A purchase: the guide into the cart, the checkout, a test email typed in as the voice says the
+ * customer approves, and PayPal's button; the steps of a payment as they're said.
+ */
 export function flowCut(store: Take) {
-  const [add = 10.9, cart = 12.8] = clicks(store)
-  const checkout = markAt(store, 'paypal') + 0.5
+  const [add = 11.2, cart = 13.3, email = 15.8] = clicks(store)
+  const typed = markAt(store, 'typed')
   const hover = markAt(store, 'hover')
   const cut = follow(
     [
       { t: add - 0.4, at: 0 },
       { t: cart, at: said('w-flow', 0, 'three') },
-      { t: checkout, at: said('w-flow', 1) },
-      { t: hover - 1.3, at: said('w-flow', 4) },
+      { t: email, at: said('w-flow', 1) - 4 },
+      { t: typed + 0.3, at: said('w-flow', 2) },
+      { t: hover - 1.0, at: said('w-flow', 4) },
     ],
     framesOf(wScene('w-flow')),
-    hover + 0.2,
+    hover + 0.4,
   )
-  return { cut, checkout: frameIn(cut, checkout) }
+  return { cut, cart: frameIn(cut, cart) }
 }
 
-/** The double click: PayPal's button, still, under the drawing. */
-export const doubleStill = (store: Take) => markAt(store, 'hover') + 0.4
+/**
+ * The double click: PayPal's button, still, under the drawing; then the customer's own order
+ * list, two orders for one checkout, as the voice reads it.
+ */
+export function doubleCut(store: Take) {
+  const still = markAt(store, 'hover') + 0.4
+  const orders = markAt(store, 'orders')
+  const listAt = said('w-double', 3) - 6
+  const cut = follow(
+    [
+      { t: orders - 0.1, at: 0 },
+      { t: orders + 0.6, at: said('w-double', 3, '$') - listAt },
+    ],
+    framesOf(wScene('w-double')) - listAt,
+    orders + 7,
+  )
+  return {
+    still,
+    listAt,
+    cut,
+    charged: markOf(store, 'charged')?.data ?? {},
+  }
+}
 
 /**
  * The echo, for real: the unpaid order while the voice explains the message, the status and the
@@ -92,21 +117,25 @@ export function echoCut(echo: Take) {
   }
 }
 
-/** Shakedown's site: the problem line, the opening, then each customer as it is named. */
+/** Shakedown's site: the problem line, the opening, then the cast's names as they are said. */
 export function meetCut(site: Take) {
-  const card = (name: string) => markAt(site, `card:${name}`) + 0.85
+  const moves = site.events.filter((e) => e.type === 'move').map((e) => e.t / 1000)
+  const ticker = markAt(site, 'ticker')
+  // The cursor's three stops along the row of names: Double-Clicker, Echo, Policy Lawyer.
+  const stops: number[] = []
+  for (const t of moves)
+    if (t > ticker + 1 && (stops.length === 0 || t - (stops.at(-1) ?? 0) > 1.5)) stops.push(t)
+  const [dc = ticker + 5, echo = ticker + 7, lawyer = ticker + 9] = stops.map((t) => t + 0.8)
   return follow(
     [
       { t: markAt(site, 'problem') - 0.3, at: 0 },
       { t: markAt(site, 'problem') + 0.2, at: said('w-meet', 1) },
-      { t: card('The Double-Clicker'), at: said('w-meet', 3) },
-      { t: card('The Echo'), at: said('w-meet', 4) },
-      { t: card('The Cart Shuffler'), at: said('w-meet', 5) },
-      { t: card('The Bouncer'), at: said('w-meet', 6) },
-      { t: card('The Policy Lawyer'), at: said('w-meet', 7) },
+      { t: dc, at: said('w-meet', 3, 'Double-Clicker') },
+      { t: echo, at: said('w-meet', 3, 'Echo') },
+      { t: lawyer, at: said('w-meet', 3, 'AI') },
     ],
     framesOf(wScene('w-meet')),
-    card('The Policy Lawyer') + 3,
+    lawyer + 2,
   )
 }
 

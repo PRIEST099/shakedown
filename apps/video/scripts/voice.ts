@@ -27,15 +27,23 @@ const DTYPE = 'fp32'
 const LINE_LUFS = -16
 
 /**
- * Each film's script, voice and pace. The walkthrough is a man explaining his screen, a touch
- * slower than the model's default so it never sounds hurried.
+ * Each film's script, voice and pace. The walkthrough is a young man explaining his screen: the
+ * lighter of the model's best male voices, at its natural pace, and each scene read in one breath
+ * (`whole`) so the sentences flow into each other, then cut apart at the pauses it leaves.
  */
 const FILMS = {
-  demo: { scenes: SCENES as readonly Scene[], voice: 'af_heart', speed: 1, file: 'vo.json' },
+  demo: {
+    scenes: SCENES as readonly Scene[],
+    voice: 'af_heart',
+    speed: 1,
+    whole: false,
+    file: 'vo.json',
+  },
   walkthrough: {
     scenes: W_SCENES as readonly Scene[],
-    voice: 'am_michael',
+    voice: 'am_fenrir',
     speed: 0.94,
+    whole: true,
     file: 'vo-walkthrough.json',
   },
 } as const
@@ -77,6 +85,64 @@ function trim(samples: Float32Array, rate: number) {
   return samples.slice(Math.max(0, start - pad), Math.min(samples.length, end + pad))
 }
 
+/**
+ * A whole reading cut into its sentences: at the pauses nearest where each sentence should end,
+ * judged from how long each runs when read alone. Undefined when a piece comes out far longer or
+ * shorter than its sentence read alone, so a bad cut is never used.
+ */
+function splitAtPauses(samples: Float32Array, rate: number, alone: number[]) {
+  const hop = Math.round(0.01 * rate)
+  const levels: number[] = []
+  for (let s = 0; s + hop <= samples.length; s += hop) {
+    let sum = 0
+    for (let i = s; i < s + hop; i += 1) sum += (samples[i] ?? 0) ** 2
+    levels.push(Math.sqrt(sum / hop))
+  }
+  const loud = [...levels].sort((a, b) => a - b)[Math.floor(levels.length * 0.95)] ?? 0.1
+  const quiet = loud * 10 ** (-36 / 20)
+  // Every pause of 60 ms or more: where it is, and how long.
+  const pauses: { mid: number; length: number }[] = []
+  for (let i = 0; i < levels.length; ) {
+    if ((levels[i] ?? 0) >= quiet) {
+      i += 1
+      continue
+    }
+    let j = i
+    while (j < levels.length && (levels[j] ?? 0) < quiet) j += 1
+    if (j - i >= 6 && i > 0 && j < levels.length)
+      pauses.push({ mid: (i + j) / 2 / 100, length: (j - i) / 100 })
+    i = j
+  }
+  const total = samples.length / rate
+  const sum = alone.reduce((a, b) => a + b, 0)
+  const cuts: number[] = []
+  let at = 0
+  let before = 0
+  for (const [k, seconds] of alone.slice(0, -1).entries()) {
+    before += seconds
+    const expected = (before / sum) * total
+    const next = ((before + (alone[k + 1] ?? 0)) / sum) * total
+    const best = pauses
+      .filter((p) => p.mid > at + 0.25 && p.mid < next)
+      .map((p) => ({ ...p, score: p.length - 0.6 * Math.abs(p.mid - expected) }))
+      .sort((a, b) => b.score - a.score)[0]
+    if (!best) return undefined
+    cuts.push(best.mid)
+    at = best.mid
+  }
+  const bounds = [0, ...cuts, total]
+  const pieces = bounds
+    .slice(0, -1)
+    .map((from, k) =>
+      samples.slice(Math.round(from * rate), Math.round((bounds[k + 1] ?? total) * rate)),
+    )
+  const fits = pieces.every((piece, k) => {
+    const ratio = trim(piece, rate).length / rate / (alone[k] ?? 1)
+    return ratio > 0.6 && ratio < 1.6
+  })
+  return fits ? pieces : undefined
+}
+
 async function speak() {
   // --scene=a,b re-records only those scenes and keeps every other take.
   const only = process.argv
@@ -93,15 +159,34 @@ async function speak() {
     rmSync(dir, { recursive: true, force: true })
     mkdirSync(dir, { recursive: true })
     const said: Take[] = []
-    for (const [i, sentence] of sentences(scene.vo).entries()) {
-      const audio = await tts.generate(voiced(sentence), {
+    const texts = sentences(scene.vo)
+    const say = async (text: string) => {
+      const audio = await tts.generate(voiced(text), {
         voice: VOICE as 'af_heart',
         speed: FILM.speed,
       })
-      const speech = trim(audio.audio, audio.sampling_rate)
+      return { samples: audio.audio, rate: audio.sampling_rate }
+    }
+    // Each sentence alone: the takes themselves, or the guide to where a whole reading splits.
+    const alone = []
+    for (const text of texts) alone.push(await say(text))
+    let pieces = alone.map((take) => trim(take.samples, take.rate))
+    if (FILM.whole && texts.length > 1) {
+      const whole = await say(texts.join(' '))
+      const split = splitAtPauses(
+        whole.samples,
+        whole.rate,
+        alone.map((take) => trim(take.samples, take.rate).length / take.rate),
+      )
+      if (split) pieces = split.map((piece) => trim(piece, whole.rate))
+      else console.log(`${scene.id}: the whole reading would not split cleanly; using single takes`)
+    }
+    const rate = alone[0]?.rate ?? 24_000
+    for (const [i, sentence] of texts.entries()) {
+      const speech = pieces[i] ?? new Float32Array(0)
       // ffmpeg resamples the model's 24 kHz to 48 kHz stereo; the line is then levelled.
       const raw = path.join(dir, `.${i}.raw.wav`)
-      writeFileSync(raw, floatWav(speech, undefined, audio.sampling_rate))
+      writeFileSync(raw, floatWav(speech, undefined, rate))
       const { left, right } = decode(raw)
       rmSync(raw)
       const gain = 10 ** ((LINE_LUFS - integratedLoudness(left, right)) / 20)

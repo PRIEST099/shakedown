@@ -409,7 +409,10 @@ function scoreWalkthrough() {
   add(at('w-double', 1, 'again'), tick(1), 0.35)
   add(at('w-double', 2, 'charged'), leak(), 0.2, -0.3)
   add(at('w-double', 2, 'charged') + 10 / FPS, leak(), 0.2, 0.3)
-  add(at('w-double', 2, '$'), bass(38, 1.2), 0.3)
+  add(at('w-double', 2, 'both'), bass(38, 1.2), 0.3)
+  // The order list: the two $24 rows.
+  add(at('w-double', 3, '$'), pluck(74, 1), 0.16, -0.3)
+  add(at('w-double', 3, 'each'), pluck(74, 1), 0.16, 0.3)
 
   // The echo: Enter on the curl, then the order ships.
   const echo = echoCut(take('w-echo'))
@@ -419,8 +422,8 @@ function scoreWalkthrough() {
 
   // "So I built Shakedown": a lift, and a pluck as each customer is named.
   add(at('w-meet', 1), bell(78, 2.2), 0.14)
-  for (let i = 3; i <= 7; i += 1)
-    add(at('w-meet', i), pluck(69 + (i - 3) * 2, 1.2), 0.15, -0.5 + (i - 3) * 0.25)
+  for (const [i, name] of ['Double-Clicker', 'Echo', 'AI'].entries())
+    add(at('w-meet', 3, name), pluck(69 + i * 3, 1.2), 0.15, -0.4 + i * 0.4)
 
   // The run: a soft tick per customer line, and the total landing on "Eight leaks".
   const cli = cliTimes()

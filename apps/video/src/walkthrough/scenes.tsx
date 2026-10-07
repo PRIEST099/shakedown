@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react'
-import { AbsoluteFill, Sequence, useCurrentFrame } from 'remotion'
-import runs from '../data/runs.json'
-import { type CameraKey, Footage, Highlight, markOf, useTake } from '../footage'
-import { Voiceover, Wordmark } from '../kit'
-import { FPS, framesOf } from '../script'
+import { AbsoluteFill, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { type CameraKey, Footage, Highlight, markAt, markOf, useTake } from '../footage'
+import { Mark, Voiceover } from '../kit'
+import { framesOf } from '../script'
 import { C, FONT, presence, ramp, Stage } from '../theme'
-import { type Box, follow, type Placed, place, type Take, type TakeName } from '../timeline'
+import { type Box, follow, type Placed, type Take, type TakeName } from '../timeline'
 import {
   Arrive,
   BrowserWindow,
@@ -20,7 +19,7 @@ import { LEAKY, plain, SEALED_RUN, type Seg } from './cli'
 import { ECHO_ITEM, type WSceneId, wScene } from './script'
 import {
   cliTimes,
-  doubleStill,
+  doubleCut,
   echoCut,
   endOf,
   fixTimes,
@@ -127,12 +126,38 @@ export function WFlow() {
   const store = useTake('w-store')
   const frame = useCurrentFrame()
   if (!store) return null
-  const { cut } = flowCut(store)
+  const { cut, cart } = flowCut(store)
   const leaks = said('w-flow', 4)
+  const pay = boxOf(store, 'pay')
+  // Each part of the page as it is used: the guide's button, the cart link, the Pay section
+  // while the email is typed, then the whole checkout, then PayPal's button.
+  const camera: CameraKey[] = [
+    { at: 0, frames: 0, box: boxOf(store, 'guide'), scale: 1.6, center: { x: 1150, y: 560 } },
+    {
+      at: cart - 16,
+      frames: 16,
+      box: boxOf(store, 'cart-link'),
+      scale: 2.1,
+      center: { x: 1250, y: 300 },
+    },
+    { at: said('w-flow', 1) - 12, frames: 18, box: pay, scale: 1.55, center: { x: 1230, y: 560 } },
+    { at: said('w-flow', 3) - 6, frames: 22, scale: 1 },
+    {
+      at: said('w-flow', 4) + 12,
+      frames: 22,
+      box: boxOf(store, 'paypal'),
+      scale: 1.7,
+      center: { x: 1230, y: 470 },
+    },
+  ]
   return (
     <Scene id="w-flow">
-      <BrowserWindow url="localhost:3100/cart" note={RECORDED} rate={rateAt(cut, frame)}>
-        <Played take="w-store" cut={cut} />
+      <BrowserWindow
+        url={frame < cart + 4 ? 'localhost:3100' : 'localhost:3100/cart'}
+        note={RECORDED}
+        rate={rateAt(cut, frame)}
+      >
+        <Played take="w-store" cut={cut} camera={camera} />
       </BrowserWindow>
       <Note from={said('w-flow', 1) - 6} x={96} y={250} width={360} label="When someone buys">
         {STEPS.map((step, i) => {
@@ -177,12 +202,7 @@ export function WFlow() {
   )
 }
 
-// ---------- 3. Leak one: the double click (an illustration of a recorded run) ----------
-
-const DOUBLE = runs.checkout.findingsByPersona['double-clicker'][0]
-const CAPTURES = (DOUBLE?.evidence.find((e) => e.label === 'Completed captures')?.value ?? '')
-  .split(', ')
-  .map((entry) => entry.split(' ')[0] ?? '')
+// ---------- 3. Leak one: the double click: drawn, then the order list it left ----------
 
 function Box3({
   from,
@@ -241,17 +261,19 @@ function Arrow({ from, x, y, length }: { from: number; x: number; y: number; len
   )
 }
 
+/** Where the drawing's Pay button is, so the cursor and its click land on it. */
+const PAY_AT = { x: 351, y: 449 }
+
 export function WDouble() {
   const store = useTake('w-store')
   const frame = useCurrentFrame()
   if (!store) return null
-  const still = doubleStill(store)
+  const d = doubleCut(store)
   const press1 = said('w-double', 1, 'presses')
   const press2 = said('w-double', 1, 'again')
   const second = said('w-double', 2, 'second')
-  const charges = said('w-double', 2, 'charged')
-  const twice = said('w-double', 2, '$')
-  const good = said('w-double', 3, 'good')
+  const charged = said('w-double', 2, 'charged')
+  const both = said('w-double', 2, 'both')
   const ring = (at: number) => {
     const age = frame - at
     if (age < 0 || age > 14) return null
@@ -259,8 +281,8 @@ export function WDouble() {
       <div
         style={{
           position: 'absolute',
-          left: 340 - 30 + 150,
-          top: 470 - 30 + 34,
+          left: PAY_AT.x - 30,
+          top: PAY_AT.y - 30,
           width: 60,
           height: 60,
           borderRadius: 99,
@@ -272,161 +294,210 @@ export function WDouble() {
     )
   }
   const slow = frame >= press1 + 4 && frame < second
+  const drawing = frame < d.listAt + 8
+  const fade = 1 - ramp(frame, d.listAt - 6, d.listAt + 6)
+  const captures = (d.charged.captures ?? '').split(', ').filter(Boolean)
+  const orders = (d.charged.orders ?? '').split(', ')
+  const list = boxOf(store, 'orders')
   return (
     <Scene id="w-double">
-      <BrowserWindow url="localhost:3100/cart" note="Illustration · from the recorded Oct 4 run">
-        <Footage take="w-store" from={still} to={still} rate={0} />
-        <AbsoluteFill style={{ background: 'rgb(231 225 214 / 0.86)' }} />
-      </BrowserWindow>
-      <Chip from={said('w-double', 0) - 4} x={150} y={110}>
+      {frame < d.listAt ? (
+        <BrowserWindow url="localhost:3100/cart" note="Illustration of what the double press does">
+          <Footage take="w-store" from={d.still} to={d.still} rate={0} />
+          <AbsoluteFill
+            style={{ background: 'rgb(231 225 214 / 0.86)', opacity: ramp(frame, 0, 10) }}
+          />
+        </BrowserWindow>
+      ) : (
+        <BrowserWindow
+          url="localhost:3100/orders"
+          note="Recorded Oct 7, 2026 · one checkout submitted twice, as the Double-Clicker does"
+        >
+          <Sequence from={d.listAt}>
+            <Played
+              take="w-store"
+              cut={d.cut}
+              camera={[{ at: 4, frames: 20, box: list, scale: 1.45, center: { x: 960, y: 420 } }]}
+            >
+              {() => (
+                <>
+                  <Lit
+                    box={boxOf(store, 'row:0')}
+                    from={said('w-double', 3, '$') - d.listAt}
+                    at={frame - d.listAt}
+                  />
+                  <Lit
+                    box={boxOf(store, 'row:1')}
+                    from={said('w-double', 3, 'each') - d.listAt}
+                    at={frame - d.listAt}
+                  />
+                </>
+              )}
+            </Played>
+          </Sequence>
+        </BrowserWindow>
+      )}
+      <Chip from={said('w-double', 0) - 4} to={d.listAt} x={150} y={110}>
         Leak 1 · the double click
       </Chip>
-      {/* The customer's side: a Pay button, pressed twice. */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 150,
-          top: 300,
-          font: `600 22px ${FONT.mono}`,
-          letterSpacing: '0.1em',
-          color: C.muted,
-          ...presence(frame, press1 - 10, Number.POSITIVE_INFINITY, 8),
-        }}
-      >
-        THE CUSTOMER
-      </div>
-      <Box3 from={press1 - 10} x={150} y={350} width={400}>
-        <div style={{ font: `600 26px ${FONT.ui}` }}>Field guide · $24.00</div>
-        <div
-          style={{
-            marginTop: 16,
-            padding: '16px 0',
-            borderRadius: 999,
-            textAlign: 'center',
-            background: C.highlighter,
-            font: `700 28px ${FONT.ui}`,
-          }}
-        >
-          {slow ? 'Pay…  (the page is slow)' : 'Pay'}
-        </div>
-        <div style={{ marginTop: 14, font: `500 22px ${FONT.ui}`, color: C.muted }}>
-          {frame >= press2 ? 'Pressed twice' : frame >= press1 ? 'Pressed once' : ' '}
-        </div>
-      </Box3>
-      {ring(press1)}
-      {ring(press2)}
-      {frame >= press1 - 12 && frame < second ? (
-        <svg
-          width="34"
-          height="40"
-          viewBox="0 0 28 34"
-          style={{ position: 'absolute', left: 350 + 108, top: 470 + 30, overflow: 'visible' }}
-        >
-          <title>Cursor</title>
-          <path
-            d="M3 2 L3 26 L9.5 20 L14 31 L18.5 29 L14 18.5 L23 18.5 Z"
-            fill={C.ink}
-            stroke={C.surface}
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
-        </svg>
-      ) : null}
-      {/* My shop: one order per press. */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 720,
-          top: 300,
-          font: `600 22px ${FONT.mono}`,
-          letterSpacing: '0.1em',
-          color: C.muted,
-          ...presence(frame, press1 + 6, Number.POSITIVE_INFINITY, 8),
-        }}
-      >
-        MY SHOP
-      </div>
-      <Arrow from={press1 + 4} x={570} y={430} length={130} />
-      <Box3 from={press1 + 8} x={720} y={350} width={430}>
-        <div style={{ font: `600 26px ${FONT.ui}` }}>Order 1 · $24.00</div>
-      </Box3>
-      <Arrow from={press2 + 4} x={570} y={560} length={130} />
-      <Box3 from={press2 + 8} x={720} y={500} width={430} tone={frame >= second ? 'leak' : 'paper'}>
-        <div style={{ font: `600 26px ${FONT.ui}` }}>Order 2 · $24.00</div>
-        <div
-          style={{
-            marginTop: 6,
-            font: `500 21px ${FONT.ui}`,
-            color: C.leak,
-            ...presence(frame, second, Number.POSITIVE_INFINITY, 8),
-          }}
-        >
-          A second order, for the same checkout
-        </div>
-      </Box3>
-      {/* PayPal: both charged. */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 1320,
-          top: 300,
-          font: `600 22px ${FONT.mono}`,
-          letterSpacing: '0.1em',
-          color: C.muted,
-          ...presence(frame, charges - 6, Number.POSITIVE_INFINITY, 8),
-        }}
-      >
-        PAYPAL
-      </div>
-      {[0, 1].map((i) => (
-        <div key={i}>
-          <Arrow from={charges + i * 10} x={1170} y={i ? 560 : 410} length={130} />
-          <Box3 from={charges + 4 + i * 10} x={1320} y={i ? 500 : 350} width={450} tone="ink">
+      {drawing ? (
+        <AbsoluteFill style={{ opacity: fade }}>
+          {/* The customer's side: a Pay button, pressed twice. */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 150,
+              top: 300,
+              font: `600 22px ${FONT.mono}`,
+              letterSpacing: '0.1em',
+              color: C.muted,
+              ...presence(frame, press1 - 10, Number.POSITIVE_INFINITY, 8),
+            }}
+          >
+            THE CUSTOMER
+          </div>
+          <Box3 from={press1 - 10} x={150} y={350} width={400}>
+            <div style={{ font: `600 26px ${FONT.ui}` }}>Field guide · $24.00</div>
+            <div
+              style={{
+                marginTop: 16,
+                padding: '16px 0',
+                borderRadius: 999,
+                textAlign: 'center',
+                background: C.highlighter,
+                font: `700 28px ${FONT.ui}`,
+              }}
+            >
+              {slow ? 'Pay…  (the page is slow)' : 'Pay'}
+            </div>
+            <div style={{ marginTop: 14, font: `500 22px ${FONT.ui}`, color: C.muted }}>
+              {frame >= press2 ? 'Pressed twice' : frame >= press1 ? 'Pressed once' : ' '}
+            </div>
+          </Box3>
+          {ring(press1)}
+          {ring(press2)}
+          {frame >= press1 - 12 && frame < second ? (
+            // The arrow's tip sits on the button: the path starts at (3, 2) of its 28×34 box.
+            <svg
+              width="34"
+              height="40"
+              viewBox="0 0 28 34"
+              style={{
+                position: 'absolute',
+                left: PAY_AT.x - 3.6,
+                top: PAY_AT.y - 2.4,
+                overflow: 'visible',
+              }}
+            >
+              <title>Cursor</title>
+              <path
+                d="M3 2 L3 26 L9.5 20 L14 31 L18.5 29 L14 18.5 L23 18.5 Z"
+                fill={C.ink}
+                stroke={C.surface}
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : null}
+          {/* My shop: one order per press. */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 720,
+              top: 300,
+              font: `600 22px ${FONT.mono}`,
+              letterSpacing: '0.1em',
+              color: C.muted,
+              ...presence(frame, press1 + 6, Number.POSITIVE_INFINITY, 8),
+            }}
+          >
+            MY SHOP
+          </div>
+          <Arrow from={press1 + 4} x={570} y={430} length={130} />
+          <Box3 from={press1 + 8} x={720} y={350} width={430}>
+            <div style={{ font: `600 26px ${FONT.ui}` }}>Order 1 · $24.00</div>
+          </Box3>
+          <Arrow from={press2 + 4} x={570} y={560} length={130} />
+          <Box3
+            from={press2 + 8}
+            x={720}
+            y={500}
+            width={430}
+            tone={frame >= second ? 'leak' : 'paper'}
+          >
+            <div style={{ font: `600 26px ${FONT.ui}` }}>Order 2 · $24.00</div>
+            <div
+              style={{
+                marginTop: 6,
+                font: `500 21px ${FONT.ui}`,
+                color: C.leak,
+                ...presence(frame, second, Number.POSITIVE_INFINITY, 8),
+              }}
+            >
+              A second order, for the same checkout
+            </div>
+          </Box3>
+          {/* PayPal: both charged. */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 1320,
+              top: 300,
+              font: `600 22px ${FONT.mono}`,
+              letterSpacing: '0.1em',
+              color: C.muted,
+              ...presence(frame, charged - 6, Number.POSITIVE_INFINITY, 8),
+            }}
+          >
+            PAYPAL
+          </div>
+          {[0, 1].map((i) => (
+            <div key={i}>
+              <Arrow from={charged + i * 10} x={1170} y={i ? 560 : 410} length={130} />
+              <Box3 from={charged + 4 + i * 10} x={1320} y={i ? 500 : 350} width={450} tone="ink">
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    font: `600 26px ${FONT.ui}`,
+                  }}
+                >
+                  <span>Charged</span>
+                  <span style={{ fontFamily: FONT.mono, color: C.leakOnInk }}>$24.00</span>
+                </div>
+              </Box3>
+            </div>
+          ))}
+          <Box3 from={both} x={720} y={700} width={1050} tone="leak">
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                font: `600 26px ${FONT.ui}`,
+                font: `700 34px ${FONT.ui}`,
               }}
             >
-              <span>Charged</span>
-              <span style={{ fontFamily: FONT.mono, color: C.leakOnInk }}>$24.00</span>
-            </div>
-            <div
-              style={{
-                marginTop: 8,
-                font: `600 19px ${FONT.mono}`,
-                color: C.sealedOnInk,
-                ...presence(frame, good + i * 6, Number.POSITIVE_INFINITY, 6),
-              }}
-            >
-              ✓ COMPLETED · a good payment
+              <span>One $24.00 checkout, charged twice</span>
+              <span style={{ fontFamily: FONT.mono, color: C.leak }}>$48.00</span>
             </div>
           </Box3>
-        </div>
-      ))}
-      <Box3 from={twice} x={720} y={700} width={1050} tone="leak">
-        <div
-          style={{ display: 'flex', justifyContent: 'space-between', font: `700 34px ${FONT.ui}` }}
-        >
-          <span>The customer paid twice for one checkout</span>
-          <span style={{ fontFamily: FONT.mono, color: C.leak }}>+$24.00</span>
-        </div>
-      </Box3>
-      <div
-        style={{
-          position: 'absolute',
-          left: 150,
-          top: 860,
-          width: 1620,
-          font: `500 21px/1.4 ${FONT.mono}`,
-          color: C.muted,
-          ...presence(frame, twice + 10, Number.POSITIVE_INFINITY, 8),
-        }}
+        </AbsoluteFill>
+      ) : null}
+      <Note
+        from={said('w-double', 4) - 4}
+        x={1060}
+        y={600}
+        width={760}
+        label={`PayPal’s own record · ${orders.join(' and ')}`}
       >
-        Illustration. In my recorded sandbox run, PayPal completed both: captures {CAPTURES[0]} and{' '}
-        {CAPTURES[1]}, $24.00 each.
-      </div>
+        {captures.map((capture) => (
+          <div key={capture} style={{ font: `500 25px/1.45 ${FONT.mono}`, color: C.sealedOnInk }}>
+            ✓ {capture}
+          </div>
+        ))}
+        <div style={{ marginTop: 10, font: `600 28px/1.35 ${FONT.ui}`, color: C.leakOnInk }}>
+          Two good payments, for one checkout: $48.00 charged.
+        </div>
+      </Note>
     </Scene>
   )
 }
@@ -615,6 +686,7 @@ export function WMeet() {
   if (!site) return null
   const cut = meetCut(site)
   const problem = boxOf(site, 'problem')
+  const names = said('w-meet', 3)
   return (
     <Scene id="w-meet">
       <BrowserWindow
@@ -628,14 +700,27 @@ export function WMeet() {
           camera={[
             { at: 0, frames: 0, box: problem, scale: 1.7 },
             { at: said('w-meet', 1) - 6, frames: 26, scale: 1 },
+            { at: names - 8, frames: 22, box: boxOf(site, 'ticker'), scale: 1.85 },
           ]}
         >
-          {() =>
-            // Only while the page still shows it: it scrolls to the cast later.
-            frame < said('w-meet', 2) ? (
-              <Lit box={problem} from={said('w-meet', 0, 'test')} at={frame} />
-            ) : null
-          }
+          {() => (
+            <>
+              {frame < said('w-meet', 2) ? (
+                <Lit box={problem} from={said('w-meet', 0, 'test')} at={frame} />
+              ) : null}
+              <Lit
+                box={boxOf(site, 'chip:Double-Clicker')}
+                from={said('w-meet', 3, 'Double-Clicker')}
+                at={frame}
+              />
+              <Lit box={boxOf(site, 'chip:Echo')} from={said('w-meet', 3, 'Echo')} at={frame} />
+              <Lit
+                box={boxOf(site, 'chip:Policy Lawyer')}
+                from={said('w-meet', 3, 'AI')}
+                at={frame}
+              />
+            </>
+          )}
         </Played>
       </BrowserWindow>
     </Scene>
@@ -741,10 +826,22 @@ export function WReceipt() {
             <Sequence from={shown}>
               <Played
                 take="report"
-                cut={place([
-                  { from: 1.3, to: 1.3 + (framesOf(wScene('w-receipt')) - shown) / FPS, rate: 1 },
-                ])}
-                camera={[{ at: 40, frames: 24, box: double, scale: 1.45 }]}
+                cut={follow(
+                  [{ t: 1.3, at: 0 }],
+                  framesOf(wScene('w-receipt')) - shown,
+                  // Held on the double click's finding: the take scrolls on to the Echo after it.
+                  markAt(report, 'double') + 2.5,
+                )}
+                camera={[
+                  { at: 40, frames: 24, box: double, scale: 1.45 },
+                  // Its fix, as the voice reads it: the last lines of the finding.
+                  {
+                    at: said('w-receipt', 3) - shown - 6,
+                    frames: 22,
+                    box: { ...double, y: double.y + double.height - 95, height: 95 },
+                    scale: 1.9,
+                  },
+                ]}
               />
             </Sequence>
           </BrowserWindow>
@@ -832,6 +929,51 @@ export function WFix() {
 
 // ---------- 9. Close ----------
 
+/**
+ * The wordmark as a cartoon title: the receipt mark pops in, then each letter of "shakedown"
+ * drops into place one after another on a spring, overshooting and settling.
+ */
+function SpringWordmark({ from, size }: { from: number; size: number }) {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+  const bounce = (delay: number) =>
+    spring({ frame: frame - from - delay, fps, config: { damping: 8, stiffness: 160, mass: 0.7 } })
+  const mark = bounce(0)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: size * 0.22, color: C.ink }}>
+      <div style={{ transform: `scale(${mark}) rotate(${(1 - mark) * -25}deg)` }}>
+        <Mark size={size * 1.05} />
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          font: `800 ${size}px ${FONT.display}`,
+          fontVariationSettings: '"wdth" 80',
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {[...'shakedown'].map((letter, i) => {
+          const t = bounce(6 + i * 2.5)
+          return (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: the letters of one fixed word
+              key={i}
+              style={{
+                display: 'inline-block',
+                opacity: Math.min(1, t * 2),
+                transform: `translateY(${(1 - t) * -90}px) scale(${0.5 + 0.5 * t}, ${0.4 + 0.6 * t})`,
+                transformOrigin: '50% 100%',
+              }}
+            >
+              {letter}
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function WClose() {
   const frame = useCurrentFrame()
   const line = said('w-close', 1)
@@ -846,9 +988,7 @@ export function WClose() {
           gap: 34,
         }}
       >
-        <div style={presence(frame, 2, Number.POSITIVE_INFINITY, 10)}>
-          <Wordmark size={120} />
-        </div>
+        <SpringWordmark from={2} size={130} />
         <div
           style={{
             maxWidth: 1300,

@@ -1,182 +1,174 @@
 {
-  "source": "onnx-community/Kokoro-82M-v1.0-ONNX (fp32), voice am_michael",
+  "source": "onnx-community/Kokoro-82M-v1.0-ONNX (fp32), voice am_fenrir",
   "lines": {
     "w-intro": [
       {
         "text": "Let me show you a problem that hides in a lot of PayPal checkouts.",
-        "seconds": 4.13
+        "seconds": 4.039
       },
       {
         "text": "This is Leaky Llama, a little online shop I built for this demo.",
-        "seconds": 4.334
+        "seconds": 4.236
       },
       {
         "text": "It takes payment with PayPal, and it runs in PayPal’s sandbox, so every dollar you’ll see is pretend.",
-        "seconds": 6.822
+        "seconds": 5.977
       }
     ],
     "w-flow": [
       {
         "text": "When someone buys, three things happen.",
-        "seconds": 2.4
+        "seconds": 1.944
       },
       {
-        "text": "The customer approves the payment.",
-        "seconds": 2.023
+        "text": "The customer fills in the checkout and approves the payment.",
+        "seconds": 3.185
       },
       {
         "text": "PayPal collects the money.",
-        "seconds": 1.495
+        "seconds": 1.389
       },
       {
         "text": "And then my shop’s own code decides what to ship.",
-        "seconds": 3.028
+        "seconds": 2.68
       },
       {
         "text": "That’s where money leaks: in my shop’s own code, where PayPal can’t see it.",
-        "seconds": 4.418
+        "seconds": 3.899
       }
     ],
     "w-double": [
       {
         "text": "Here’s the first leak.",
-        "seconds": 1.387
+        "seconds": 1.161
       },
       {
         "text": "A customer presses Pay, the page is slow, so they press it again.",
-        "seconds": 4.231
+        "seconds": 3.675
       },
       {
-        "text": "My shop opens a second order, and the customer is charged for both: $24, twice.",
-        "seconds": 6.485
+        "text": "My shop opens a second order, and the customer is charged for both.",
+        "seconds": 3.794
+      },
+      {
+        "text": "Here’s my shop’s order list: two orders, $24 each, for one checkout.",
+        "seconds": 4.85
       },
       {
         "text": "To PayPal, those are two good payments.",
-        "seconds": 2.405
+        "seconds": 2.326
       }
     ],
     "w-echo": [
       {
         "text": "The second one is sneakier.",
-        "seconds": 1.575
+        "seconds": 1.408
       },
       {
         "text": "After a payment, PayPal tells the shop the order is paid, in a message signed to prove it came from PayPal.",
-        "seconds": 6.863
+        "seconds": 6.343
       },
       {
         "text": "My shop never checks the signature.",
-        "seconds": 2.208
+        "seconds": 1.963
       },
       {
         "text": "Watch: here’s an order for a $36 water bottle.",
-        "seconds": 3.798
+        "seconds": 3.41
       },
       {
         "text": "It says awaiting payment, and nothing has shipped.",
-        "seconds": 2.785
+        "seconds": 2.497
       },
       {
         "text": "I’ll send my shop that message myself, with no signature at all.",
-        "seconds": 4.41
+        "seconds": 3.936
       },
       {
         "text": "And there it goes: shipped.",
-        "seconds": 1.623
+        "seconds": 1.296
       },
       {
         "text": "PayPal never collected a cent.",
-        "seconds": 1.98
+        "seconds": 1.728
       }
     ],
     "w-meet": [
       {
         "text": "A normal test won’t catch leaks like these, because test customers behave.",
-        "seconds": 4.935
+        "seconds": 4.436
       },
       {
         "text": "So I built Shakedown.",
-        "seconds": 1.465
+        "seconds": 1.467
       },
       {
         "text": "It sends customers from hell at your checkout, in PayPal’s sandbox.",
-        "seconds": 4.359
+        "seconds": 3.847
       },
       {
-        "text": "One double-clicks.",
-        "seconds": 1.313
-      },
-      {
-        "text": "One fakes that message from PayPal.",
-        "seconds": 2.179
-      },
-      {
-        "text": "One swaps their cart halfway through paying.",
-        "seconds": 2.569
-      },
-      {
-        "text": "One pays with a card that gets declined.",
-        "seconds": 2.666
-      },
-      {
-        "text": "A fifth asks your AI support assistant for refunds, to check it keeps to your policy.",
-        "seconds": 5.888
+        "text": "Five scripts, like the Double-Clicker and the Echo you just saw, and one that tests AI support assistants.",
+        "seconds": 6.164
       }
     ],
     "w-cli": [
       {
         "text": "Shakedown is an npm package.",
-        "seconds": 2.401
+        "seconds": 2.798
       },
       {
         "text": "In a terminal, I run one command, pointed at my shop.",
-        "seconds": 3.586
+        "seconds": 3.458
       },
       {
         "text": "The customers go in, one at a time.",
-        "seconds": 2.445
+        "seconds": 2.479
       },
       {
         "text": "After each one, it checks what my shop did against what really happened, using PayPal’s records wherever money moved.",
-        "seconds": 7.885
+        "seconds": 6.464
       }
     ],
     "w-receipt": [
       {
-        "text": "It finds eight leaks.",
-        "seconds": 1.431
+        "text": "It finds eight leaks, including both you just saw.",
+        "seconds": 2.921
       },
       {
         "text": "My shop would lose $467, and a customer paid $24 too much.",
-        "seconds": 6.8
+        "seconds": 5.595
       },
       {
         "text": "It also writes a report, with the evidence for every leak, and the fix.",
-        "seconds": 4.431
+        "seconds": 3.707
+      },
+      {
+        "text": "For the double click, the fix is one key per checkout, so a second press gets the same order back.",
+        "seconds": 5.172
       }
     ],
     "w-fix": [
       {
         "text": "So I fix my code, and run the same command on the fixed shop.",
-        "seconds": 4.111
+        "seconds": 4.033
       },
       {
         "text": "Nothing leaks, and where Shakedown can’t be sure, it says so.",
-        "seconds": 3.741
+        "seconds": 3.736
       },
       {
         "text": "Then I run it on every pull request: if a leak ever comes back, the check fails, before a real customer finds it.",
-        "seconds": 7.726
+        "seconds": 6.649
       }
     ],
     "w-close": [
       {
         "text": "That’s Shakedown.",
-        "seconds": 1.128
+        "seconds": 1.289
       },
       {
         "text": "Let customers from hell find your leaks, before your real customers do.",
-        "seconds": 4.662
+        "seconds": 3.813
       }
     ]
   }

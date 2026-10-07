@@ -74,8 +74,8 @@ timed from it, so picture and sound can't drift apart.
 ## The walkthrough
 
 A second cut, kept beside the first so the two can be compared. It starts from nothing: Leaky
-Llama, what happens when someone pays, the double click (drawn, with the recorded run's two
-captures), and the echo for real (`w-echo`: an unpaid order, a "paid" message sent by hand with
+Llama, what happens when someone pays (a test email typed at the checkout), the double click (drawn,
+then the customer's own order list after one checkout was submitted twice), and the echo for real (`w-echo`: an unpaid order, a "paid" message sent by hand with
 `curl`, the order shipping, PayPal's record of it read afterwards). Then Shakedown, the CLI run
 in a terminal (`pnpm cli-output` renders it with the CLI's own code from the recorded runs), the
 report, the fixed shop and CI.
@@ -84,7 +84,7 @@ report, the fixed shop and CI.
     SITE_URL=https://shakedown-web.onrender.com pnpm capture w-site
     pnpm conform w-store w-echo w-site report
     pnpm cli-output
-    pnpm voice --film=walkthrough             # the male scratch voice (am_michael)
+    pnpm voice --film=walkthrough             # the male scratch voice (am_fenrir), each scene in one pass
     pnpm vo-sheet --film=walkthrough          # VOICEOVER-walkthrough.md
     pnpm compose
     pnpm walkthrough

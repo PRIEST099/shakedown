@@ -11,88 +11,86 @@ and "In the film" where the line starts; the pictures follow your voice.
 Record one file per scene, named as in each heading (for example `01-w-intro.wav`), with a
 one-second pause between lines, so they can be cut apart cleanly.
 
-## 1. The shop (`01-w-intro.wav`, 17.3 s)
+## 1. The shop (`01-w-intro.wav`, 16.7 s)
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | Let me show you a problem that hides in a lot of PayPal checkouts. |  | 4.1 s | 0:00.4 |
-| 2 | This is Leaky Llama, a little online shop I built for this demo. |  | 4.3 s | 0:05.1 |
-| 3 | It takes payment with PayPal, and it runs in PayPal’s sandbox, so every dollar you’ll see is pretend. |  | 6.8 s | 0:10.0 |
+| 1 | Let me show you a problem that hides in a lot of PayPal checkouts. |  | 4.0 s | 0:00.4 |
+| 2 | This is Leaky Llama, a little online shop I built for this demo. |  | 4.2 s | 0:05.2 |
+| 3 | It takes payment with PayPal, and it runs in PayPal’s sandbox, so every dollar you’ll see is pretend. |  | 6.0 s | 0:10.2 |
 
-## 2. What happens when someone buys (`02-w-flow.wav`, 16.3 s)
-
-| # | Line | Say | Scratch | In the film |
-|---|---|---|---|---|
-| 1 | When someone buys, three things happen. |  | 2.4 s | 0:17.7 |
-| 2 | The customer approves the payment. |  | 2.0 s | 0:20.6 |
-| 3 | PayPal collects the money. |  | 1.5 s | 0:23.1 |
-| 4 | And then my shop’s own code decides what to ship. |  | 3.0 s | 0:25.0 |
-| 5 | That’s where money leaks: in my shop’s own code, where PayPal can’t see it. |  | 4.4 s | 0:28.6 |
-
-## 3. Leak one: the double click (`03-w-double.wav`, 17.3 s)
+## 2. What happens when someone buys (`02-w-flow.wav`, 16.4 s)
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | Here’s the first leak. |  | 1.4 s | 0:34.0 |
-| 2 | A customer presses Pay, the page is slow, so they press it again. |  | 4.2 s | 0:36.0 |
-| 3 | My shop opens a second order, and the customer is charged for both: $24, twice. | My shop opens a second order, and the customer is charged for both: twenty-four dollars, twice. | 6.5 s | 0:40.8 |
-| 4 | To PayPal, those are two good payments. |  | 2.4 s | 0:47.9 |
+| 1 | When someone buys, three things happen. |  | 1.9 s | 0:17.1 |
+| 2 | The customer fills in the checkout and approves the payment. |  | 3.2 s | 0:19.6 |
+| 3 | PayPal collects the money. |  | 1.4 s | 0:23.3 |
+| 4 | And then my shop’s own code decides what to ship. |  | 2.7 s | 0:25.2 |
+| 5 | That’s where money leaks: in my shop’s own code, where PayPal can’t see it. |  | 3.9 s | 0:28.7 |
 
-## 4. Leak two: the echo, for real (`04-w-echo.wav`, 31 s)
-
-| # | Line | Say | Scratch | In the film |
-|---|---|---|---|---|
-| 1 | The second one is sneakier. |  | 1.6 s | 0:51.3 |
-| 2 | After a payment, PayPal tells the shop the order is paid, in a message signed to prove it came from PayPal. |  | 6.9 s | 0:53.4 |
-| 3 | My shop never checks the signature. |  | 2.2 s | 1:00.7 |
-| 4 | Watch: here’s an order for a $36 water bottle. | Watch: here’s an order for a thirty-six dollars water bottle. | 3.8 s | 1:03.7 |
-| 5 | It says awaiting payment, and nothing has shipped. |  | 2.8 s | 1:07.9 |
-| 6 | I’ll send my shop that message myself, with no signature at all. |  | 4.4 s | 1:11.4 |
-| 7 | And there it goes: shipped. |  | 1.6 s | 1:16.7 |
-| 8 | PayPal never collected a cent. |  | 2.0 s | 1:19.0 |
-
-## 5. So I built Shakedown (`05-w-meet.wav`, 29.9 s)
+## 3. Leak one: the double click (`03-w-double.wav`, 20.3 s)
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | A normal test won’t catch leaks like these, because test customers behave. |  | 4.9 s | 1:22.3 |
-| 2 | So I built Shakedown. |  | 1.5 s | 1:27.9 |
-| 3 | It sends customers from hell at your checkout, in PayPal’s sandbox. |  | 4.4 s | 1:29.9 |
-| 4 | One double-clicks. |  | 1.3 s | 1:34.8 |
-| 5 | One fakes that message from PayPal. |  | 2.2 s | 1:36.5 |
-| 6 | One swaps their cart halfway through paying. |  | 2.6 s | 1:39.1 |
-| 7 | One pays with a card that gets declined. |  | 2.7 s | 1:42.1 |
-| 8 | A fifth asks your AI support assistant for refunds, to check it keeps to your policy. |  | 5.9 s | 1:45.3 |
+| 1 | Here’s the first leak. |  | 1.2 s | 0:33.5 |
+| 2 | A customer presses Pay, the page is slow, so they press it again. |  | 3.7 s | 0:35.3 |
+| 3 | My shop opens a second order, and the customer is charged for both. |  | 3.8 s | 0:39.5 |
+| 4 | Here’s my shop’s order list: two orders, $24 each, for one checkout. | Here’s my shop’s order list: two orders, twenty-four dollars each, for one checkout. | 4.8 s | 0:44.2 |
+| 5 | To PayPal, those are two good payments. |  | 2.3 s | 0:50.2 |
 
-## 6. One command (`06-w-cli.wav`, 19.5 s)
+## 4. Leak two: the echo, for real (`04-w-echo.wav`, 29.5 s)
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | Shakedown is an npm package. |  | 2.4 s | 1:52.2 |
-| 2 | In a terminal, I run one command, pointed at my shop. |  | 3.6 s | 1:55.1 |
-| 3 | The customers go in, one at a time. |  | 2.4 s | 1:59.8 |
-| 4 | After each one, it checks what my shop did against what really happened, using PayPal’s records wherever money moved. |  | 7.9 s | 2:02.8 |
+| 1 | The second one is sneakier. |  | 1.4 s | 0:53.8 |
+| 2 | After a payment, PayPal tells the shop the order is paid, in a message signed to prove it came from PayPal. |  | 6.3 s | 0:55.8 |
+| 3 | My shop never checks the signature. |  | 2.0 s | 1:02.7 |
+| 4 | Watch: here’s an order for a $36 water bottle. | Watch: here’s an order for a thirty-six dollars water bottle. | 3.4 s | 1:05.7 |
+| 5 | It says awaiting payment, and nothing has shipped. |  | 2.5 s | 1:09.6 |
+| 6 | I’ll send my shop that message myself, with no signature at all. |  | 3.9 s | 1:12.9 |
+| 7 | And there it goes: shipped. |  | 1.3 s | 1:18.1 |
+| 8 | PayPal never collected a cent. |  | 1.7 s | 1:20.3 |
 
-## 7. The receipt (`07-w-receipt.wav`, 17.1 s)
-
-| # | Line | Say | Scratch | In the film |
-|---|---|---|---|---|
-| 1 | It finds eight leaks. |  | 1.4 s | 2:13.7 |
-| 2 | My shop would lose $467, and a customer paid $24 too much. | My shop would lose four hundred sixty-seven dollars, and a customer paid twenty-four dollars too much. | 6.8 s | 2:15.7 |
-| 3 | It also writes a report, with the evidence for every leak, and the fix. |  | 4.4 s | 2:23.2 |
-
-## 8. Fix it, and keep it fixed (`08-w-fix.wav`, 18.1 s)
+## 5. So I built Shakedown (`05-w-meet.wav`, 19.2 s)
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | So I fix my code, and run the same command on the fixed shop. |  | 4.1 s | 2:28.8 |
-| 2 | Nothing leaks, and where Shakedown can’t be sure, it says so. |  | 3.7 s | 2:33.8 |
-| 3 | Then I run it on every pull request: if a leak ever comes back, the check fails, before a real customer finds it. |  | 7.7 s | 2:38.3 |
+| 1 | A normal test won’t catch leaks like these, because test customers behave. |  | 4.4 s | 1:23.3 |
+| 2 | So I built Shakedown. |  | 1.5 s | 1:28.6 |
+| 3 | It sends customers from hell at your checkout, in PayPal’s sandbox. |  | 3.8 s | 1:30.7 |
+| 4 | Five scripts, like the Double-Clicker and the Echo you just saw, and one that tests AI support assistants. |  | 6.2 s | 1:35.4 |
 
-## 9. Close (`09-w-close.wav`, 9.4 s)
+## 6. One command (`06-w-cli.wav`, 19 s)
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | That’s Shakedown. |  | 1.1 s | 2:46.9 |
-| 2 | Let customers from hell find your leaks, before your real customers do. |  | 4.7 s | 2:48.6 |
+| 1 | Shakedown is an npm package. |  | 2.8 s | 1:42.5 |
+| 2 | In a terminal, I run one command, pointed at my shop. |  | 3.5 s | 1:45.9 |
+| 3 | The customers go in, one at a time. |  | 2.5 s | 1:50.9 |
+| 4 | After each one, it checks what my shop did against what really happened, using PayPal’s records wherever money moved. |  | 6.5 s | 1:54.1 |
+
+## 7. The receipt (`07-w-receipt.wav`, 22.8 s)
+
+| # | Line | Say | Scratch | In the film |
+|---|---|---|---|---|
+| 1 | It finds eight leaks, including both you just saw. |  | 2.9 s | 2:03.5 |
+| 2 | My shop would lose $467, and a customer paid $24 too much. | My shop would lose four hundred sixty-seven dollars, and a customer paid twenty-four dollars too much. | 5.6 s | 2:07.1 |
+| 3 | It also writes a report, with the evidence for every leak, and the fix. |  | 3.7 s | 2:13.6 |
+| 4 | For the double click, the fix is one key per checkout, so a second press gets the same order back. |  | 5.2 s | 2:18.0 |
+
+## 8. Fix it, and keep it fixed (`08-w-fix.wav`, 17.4 s)
+
+| # | Line | Say | Scratch | In the film |
+|---|---|---|---|---|
+| 1 | So I fix my code, and run the same command on the fixed shop. |  | 4.0 s | 2:24.3 |
+| 2 | Nothing leaks, and where Shakedown can’t be sure, it says so. |  | 3.7 s | 2:29.4 |
+| 3 | Then I run it on every pull request: if a leak ever comes back, the check fails, before a real customer finds it. |  | 6.6 s | 2:34.1 |
+
+## 9. Close (`09-w-close.wav`, 9.8 s)
+
+| # | Line | Say | Scratch | In the film |
+|---|---|---|---|---|
+| 1 | That’s Shakedown. |  | 1.3 s | 2:41.7 |
+| 2 | Let customers from hell find your leaks, before your real customers do. |  | 3.8 s | 2:43.6 |
 

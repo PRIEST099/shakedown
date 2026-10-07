@@ -291,6 +291,9 @@ importers:
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
+      '@shakedown/paypal':
+        specifier: workspace:*
+        version: link:../../packages/paypal
       '@shakedown/reporters':
         specifier: workspace:*
         version: link:../../packages/reporters

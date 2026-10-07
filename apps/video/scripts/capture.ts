@@ -22,9 +22,11 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { type Browser, chromium, type Locator, type Page } from '@playwright/test'
+import { sandboxPayPalSide } from '@shakedown/core'
 import { CAST } from '@shakedown/core/cast'
+import { PayPalSandboxClient } from '@shakedown/paypal'
 import { WORST } from '../src/script'
-import { ECHO_ITEM } from '../src/walkthrough/script'
+import { DOUBLE_ITEM, ECHO_ITEM, TEST_EMAIL } from '../src/walkthrough/script'
 
 const SITE = process.env.SITE_URL?.trim() || 'http://localhost:3200'
 /** Leaky Llama, the demo store the site's live runs go to. */
@@ -108,37 +110,19 @@ const PAYPAL_BUTTON_DRAWN = `(() => {
 })()`
 
 /**
- * PayPal's own record of an order, read with the sandbox app's credentials from the repository's
- * .env.local (read here, never printed). Sandbox only: anything else stops the take.
+ * PayPal's half of a checkout, as the cast does it: the sandbox app's credentials from the
+ * repository's .env.local (read here, never printed), through the sandbox-locked client. It
+ * attaches PayPal's published sandbox test card to an order, and reads an order back.
  */
-async function paypalOrder(id: string) {
-  const env = path.resolve(import.meta.dirname, '../../../.env.local')
-  process.loadEnvFile(env)
+function sandbox() {
+  process.loadEnvFile(path.resolve(import.meta.dirname, '../../../.env.local'))
   if ((process.env.PAYPAL_ENV ?? 'sandbox') !== 'sandbox') throw new Error('Sandbox only.')
-  const api = 'https://api-m.sandbox.paypal.com'
-  const basic = Buffer.from(
-    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`,
-  ).toString('base64')
-  const token = (await (
-    await fetch(`${api}/v1/oauth2/token`, {
-      method: 'POST',
-      headers: {
-        authorization: `Basic ${basic}`,
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
-    })
-  ).json()) as { access_token: string }
-  const order = (await (
-    await fetch(`${api}/v2/checkout/orders/${encodeURIComponent(id)}`, {
-      headers: { authorization: `Bearer ${token.access_token}` },
-    })
-  ).json()) as {
-    status: string
-    purchase_units?: { payments?: { captures?: { id: string; amount: { value: string } }[] } }[]
-  }
-  const captures = order.purchase_units?.flatMap((unit) => unit.payments?.captures ?? []) ?? []
-  return { status: order.status, captures: captures.length }
+  return sandboxPayPalSide(
+    new PayPalSandboxClient({
+      clientId: process.env.PAYPAL_CLIENT_ID ?? '',
+      clientSecret: process.env.PAYPAL_CLIENT_SECRET ?? '',
+    }),
+  )
 }
 
 /** One take: the page, its clock, and the event log the edit reads. */
@@ -370,13 +354,13 @@ const TAKES: Take[] = [
   {
     name: 'w-store',
     shows:
-      'Leaky Llama running on my machine: the shelf, the field guide into the cart, and the checkout at the PayPal button. Nothing is paid.',
+      'Leaky Llama running on my machine: the shelf, the field guide into the cart, a test email at the checkout, then that checkout submitted twice the way the Double-Clicker does it (each order paid with a PayPal sandbox test card), and the order list showing both charged.',
     async run(shot) {
       const { page } = shot
       await page.goto(`${STORE}/`, { waitUntil: 'networkidle' })
       const card = (name: string) =>
         page.getByRole('listitem').filter({ has: page.getByRole('heading', { name }) })
-      const guide = card('Llamas & You: a field guide')
+      const guide = card(DOUBLE_ITEM.name)
       await shot.hold(900)
       await shot.mark('shelf', page.getByRole('list').filter({ has: guide }))
       await shot.mark('banner', page.getByText(/no real money/i).first())
@@ -388,27 +372,101 @@ const TAKES: Take[] = [
         await shot.moveTo(card(name).getByRole('heading', { name }), 1100)
         await shot.hold(700)
       }
-      await shot.moveTo(guide.getByRole('heading', { name: 'Llamas & You: a field guide' }), 900)
+      await shot.moveTo(guide.getByRole('heading', { name: DOUBLE_ITEM.name }), 900)
       await shot.hold(900)
+      await shot.mark('guide', guide)
       await shot.click(guide.getByRole('button', { name: /Add Llamas & You/ }))
       await shot.hold(900)
-      await shot.click(page.getByRole('link', { name: /^Cart/ }))
+      const cartLink = page.getByRole('link', { name: /^Cart/ })
+      await shot.mark('cart-link', cartLink)
+      await shot.click(cartLink)
       await page.waitForURL('**/cart')
       await page.waitForFunction(PAYPAL_BUTTON_DRAWN, undefined, { timeout: 30_000 })
       await shot.hold(700)
+      const pay = page.locator('section[aria-labelledby="pay-heading"]')
       await shot.mark('cart', page.locator('section[aria-labelledby="cart-heading"]'))
-      await shot.mark('pay', page.locator('section[aria-labelledby="pay-heading"]'))
-      const button = page.locator('section[aria-labelledby="pay-heading"] paypal-button')
+      await shot.mark('pay', pay)
+      const button = pay.locator('paypal-button')
       await shot.mark('paypal', button)
+      // A test email, typed the way a customer would.
+      const email = page.locator('#email')
+      await shot.mark('email', email)
+      await shot.click(email)
+      await page.keyboard.type(TEST_EMAIL, { delay: 80 })
+      await shot.mark('typed', email)
+      await shot.hold(800)
       await shot.moveTo(
         page.locator('section[aria-labelledby="cart-heading"]').getByText('Total'),
-        1200,
+        1000,
       )
-      await shot.hold(1500)
-      // Rest on PayPal's button without pressing it: the film draws the double press over this.
-      await shot.moveTo(button, 1200)
+      await shot.hold(1200)
+      // Rest on PayPal's button: the film draws the double press over this.
+      await shot.moveTo(button, 1000)
       await shot.mark('hover')
-      await shot.hold(6000)
+      await shot.hold(2500)
+      // The double submit, as the Double-Clicker sends it: one checkout key, two submits at once,
+      // from this browser. It first gets the visitor cookie a returning customer has, so both
+      // orders are filed under this customer (two cookieless submits would each mint their own).
+      await page
+        .context()
+        .addCookies([{ name: 'll_visitor', value: crypto.randomUUID(), url: STORE }])
+      const opened = await page.evaluate(
+        async ({ item, email: address }) => {
+          const body = JSON.stringify({
+            email: address,
+            checkoutKey: crypto.randomUUID(),
+            lines: [{ sku: item.sku, qty: 1, unitCents: item.cents }],
+          })
+          // Inline, with no named helpers: the page gets this exactly as written.
+          const init = { method: 'POST', headers: { 'content-type': 'application/json' }, body }
+          const [first, second] = await Promise.all([
+            fetch('/api/checkout/orders', init),
+            fetch('/api/checkout/orders', init),
+          ])
+          return [
+            (await first.json()) as { orderNumber: string; paypalOrderId: string },
+            (await second.json()) as { orderNumber: string; paypalOrderId: string },
+          ]
+        },
+        { item: DOUBLE_ITEM, email: TEST_EMAIL },
+      )
+      // Each order paid with PayPal's sandbox test card, then captured by the store, as its
+      // checkout page would.
+      const paypal = sandbox()
+      for (const order of opened) {
+        await paypal.confirmCard(order.paypalOrderId)
+        await page.evaluate(
+          async ({ id, item }) =>
+            fetch(`/api/checkout/orders/${encodeURIComponent(id)}/capture`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ lines: [{ sku: item.sku, qty: 1 }] }),
+            }).then((res) => res.json()),
+          { id: order.paypalOrderId, item: DOUBLE_ITEM },
+        )
+      }
+      const views = await Promise.all(opened.map((order) => paypal.readOrder(order.paypalOrderId)))
+      await shot.mark('charged', undefined, {
+        orders: opened.map((order) => order.orderNumber).join(', '),
+        paypalOrders: opened.map((order) => order.paypalOrderId).join(', '),
+        captures: views
+          .flatMap((view) =>
+            view.captures.map((c) => `${c.id} ${c.status} $${(c.amountCents / 100).toFixed(2)}`),
+          )
+          .join(', '),
+      })
+      // The customer looks at their orders.
+      await shot.click(page.getByRole('link', { name: 'Your orders' }).first())
+      await page.waitForURL('**/orders')
+      await shot.hold(700)
+      const rows = page.locator('main ul li')
+      await shot.mark('orders', page.locator('main ul').first())
+      await shot.mark('row:0', rows.nth(0))
+      await shot.mark('row:1', rows.nth(1))
+      await shot.moveTo(rows.nth(0).getByText('$24.00'), 900)
+      await shot.hold(1000)
+      await shot.moveTo(rows.nth(1).getByText('$24.00'), 700)
+      await shot.hold(5000)
     },
   },
   {
@@ -479,42 +537,31 @@ const TAKES: Take[] = [
       await shot.hold(1500)
       await shot.moveTo(shipments.getByText(/Shipment 1/), 900)
       await shot.hold(1500)
-      const paypal = await paypalOrder(created.paypalOrderId)
+      const paypal = await sandbox().readOrder(created.paypalOrderId)
       await shot.mark('paypal', undefined, {
         status: paypal.status,
-        captures: String(paypal.captures),
+        captures: String(paypal.captures.length),
       })
       await shot.hold(5000)
     },
   },
   {
     name: 'w-site',
-    shows: "Shakedown's own site: the opening, then the cast, each customer from hell in turn.",
+    shows: "Shakedown's own site: its opening, and the cast named in the row beneath it.",
     async run(shot) {
       const { page } = shot
       await page.goto(`${SITE}/`, { waitUntil: 'networkidle' })
       await shot.hold(800)
       await shot.mark('hero', page.locator('main h1').first())
       await shot.mark('problem', page.getByText('Every test passed.', { exact: false }).first())
-      await shot.hold(3500)
-      const cast = page.locator('#cast')
-      await cast.scrollIntoViewIfNeeded()
-      await page.evaluate(() =>
-        document.querySelector('#cast')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-      )
-      await shot.hold(1400)
-      await shot.mark('cast', page.locator('#cast .cast-grid'))
-      for (const name of [
-        'The Double-Clicker',
-        'The Echo',
-        'The Cart Shuffler',
-        'The Bouncer',
-        'The Policy Lawyer',
-      ]) {
-        const slot = page.locator('.cast-slot').filter({ hasText: name }).first()
-        await shot.mark(`card:${name}`, slot)
-        await shot.moveTo(slot, 800)
-        await shot.hold(1300)
+      await shot.mark('ticker', page.locator('.hero__ticker ul'))
+      const chip = (name: string) => page.locator('.hero__ticker li').filter({ hasText: name })
+      for (const name of ['Double-Clicker', 'Cart Shuffler', 'Echo', 'Bouncer', 'Policy Lawyer'])
+        await shot.mark(`chip:${name}`, chip(name))
+      await shot.hold(4500)
+      for (const name of ['Double-Clicker', 'Echo', 'Policy Lawyer']) {
+        await shot.moveTo(chip(name), 800)
+        await shot.hold(1200)
       }
       await shot.hold(2500)
     },
