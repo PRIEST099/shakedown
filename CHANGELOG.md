@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Discover: Shakedown at any store's routes (2026-10-07)
+
+- **Route maps.** `target.routes` in the config says where a store's checkout lives and how it talks:
+  each route's method and path, the JSON body to send (a template with `{{placeholders}}`), and
+  where the fields Shakedown needs are in the answer (dot paths). Anything left out is Shakedown's
+  own contract, so Leaky Llama and existing configs work as before. `target.catalog` lists the
+  products for a store that has no product list route.
+- **`npx @shakedown-dev/cli discover`** reads a store's source code and writes that map. It finds
+  routes in Next.js (app and pages routers), SvelteKit, Nuxt and Express-style routers, mount
+  prefixes included. It follows each handler two calls deep and scores it for each role by the PayPal
+  calls and event names only that job touches. It reads the cart's shape and where PayPal's order ID
+  comes back, and prints each finding with the line of code behind it. It reads files only and
+  sends nothing.
+- **A second demo store, Trailhead Outfitters** (`examples/standard-checkout`): built like PayPal's
+  standard checkout sample, with no dependencies. `discover` found all its routes. A sandbox run
+  against it found its six deliberate leaks and passed the two checks it gets right.
+
 ### Phase 12: the video, first cut (2026-10-05)
 
 - **An animatic of the hackathon video** (`apps/video`, 2:40), in Remotion, from real footage:

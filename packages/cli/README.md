@@ -46,8 +46,29 @@ in the current folder (`--env-file` picks another). It never prints them.
 
 ### What your store needs to answer
 
-Shakedown speaks to your store over HTTP. [Leaky Llama](https://github.com/PRIEST099/shakedown/tree/main/apps/leaky-llama)
-is the reference implementation.
+Shakedown speaks to your store over HTTP, at whatever routes your checkout already has. Let it find
+them in your code:
+
+```bash
+npx @shakedown-dev/cli discover --write
+```
+
+`discover` reads your project's source (Next.js app and pages routers, SvelteKit, Nuxt server routes,
+and Express-style routers such as Express, Fastify and Hono). It follows each handler into the
+functions it calls, and names the route that creates a PayPal order, the one that captures it, your
+webhook listener and your product list. Each comes with the line of code that gave it away. It also
+reads how each one talks: the cart's shape, and where PayPal's order ID comes back. `--write` saves
+that as `target.routes` in `shakedown.config.ts`, with anything it could not read listed for you to
+check. It only reads files on your machine and sends nothing.
+[Trailhead Outfitters](https://github.com/PRIEST099/shakedown/tree/main/examples/standard-checkout)
+is a store built like PayPal's standard checkout sample, with its discovered config beside it.
+
+What it can't write for you is the probe route. It's one read-only route that tells Shakedown what
+your store believes about an order: what it shipped, and what it thinks was captured. Shakedown
+reads PayPal's side from PayPal; this route is how it reads yours.
+
+Without a route map, Shakedown expects its own contract, which
+[Leaky Llama](https://github.com/PRIEST099/shakedown/tree/main/apps/leaky-llama) speaks:
 
 | Route | For |
 |---|---|
@@ -101,6 +122,41 @@ strict: true
 
 Unknown settings are an error, and so is anything that looks like a secret.
 
+#### Routes of your own
+
+When your checkout isn't at Shakedown's paths, `target.routes` says where it is and how it talks.
+`discover` writes this for you. Leave out anything that matches the defaults.
+
+```ts
+target: {
+  url: 'http://localhost:8888',
+  routes: {
+    // Body placeholders: {{lines}}, {{email}}, {{checkoutKey}}, {{total}}, {{totalCents}}, {{currency}}.
+    // Each cart line is written with `line`: {{sku}}, {{qty}}, {{unitPrice}}, {{unitCents}}, {{name}}.
+    createOrder: {
+      path: '/api/orders',
+      body: { cart: '{{lines}}' },
+      line: { id: '{{sku}}', quantity: '{{qty}}' },
+      answer: { paypalOrderId: 'id' }, // dot paths into the JSON answer; `a|b` for either
+    },
+    // The first :param is the PayPal order ID. A store that hands PayPal's answer back:
+    capture: {
+      path: '/api/orders/:orderID/capture',
+      answer: { status: 'status', captureId: 'purchase_units.0.payments.captures.0.id' },
+    },
+    webhook: { path: '/webhooks/paypal' },
+    catalog: { path: '/api/products', sku: 'id', name: 'title', price: 'price', priceUnit: 'dollars' },
+    probe: { path: '/shakedown/orders/:id' },
+    support: false, // no support assistant
+  },
+},
+```
+
+A store without a product list sets `catalog: false` and lists what it sells in `target.catalog`
+(`[{ sku, name, priceCents }]`). A store that keeps no order number of its own is known by PayPal's
+order ID, and so is its probe route. Headers can carry placeholders too (`{ 'Idempotency-Key':
+'{{checkoutKey}}' }`), but never secrets: those stay in `.env.local`.
+
 ## Commands
 
 **`run`** sends the customers in and writes, to `.shakedown/`:
@@ -121,6 +177,10 @@ it: `--format terminal|markdown|junit|json`.
 
 **`preflight`** checks the environment, the sandbox lock, that the target is allowed and answering, and
 that its probe route takes your secret and refuses requests without it.
+
+**`discover [folder]`** finds your checkout's routes in your source code (see above). `--write` saves
+them as `shakedown.config.ts`, or as `shakedown.config.discovered.ts` beside a config you already
+have. `--target` sets the store's URL in it; otherwise it is guessed from your code.
 
 **`comment`** posts the last run's scoreboard on the pull request in GitHub Actions, and updates that
 one comment on later pushes. It uses the workflow's own `GITHUB_TOKEN`.

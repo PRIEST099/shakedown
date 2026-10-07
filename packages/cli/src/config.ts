@@ -47,10 +47,110 @@ const persona = z.enum(PERSONA_NAMES, {
       : `Unknown customer ${JSON.stringify(issue.input)}. Choose from: ${PERSONA_NAMES.join(', ')}.`,
 })
 
+/** A JSON value with {{placeholders}}, for a request body. */
+type Template = string | number | boolean | null | Template[] | { [key: string]: Template }
+const template: z.ZodType<Template> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(template),
+    z.record(z.string(), template),
+  ]),
+)
+const SECRET_HEADER = /authorization|cookie|secret|token|api.?key|password/i
+const route = {
+  method: z.enum(['GET', 'POST', 'PUT', 'PATCH']).optional(),
+  path: z.string().regex(/^\//, 'Must start with /.'),
+  headers: z
+    .record(
+      z.string().refine((name) => !SECRET_HEADER.test(name), {
+        error: 'Secrets belong in the environment (.env.local), never in the config file.',
+      }),
+      z.string(),
+    )
+    .optional(),
+}
+const field = z.string().optional()
+const routesSchema = z.strictObject({
+  catalog: z
+    .union([
+      z.literal(false),
+      z.strictObject({
+        ...route,
+        items: field,
+        sku: field,
+        name: field,
+        price: field,
+        priceUnit: z.enum(['cents', 'dollars']).optional(),
+      }),
+    ])
+    .optional(),
+  createOrder: z
+    .strictObject({
+      ...route,
+      body: template.optional(),
+      line: template.optional(),
+      answer: z
+        .strictObject({
+          paypalOrderId: field,
+          storeOrderId: field,
+          amountCents: field,
+          amount: field,
+          currency: field,
+          reused: field,
+          error: field,
+        })
+        .optional(),
+    })
+    .optional(),
+  capture: z
+    .strictObject({
+      ...route,
+      body: template.optional(),
+      line: template.optional(),
+      answer: z
+        .strictObject({
+          kind: field,
+          status: field,
+          storeOrderId: field,
+          captureId: field,
+          shipped: field,
+          error: field,
+        })
+        .optional(),
+    })
+    .optional(),
+  webhook: z.strictObject(route).optional(),
+  probe: z.strictObject(route).optional(),
+  support: z
+    .union([
+      z.literal(false),
+      z.strictObject({
+        ...route,
+        body: template.optional(),
+        answer: z.strictObject({ reply: field, toolCalls: field, error: field }).optional(),
+      }),
+    ])
+    .optional(),
+})
+
 export const configSchema = z.strictObject({
   target: z.strictObject({
     url: z.url({ protocol: /^https?$/, error: 'Must be an http or https URL.' }),
     allowHosts: z.array(z.string().min(1)).optional(),
+    routes: routesSchema.optional(),
+    catalog: z
+      .array(
+        z.strictObject({
+          sku: z.string().min(1),
+          name: z.string().min(1),
+          priceCents: z.int().positive(),
+        }),
+      )
+      .min(1)
+      .optional(),
   }),
   cast: z.array(persona).min(1).optional(),
   seed: z.int().nonnegative().optional(),

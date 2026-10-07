@@ -2,8 +2,12 @@ import {
   assertTargetAllowed,
   describeSecret,
   EnvError,
+  fillPath,
   loadEnv,
   PROBE_HEADER,
+  pick,
+  type RouteMap,
+  resolveRoutes,
   type ShakedownEnv,
   TargetNotAllowedError,
   verifyTargetOwnership,
@@ -79,6 +83,10 @@ export interface TargetCheckOptions {
   allowHosts?: string[]
   probeSecret?: string
   verificationToken?: string
+  /** The store's routes, when they aren't Shakedown's own contract. */
+  routes?: RouteMap
+  /** Set when the config lists what the store sells instead of a catalog route. */
+  catalog?: unknown[]
   fetch?: typeof fetch
 }
 
@@ -99,18 +107,34 @@ export async function preflightTarget(options: TargetCheckOptions): Promise<Pref
   const origin = new URL(options.url).origin
   const checks: Check[] = [{ label: 'Target', ok: true, detail: `${origin} (allowed)` }]
 
+  const routes = resolveRoutes(options.routes)
   try {
-    const res = await http(`${origin}/api/catalog`)
-    const body = (await res.json().catch(() => ({}))) as { items?: unknown[] }
-    checks.push(
-      res.ok
-        ? {
-            label: 'Store',
-            ok: true,
-            detail: `answering, ${body.items?.length ?? 0} products in the catalog`,
-          }
-        : { label: 'Store', ok: false, detail: `GET /api/catalog answered HTTP ${res.status}` },
-    )
+    if (routes.catalog === false || options.catalog) {
+      // No catalog route to ask: check the store answers at all, at its checkout route.
+      await http(`${origin}${routes.createOrder.path}`, { method: 'OPTIONS' })
+      checks.push({
+        label: 'Store',
+        ok: true,
+        detail: `answering; ${options.catalog?.length ?? 0} products listed in the config`,
+      })
+    } else {
+      const res = await http(`${origin}${routes.catalog.path}`)
+      const body = await res.json().catch(() => ({}))
+      const items = routes.catalog.items ? pick(body, routes.catalog.items) : body
+      checks.push(
+        res.ok
+          ? {
+              label: 'Store',
+              ok: true,
+              detail: `answering, ${Array.isArray(items) ? items.length : 0} products in the catalog`,
+            }
+          : {
+              label: 'Store',
+              ok: false,
+              detail: `GET ${routes.catalog.path} answered HTTP ${res.status}`,
+            },
+      )
+    }
   } catch (error) {
     const cause = (error as { cause?: { code?: string } }).cause?.code
     checks.push({
@@ -124,7 +148,7 @@ export async function preflightTarget(options: TargetCheckOptions): Promise<Pref
   if (!options.probeSecret) {
     checks.push({ label: 'Probe secret', ok: false, detail: 'SHAKEDOWN_PROBE_SECRET is not set' })
   } else {
-    const probe = `${origin}/api/probe/orders/SHAKEDOWN-PREFLIGHT`
+    const probe = `${origin}${fillPath(routes.probe.path, 'SHAKEDOWN-PREFLIGHT')}`
     const withSecret = await http(probe, { headers: { [PROBE_HEADER]: options.probeSecret } })
     const without = await http(probe)
     checks.push(

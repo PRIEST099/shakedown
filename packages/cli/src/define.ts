@@ -24,12 +24,85 @@ export interface RefundPolicy {
   noRefundDuringDispute: boolean
 }
 
+/** A JSON value with {{placeholders}} in its strings, for a request body. */
+export type Template = string | number | boolean | null | Template[] | { [key: string]: Template }
+
+export interface RouteSpec {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH'
+  /** The path on your store, e.g. `/api/orders/:orderID/capture`. Its first `:param` is filled in. */
+  path: string
+  /** Extra request headers, e.g. `{ 'Idempotency-Key': '{{checkoutKey}}' }`. Never secrets. */
+  headers?: Record<string, string>
+}
+
+/**
+ * Where your checkout lives and how it talks, when it isn't Shakedown's own contract.
+ * `npx @shakedown-dev/cli discover` writes this from your source code. Answers are read with dot
+ * paths (`purchase_units.0.payments.captures.0.id`; `a|b` for either).
+ */
+export interface RouteMap {
+  /** What you sell. `false` when there's no such route: give `target.catalog` instead. */
+  catalog?:
+    | (RouteSpec & {
+        items?: string
+        sku?: string
+        name?: string
+        price?: string
+        priceUnit?: 'cents' | 'dollars'
+      })
+    | false
+  /**
+   * Opening a checkout. Body placeholders: {{lines}}, {{email}}, {{checkoutKey}}, {{totalCents}},
+   * {{total}}, {{currency}}; each line is written with `line`: {{sku}}, {{qty}}, {{unitCents}},
+   * {{unitPrice}}, {{name}}.
+   */
+  createOrder?: RouteSpec & {
+    body?: Template
+    line?: Template
+    answer?: {
+      paypalOrderId?: string
+      storeOrderId?: string
+      amountCents?: string
+      amount?: string
+      currency?: string
+      reused?: string
+      error?: string
+    }
+  }
+  /** Capturing an approved order. The path's first `:param` is the PayPal order ID. */
+  capture?: RouteSpec & {
+    body?: Template
+    line?: Template
+    answer?: {
+      kind?: string
+      status?: string
+      storeOrderId?: string
+      captureId?: string
+      shipped?: string
+      error?: string
+    }
+  }
+  webhook?: RouteSpec
+  /** Shakedown's read-only probe route: what your store believes about an order. */
+  probe?: RouteSpec
+  support?:
+    | (RouteSpec & {
+        body?: Template
+        answer?: { reply?: string; toolCalls?: string; error?: string }
+      })
+    | false
+}
+
 export interface ShakedownConfig {
   /** Your store. It must be local, or an allow-listed host that serves your verification token. */
   target: {
     url: string
     /** Hosts beyond localhost and private ranges that you own and have verified. */
     allowHosts?: string[]
+    /** Your routes, when they aren't Shakedown's own contract. */
+    routes?: RouteMap
+    /** What you sell, when your store has no catalog route. Prices in cents. */
+    catalog?: { sku: string; name: string; priceCents: number }[]
   }
   /** Who to send. Default: the four customers that need no AI, so a run costs nothing. */
   cast?: PersonaName[]

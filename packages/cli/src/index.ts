@@ -6,6 +6,8 @@ import { printReceipt, shouldAnimate } from '@shakedown/reporters'
 import pkg from '../package.json' with { type: 'json' }
 import { commentCommand } from './comment'
 import { ConfigError, loadConfig } from './config'
+import type { RouteMap } from './define'
+import { discoverCommand } from './discover/command'
 import { EXIT } from './exit-codes'
 import { combine, preflight, preflightTarget } from './preflight'
 import { reportCommand } from './report'
@@ -19,6 +21,7 @@ Usage:
   npx @shakedown-dev/cli run [options]        Send the customers in and grade what PayPal saw
   npx @shakedown-dev/cli report [options]     Open the last report, or print it in another format
   npx @shakedown-dev/cli preflight [options]  Check your setup, your store and the sandbox lock
+  npx @shakedown-dev/cli discover [folder]    Find your checkout's routes in your source code
   npx @shakedown-dev/cli comment              In GitHub Actions: post the scoreboard on the PR
 
 Run options:
@@ -36,6 +39,7 @@ Common options:
   --config <file>       Default: the first shakedown.config.{ts,mts,js,mjs,json,yaml,yml} here
   --env-file <file>     Default: .env.local, if it exists
   --format <name>       report only: html, terminal, markdown, junit or json
+  --write               discover only: save the route map as shakedown.config.ts
 
 Exit codes: 0 pass · 1 leaks · 2 inconclusive (strict) · 3 safety lock · 4 config · 5 preflight
 Sandbox only. Your credentials never leave this machine.`
@@ -59,6 +63,7 @@ function parse(argv: string[]) {
       ci: { type: 'boolean' },
       out: { type: 'string' },
       format: { type: 'string' },
+      write: { type: 'boolean' },
     },
   })
 }
@@ -114,6 +119,8 @@ async function main(argv: string[]): Promise<number> {
   if (command === 'comment')
     return commentCommand(flags, { cwd: process.cwd(), env: process.env, log })
 
+  if (command === 'discover') return discoverCommand(positionals[1] ?? '.', flags)
+
   if (command === 'preflight') {
     const result = await runPreflight(flags)
     for (const check of result.checks) {
@@ -135,10 +142,14 @@ async function runPreflight(flags: { config?: string; target?: string }) {
   const base = preflight(process.env)
   let url = flags.target
   let allowHosts: string[] | undefined
+  let routes: RouteMap | undefined
+  let catalog: unknown[] | undefined
   try {
     const loaded = await loadConfig({ cwd: process.cwd(), file: flags.config })
     url ??= loaded?.config.target.url
     allowHosts = loaded?.config.target.allowHosts
+    routes = loaded?.config.target.routes
+    catalog = loaded?.config.target.catalog
   } catch (error) {
     if (!(error instanceof ConfigError)) throw error
     return combine(base, {
@@ -167,6 +178,8 @@ async function runPreflight(flags: { config?: string; target?: string }) {
       allowHosts,
       probeSecret: env.SHAKEDOWN_PROBE_SECRET,
       verificationToken: env.SHAKEDOWN_VERIFICATION_TOKEN,
+      routes,
+      catalog,
     }),
   )
 }

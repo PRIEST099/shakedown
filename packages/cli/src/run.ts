@@ -120,6 +120,8 @@ export async function runCommand(flags: RunFlags, io: RunIo): Promise<number> {
         allowHosts: settings.allowHosts,
         verificationToken: env.SHAKEDOWN_VERIFICATION_TOKEN,
       },
+      routes: settings.routes,
+      catalog: settings.catalog,
       fetch: io.fetch,
     })
   } catch (error) {

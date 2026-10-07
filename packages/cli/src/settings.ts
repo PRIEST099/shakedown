@@ -1,5 +1,5 @@
 import { ConfigError, DEFAULT_CAST, PERSONA_NAMES, validateConfig } from './config'
-import type { PersonaName, RefundPolicy, Seal, ShakedownConfig } from './define'
+import type { PersonaName, RefundPolicy, RouteMap, Seal, ShakedownConfig } from './define'
 
 /** Everything `run` accepts on the command line. Flags win over the config file. */
 export interface RunFlags {
@@ -19,6 +19,8 @@ export interface RunFlags {
 export interface RunSettings {
   targetUrl: string
   allowHosts: string[]
+  routes?: RouteMap
+  catalog?: { sku: string; name: string; priceCents: number }[]
   cast: PersonaName[]
   seed: number
   switches?: Partial<Record<PersonaName, Seal>>
@@ -76,6 +78,8 @@ export function resolveSettings(file: ShakedownConfig | undefined, flags: RunFla
   return {
     targetUrl: config.target.url,
     allowHosts: config.target.allowHosts ?? [],
+    routes: config.target.routes,
+    catalog: config.target.catalog,
     cast: [...new Set(config.cast ?? DEFAULT_CAST)].sort(
       (a, b) => PERSONA_NAMES.indexOf(a) - PERSONA_NAMES.indexOf(b),
     ),
