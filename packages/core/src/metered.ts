@@ -2,6 +2,7 @@ import type { Budget } from './budget'
 import type { Ledger } from './ledger'
 import type { PayPalSide } from './paypal-side'
 import type {
+  CheckoutLine,
   CheckoutPort,
   DeliveryOptions,
   DeliveryResult,
@@ -110,19 +111,32 @@ function meterCheckout(
   deps: { budget: Budget; ledger: Ledger },
 ): CheckoutPort {
   const { budget, ledger } = deps
+  // The cart at the catalog's prices, so a grader can tell a price the customer made up without
+  // asking the store. Unknown when a line isn't in the catalog.
+  const listCentsOf = (lines: readonly CheckoutLine[]) => {
+    let total = 0
+    for (const line of lines) {
+      const item = checkout.catalog.find((candidate) => candidate.sku === line.sku)
+      if (!item) return undefined
+      total += item.priceCents * line.qty
+    }
+    return total
+  }
   return {
     catalog: checkout.catalog,
 
     async openCheckout(input) {
       budget.spend('requests')
+      const listCents = listCentsOf(input.lines)
       try {
         const opened = await checkout.openCheckout(input)
-        ledger.checkoutOpened({ ...input, lines: [...input.lines], ...opened })
+        ledger.checkoutOpened({ ...input, lines: [...input.lines], listCents, ...opened })
         return opened
       } catch (error) {
         ledger.checkoutOpened({
           ...input,
           lines: [...input.lines],
+          listCents,
           status: 0,
           error: (error as Error).message,
         })

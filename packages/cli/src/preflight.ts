@@ -164,20 +164,21 @@ export async function preflightTarget(options: TargetCheckOptions): Promise<Pref
       headers: { [PROBE_HEADER]: options.probeSecret },
     })
     const without = await http(probe, { method })
-    // A probe route answers in JSON even for an order it doesn't know; a store with no such route
-    // gives its framework's 404 page instead.
+    // A probe route answers even an order it doesn't know with `found: false`; a store with no
+    // such route gives its framework's 404 instead, an HTML page or JSON like NestJS's
+    // { statusCode: 404, message: 'Cannot GET …' }.
     const answer: unknown = await withSecret.json().catch(() => undefined)
     const noRoute =
       withSecret.status === 404 &&
       without.status === 404 &&
-      (answer === null || typeof answer !== 'object')
+      (answer === null || typeof answer !== 'object' || !('found' in answer))
     checks.push(
       noRoute
         ? {
             label: 'Probe route',
             ok: true,
             warn: true,
-            detail: `none at ${routes.probe.path} (HTTP 404). Checks that need your store's own records will come back inconclusive; the double charge is judged from PayPal's alone.`,
+            detail: `none at ${routes.probe.path} (HTTP 404). Checks that need your store's own records will come back inconclusive; a double charge, and a price the customer made up, are judged from PayPal's records and your catalog.`,
           }
         : withSecret.status === 403
           ? {

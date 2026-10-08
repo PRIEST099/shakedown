@@ -60,6 +60,18 @@ const withinCaptured: Invariant = {
       }
     }
     if (!probe?.found || !probe.shipments) {
+      // Without the store's records, PayPal's still says what the customer paid, and the catalog
+      // says what the cart is worth. Paying less than that is a price the customer made up.
+      const listCents = opened?.listCents
+      if (listCents !== undefined && captured < listCents) {
+        const gap = listCents - captured
+        return {
+          verdict: 'leak',
+          merchantLeakCents: gap,
+          detail: `PayPal captured ${dollars(captured)} for a cart worth ${dollars(listCents)} at the catalog's prices: the store charged the price the customer sent, ${dollars(gap)} short. (The store has no probe route, so this is judged from PayPal's records and the catalog.)`,
+          evidence: [...facts, evidence('Cart at catalog prices', dollars(listCents))],
+        }
+      }
       return {
         verdict: 'inconclusive',
         detail: 'The store did not report its shipments.',

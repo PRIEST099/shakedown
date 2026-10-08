@@ -3,7 +3,15 @@ import path from 'node:path'
 import { DEFAULT_ROUTES, type RouteMap } from '@shakedown/core'
 import { type Picks, pick, ROLE_TEXT, ROLES, type Role, type Scored } from './classify'
 import { answerOf, type BodyGuess, bodyOf, catalogOf, clientBodyOf } from './shape'
-import { closeOf, lineAt, type Route, readSources, routesOf, type SourceFile } from './source'
+import {
+  closeOf,
+  lineAt,
+  payPalCodeElsewhere,
+  type Route,
+  readSources,
+  routesOf,
+  type SourceFile,
+} from './source'
 
 /**
  * `shakedown discover`: read a store's source code, find the routes its checkout really uses,
@@ -38,7 +46,14 @@ export interface Risk {
 
 export function discover(root: string): Discovery {
   const files = readSources(root)
-  return { ...discoverIn(files), url: guessUrl(root, files) }
+  const found = { ...discoverIn(files), url: guessUrl(root, files) }
+  if (!found.picks.best.createOrder) {
+    const elsewhere = payPalCodeElsewhere(root)
+    const languages = [...new Set(elsewhere.map((entry) => entry.language))]
+    if (languages.length)
+      found.checks[0] = `discover reads JavaScript and TypeScript only, and this store's PayPal code is in ${languages.join(' and ')} (${elsewhere.map((entry) => entry.file).join(', ')}). Shakedown tests any backend over HTTP: write routes.createOrder and routes.capture by hand (see "Routes of your own" in the README).`
+  }
+  return found
 }
 
 const isDefault = (role: keyof typeof DEFAULT_ROUTES, route: Route) =>
@@ -166,10 +181,19 @@ export function discoverIn(files: readonly SourceFile[]): Discovery {
               : {}),
           },
     }
-    if (!/:[\w]+/.test(capture.path))
-      checks.push(
-        `${capture.path} takes no order in its path; check how it learns which order to capture.`,
+    if (!/:[\w]+/.test(capture.path)) {
+      // The order travels in the body instead: { orderId }, read by the handler or sent by the page.
+      const server = bodyOf(capture)
+      const reads = server.fields.length ? server : clientBodyOf(files, capture.path)
+      const id = reads?.fields.find((f) =>
+        /^(?:orderId|order_id|paypalOrderId|paypal_order_id|id|token)$/i.test(f.name),
       )
+      if (id) map.capture.body = { [id.name]: '{{paypalOrderId}}' }
+      else
+        checks.push(
+          `${capture.path} takes no order in its path; check how it learns which order to capture.`,
+        )
+    }
   }
 
   const webhook = best.webhook?.route
@@ -304,6 +328,24 @@ function risksOf(files: readonly SourceFile[], routes: readonly Route[], picks: 
         'Two submits of one checkout open two PayPal orders, and a customer who presses Pay twice can pay twice. Send one PayPal-Request-Id per checkout attempt. The Double-Clicker tests this.',
       evidence: at ? [at] : [],
     })
+  }
+
+  // A price the browser sends, charged as it comes: the Cart Shuffler's own-price-tag check.
+  if (order) {
+    const priced = bodyOf(order).fields.find((f) =>
+      /^(?:amount|total|totalAmount|price|value|amountCents|totalCents|amount_cents)$/.test(f.name),
+    )
+    if (priced) {
+      const at = lineOf(
+        order,
+        new RegExp(`@Body\\(\\s*['"]${priced.name}['"]|\\b${priced.name}\\b`),
+      )
+      risks.push({
+        title: `${order.method} ${order.path} takes its price from the request`,
+        detail: `It reads "${priced.name}" from what the browser sends, and anyone can send a smaller number. Work the total out on the server from your own prices, and take only what and how many from the cart. The Cart Shuffler tests this.`,
+        evidence: at ? [at] : [],
+      })
+    }
   }
 
   const webhook = best.webhook?.route

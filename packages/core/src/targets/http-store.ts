@@ -309,7 +309,8 @@ export async function httpStoreTarget(options: HttpStoreOptions): Promise<Target
         const res = await send(route, {
           param: paypalOrderId,
           body: route.body,
-          vars: cartVars({ lines: input?.lines }, route.line),
+          // Some stores take the order in the body ({ orderId }), not the path.
+          vars: { ...cartVars({ lines: input?.lines }, route.line), paypalOrderId },
         })
         const body = await readJson(res)
         const answer = route.answer

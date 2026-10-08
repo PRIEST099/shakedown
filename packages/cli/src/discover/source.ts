@@ -56,6 +56,64 @@ const TEST = /(?:\.(?:test|spec)\.[cm]?[jt]sx?$)|(?:^|\/)(?:__tests__|e2e|tests?
 const MAX_FILES = 6000
 const MAX_BYTES = 400_000
 
+const OTHER_LANGUAGES: [RegExp, string][] = [
+  [/\.py$/, 'Python'],
+  [/\.php$/, 'PHP'],
+  [/\.rb$/, 'Ruby'],
+  [/\.(?:java|kt)$/, 'Java'],
+  [/\.cs$/, 'C#'],
+  [/\.go$/, 'Go'],
+]
+const OTHER_DEPENDENCIES = new Set([
+  'venv',
+  'env',
+  'site-packages',
+  '__pycache__',
+  'target',
+  'obj',
+  'bin',
+])
+
+/**
+ * PayPal code in languages `discover` doesn't read, so it can say why it found no routes: a
+ * Flask or Laravel store is still one Shakedown can test, with its routes written by hand.
+ */
+export function payPalCodeElsewhere(root: string): { language: string; file: string }[] {
+  const found: { language: string; file: string }[] = []
+  let seen = 0
+  const walk = (dir: string) => {
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      return
+    }
+    for (const name of entries.sort()) {
+      if (found.length >= 3 || seen >= MAX_FILES) return
+      const full = path.join(dir, name)
+      let stat: ReturnType<typeof statSync>
+      try {
+        stat = statSync(full)
+      } catch {
+        continue
+      }
+      if (stat.isDirectory()) {
+        // Installed packages carry PayPal's own SDK, which is not the store's code.
+        if (!SKIP_DIRS.has(name) && !OTHER_DEPENDENCIES.has(name) && !name.startsWith('.'))
+          walk(full)
+        continue
+      }
+      const language = OTHER_LANGUAGES.find(([pattern]) => pattern.test(name))?.[1]
+      if (!language || stat.size > MAX_BYTES) continue
+      seen += 1
+      if (/paypal/i.test(readFileSync(full, 'utf8')))
+        found.push({ language, file: path.relative(root, full).split(path.sep).join('/') })
+    }
+  }
+  walk(root)
+  return found
+}
+
 /** Every source file under the root, skipping dependencies, build output and tests. */
 export function readSources(root: string): SourceFile[] {
   const files: SourceFile[] = []

@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### @shakedown-dev/cli 0.2.3: tried on stores in other setups (2026-10-08)
+
+- **Tried on:** PayPal's standard checkout sample with its Python (Flask) backend, and a public
+  NestJS + Next.js project. Live in the sandbox:
+  - **Python:** one leak, the double click charging the customer twice ($100), as with PayPal's
+    Node backend.
+  - **NestJS:** two leaks. The double click charged the customer twice, and the store charged
+    €1.00 for a €100 booking because it takes its price from the browser. (The receipt still
+    prints every amount in dollars; it should use the capture's currency.)
+- **Fixed: a TypeScript or JavaScript config didn't load in a CommonJS folder.** That's the
+  `package.json` `npm init` writes, and what a Python or PHP store ends up with. The config now
+  loads as a module wherever it is.
+- **The price check works without a probe route.** When PayPal captured less than the cart's
+  catalog price, that's a leak, judged from PayPal's records and the catalog. Before, it was
+  inconclusive.
+- **Fixed: preflight failed a NestJS store** that has no probe route, since NestJS answers unknown
+  routes with a JSON 404. Only a probe's own answer, with `found`, counts as a probe route now.
+- **Capture by body:** `{{paypalOrderId}}` puts PayPal's order ID in a capture route's body, for
+  stores that take `{ orderId }` instead of a path parameter.
+- **discover:**
+  - reads NestJS `@Body('amount')` and `@Body() dto`, and a service that returns PayPal's answer;
+  - reads how a page calls a route whose URL starts with a variable (`${API_URL}/paypal/...`);
+  - fills in a capture route's body when the order travels there;
+  - flags an order priced from the request;
+  - says when a store's PayPal code is in a language it doesn't read, instead of asking whether
+    this is the right folder.
+
 ### @shakedown-dev/cli 0.2.2 (2026-10-07)
 
 - **Search keywords on npm** (paypal, paypal-sandbox, checkout, payments, webhooks, testing, and more), so searches like "paypal checkout testing" can find the package. No code changes.

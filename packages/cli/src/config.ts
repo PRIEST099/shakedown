@@ -229,14 +229,22 @@ async function readConfigFile(file: string): Promise<unknown> {
   if (!['.ts', '.mts', '.js', '.mjs'].includes(extension)) {
     throw new ConfigError(`${name}: use .ts, .mts, .js, .mjs, .json, .yaml or .yml.`)
   }
+  const url = pathToFileURL(file).href
   answerSelfImports()
+  configUrls.add(url)
   let loaded: { default?: unknown }
   try {
-    loaded = (await import(pathToFileURL(file).href)) as { default?: unknown }
+    loaded = (await import(url)) as { default?: unknown }
   } catch (error) {
     if ((error as { code?: string }).code === 'ERR_UNKNOWN_FILE_EXTENSION') {
       throw new ConfigError(
         `Node ${process.versions.node} cannot load ${name}. Use Node 22.18 or later, or write the config as JSON or YAML.`,
+      )
+    }
+    // A folder whose package.json says "type": "commonjs", on a Node without module hooks.
+    if (/Cannot use import statement outside a module/.test((error as Error).message)) {
+      throw new ConfigError(
+        `Could not load ${name}: this folder's package.json makes .${extension.slice(-2)} files CommonJS. Rename it to shakedown.config.${extension === '.ts' ? 'mts' : 'mjs'}, or write the config as JSON or YAML.`,
       )
     }
     throw new ConfigError(`Could not load ${name}: ${(error as Error).message}`)
@@ -246,8 +254,13 @@ async function readConfigFile(file: string): Promise<unknown> {
 }
 
 let answering = false
+const configUrls = new Set<string>()
 
-/** Let `import { defineConfig } from '@shakedown-dev/cli'` work even when run through npx. */
+/**
+ * Let `import { defineConfig } from '@shakedown-dev/cli'` work even when run through npx, and
+ * load the config as a module even where the folder's package.json says "type": "commonjs" (the
+ * default `npm init` writes, and what a store written in Python or PHP ends up with).
+ */
 function answerSelfImports(): void {
   if (answering || typeof nodeModule.registerHooks !== 'function') return
   answering = true
@@ -258,5 +271,13 @@ function answerSelfImports(): void {
       specifier === '@shakedown-dev/cli'
         ? { url: own, format: 'module', shortCircuit: true }
         : nextResolve(specifier, context),
+    load: (url, context, nextLoad) => {
+      if (!configUrls.has(url)) return nextLoad(url, context)
+      return {
+        format: /\.m?ts$/.test(url) ? 'module-typescript' : 'module',
+        source: readFileSync(new URL(url)),
+        shortCircuit: true,
+      }
+    },
   })
 }

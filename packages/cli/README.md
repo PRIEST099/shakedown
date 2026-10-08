@@ -66,9 +66,15 @@ from how your own pages call it), and where PayPal's order ID comes back. `--wri
 `target.routes` in `shakedown.config.ts`, with anything it could not read listed for you to check.
 It only reads files on your machine and sends nothing.
 
+`discover` reads JavaScript and TypeScript only. Shakedown itself talks to your store over HTTP, so
+a store in Python, PHP, Ruby, Java or anything else works the same: write `target.routes` by hand
+(see [Routes of your own](#routes-of-your-own)). `discover` tells you when it sees PayPal code in
+another language.
+
 It also flags patterns worth a look before any run, each with the lines behind it:
 - a route that marks an order paid on the browser's word, never asking PayPal;
 - an order created with no idempotency key;
+- an order priced from what the browser sends (`amount`, `total`, `price` in the request);
 - a webhook listener that never verifies a signature;
 - PayPal's older v1 Payments API, which the cast can't test.
 
@@ -163,6 +169,8 @@ target: {
       path: '/api/orders/:orderID/capture',
       answer: { status: 'status', captureId: 'purchase_units.0.payments.captures.0.id' },
     },
+    // Or one that takes the order in the body:
+    // capture: { path: '/paypal/capture-order', body: { orderId: '{{paypalOrderId}}' } },
     webhook: { path: '/webhooks/paypal' },
     // `items`: where the list is in the answer ('' when the answer is the list itself)
     catalog: { path: '/api/products', items: '', sku: 'id', name: 'title', price: 'price', priceUnit: 'dollars' },

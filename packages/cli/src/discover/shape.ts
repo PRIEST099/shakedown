@@ -70,6 +70,14 @@ export function bodyOf(route: Route): BodyGuess {
     for (const m of own.matchAll(new RegExp(`\\b${bodyVar}\\.([A-Za-z_$][\\w$]*)`, 'g')))
       names.add(m[1] ?? '')
   }
+  // NestJS: @Body('amount') amount: string
+  for (const m of own.matchAll(/@Body\(\s*['"](\w+)['"]\s*\)/g)) names.add(m[1] ?? '')
+  // NestJS: @Body() dto: CreateOrderDto, then dto.amount
+  const dto = /@Body\(\s*\)\s*(\w+)/.exec(own)?.[1]
+  if (dto) {
+    for (const m of own.matchAll(new RegExp(`\\b${dto}\\.([A-Za-z_$][\\w$]*)`, 'g')))
+      names.add(m[1] ?? '')
+  }
   // req.body.cart, _req.body.itemId, ctx.request.body.items
   for (const m of own.matchAll(/\b(?:_?req|request|ctx\.request|event)\.body\.([A-Za-z_$][\w$]*)/g))
     names.add(m[1] ?? '')
@@ -121,10 +129,26 @@ export function answerOf(route: Route): AnswerGuess {
   const list = [...fields]
   // `res.json(jsonResponse)`, `res.json(data.result)`: PayPal's order, passed through. An error
   // answer elsewhere in the handler (`json({ error })`) doesn't change that.
+  // Or a NestJS-style handler returns what a service hands back, and the service returns
+  // PayPal's answer: `return this.paypal.createOrder(amount)` → `return response.data`.
+  const delegates =
+    /return\s+(?:await\s+)?(?:this\.)?[\w.]+\(/.test(own) && !/\bjson\(|Response\(/.test(own)
+  const serviceReturnsPayPal = route.pieces
+    .slice(1)
+    .some(
+      (piece) =>
+        /v2\/checkout\/orders|ordersController\.|Orders(?:Create|Capture)Request/.test(
+          piece.text,
+        ) &&
+        /return\s+(?:await\s+)?(?:response|res|result|order)(?:\.(?:data|result|body))?\s*;?\s*$/m.test(
+          piece.text,
+        ),
+    )
   const passesPayPalThrough =
     /(?:\.json|json|\.send)\(\s*(?:jsonResponse|order|response|data(?:\.result)?|result|captureData|orderData|payload|paypalOrder)\s*\)/.test(
       own,
-    )
+    ) ||
+    (delegates && serviceReturnsPayPal)
   const paypalOrderId = passesPayPalThrough
     ? 'id'
     : (list.find((name) => /^(?:paypalOrderId|paypal_order_id|orderID)$/i.test(name)) ??
@@ -199,7 +223,10 @@ export function clientBodyOf(
   routePath: string,
 ): BodyGuess | undefined {
   const escaped = routePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const call = new RegExp(`(?:fetch|axios\\.post|\\.post|\\$fetch)\\(\\s*['"\`]${escaped}['"\`]`)
+  // '/api/orders', `${API_URL}/api/orders`, or API_URL + '/api/orders'
+  const call = new RegExp(
+    `(?:fetch|axios\\.post|\\.post|\\$fetch)\\(\\s*(?:[\\w.]+\\s*\\+\\s*)?['"\`](?:\\$\\{[^}]*\\})?${escaped}['"\`]`,
+  )
   for (const file of files) {
     const at = call.exec(file.text)
     if (!at) continue

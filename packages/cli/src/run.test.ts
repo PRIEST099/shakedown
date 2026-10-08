@@ -228,10 +228,14 @@ describe('preflight against a store', () => {
       if (req.url === '/api/catalog') return res.end('{"items":[{},{}]}')
       if (req.url?.startsWith('/api/probe/')) {
         const authorised = openProbe || req.headers['x-shakedown-probe'] === SECRET
+        // What a probe route answers for an order it doesn't know.
         res.statusCode = authorised ? 404 : 403
-        return res.end('{}')
+        return res.end(authorised ? '{"orderId":"SHAKEDOWN-PREFLIGHT","found":false}' : '{}')
       }
       res.statusCode = 404
+      // NestJS answers a route it doesn't have in JSON, not with a page.
+      if (req.url?.startsWith('/nest/'))
+        return res.end('{"message":"Cannot GET /nest/x","error":"Not Found","statusCode":404}')
       res.end()
     })
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -266,6 +270,13 @@ describe('preflight against a store', () => {
     expect(result.exitCode).toBe(EXIT.pass)
     expect(result.checks.at(-1)).toMatchObject({ label: 'Probe route', ok: true, warn: true })
     expect(result.checks.at(-1)?.detail).toContain('inconclusive')
+    const nest = await preflightTarget({
+      url: origin,
+      probeSecret: SECRET,
+      routes: { probe: { path: '/nest/probe/:id' } },
+    })
+    expect(nest.exitCode).toBe(EXIT.pass)
+    expect(nest.checks.at(-1)).toMatchObject({ label: 'Probe route', warn: true })
   })
 
   it('stops at the safety lock for a store you have not verified, and at a dead port', async () => {

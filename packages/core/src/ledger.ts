@@ -81,6 +81,8 @@ export interface CheckoutEntry {
   at: string
   email: string
   lines: CheckoutLine[]
+  /** The cart at the catalog's own prices, whatever prices the customer sent. */
+  listCents?: Cents
   checkoutKey?: string
   status: number
   storeOrderId?: string

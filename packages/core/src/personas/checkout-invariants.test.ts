@@ -211,6 +211,25 @@ describe('Cart Shuffler: goods shipped never outweigh what PayPal captured', () 
   it('is inconclusive when PayPal captured nothing', () => {
     expect(verdict(withinCaptured, shipped(0, [['checkout', 1800]])).verdict).toBe('inconclusive')
   })
+
+  describe('without a probe route', () => {
+    const paid = (captured: number, listCents?: number) =>
+      ledger((r) => {
+        checkout(r, 'PP-1', { lines: [{ sku: 'LL-BTL-750', qty: 1, unitCents: 100 }], listCents })
+        paypal(r, 'PP-1', [['CAP-1', 'COMPLETED', captured]])
+      })
+
+    it("leaks when PayPal captured less than the cart's catalog price", () => {
+      const result = verdict(withinCaptured, paid(100, 12400))
+      expect(result).toMatchObject({ verdict: 'leak', merchantLeakCents: 12300 })
+      expect(result.detail).toMatch(/no probe route/)
+    })
+
+    it('stays inconclusive when the full price was captured, or the price is unknown', () => {
+      expect(verdict(withinCaptured, paid(12400, 12400)).verdict).toBe('inconclusive')
+      expect(verdict(withinCaptured, paid(100)).verdict).toBe('inconclusive')
+    })
+  })
 })
 
 describe('Bouncer: a declined card never ships anything', () => {

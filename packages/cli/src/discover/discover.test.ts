@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { validateConfig } from '../config'
 import { discoverCommand } from './command'
 import { configText, discover, discoverIn } from './index'
+import { clientBodyOf } from './shape'
 import { sourceOf } from './source'
 
 const REPO = path.resolve(import.meta.dirname, '../../../..')
@@ -81,7 +82,7 @@ describe('discover, on a store built like PayPal’s standard sample', () => {
 })
 
 describe('discover, across frameworks', () => {
-  it('reads a Next.js pages-router checkout, and says when capture takes no order in its path', () => {
+  it('reads a Next.js pages-router checkout, with the order to capture in the body', () => {
     const found = discoverIn([
       sourceOf(
         'pages/api/paypal/create-order.ts',
@@ -108,8 +109,90 @@ describe('discover, across frameworks', () => {
       method: 'POST',
       path: '/api/paypal/create-order',
     })
-    expect(found.map.capture).toMatchObject({ path: '/api/paypal/capture-order' })
-    expect(found.checks.join(' ')).toMatch(/takes no order in its path/)
+    expect(found.map.capture).toMatchObject({
+      path: '/api/paypal/capture-order',
+      body: { orderID: '{{paypalOrderId}}' },
+    })
+    expect(found.checks.join(' ')).not.toMatch(/takes no order in its path/)
+  })
+
+  it('reads a NestJS checkout that takes its price from the browser', () => {
+    const found = discoverIn([
+      sourceOf(
+        'backend/src/paypal/paypal.controller.ts',
+        `@Controller("paypal")
+        export class PaypalController {
+          constructor(private readonly paypalService: PaypalService) {}
+          @Post("create-order")
+          async createOrder(@Body("amount") amount: string) {
+            return this.paypalService.createOrder(amount);
+          }
+          @Post("capture-order")
+          async captureOrder(@Body("orderId") orderId: string) {
+            return this.paypalService.captureOrder(orderId);
+          }
+        }`,
+      ),
+      sourceOf(
+        'backend/src/paypal/paypal.service.ts',
+        `@Injectable()
+        export class PaypalService {
+          async createOrder(amount: string) {
+            const payload = { intent: "CAPTURE", purchase_units: [{ amount: { currency_code: "EUR", value: amount } }] };
+            const response = await axios.post(\`\${this.baseUrl}/v2/checkout/orders\`, payload, { headers });
+            return response.data;
+          }
+          async captureOrder(orderId: string) {
+            const response = await axios.post(\`\${this.baseUrl}/v2/checkout/orders/\${orderId}/capture\`, {}, { headers });
+            return response.data;
+          }
+        }`,
+      ),
+      sourceOf(
+        'frontend/src/components/Checkout.tsx',
+        `const createOrder = async () => {
+          const res = await axios.post(\`\${process.env.NEXT_PUBLIC_API_URL}/paypal/create-order\`, { amount: "100.00" });
+          return res.data.id;
+        };`,
+      ),
+    ])
+    expect(found.map.createOrder).toMatchObject({
+      path: '/paypal/create-order',
+      body: { amount: '{{total}}' },
+      answer: { paypalOrderId: 'id' },
+    })
+    expect(found.map.capture).toMatchObject({
+      path: '/paypal/capture-order',
+      body: { orderId: '{{paypalOrderId}}' },
+      answer: { status: 'status' },
+    })
+    expect(found.risks.map((risk) => risk.title)).toContain(
+      'POST /paypal/create-order takes its price from the request',
+    )
+  })
+
+  it('says when the PayPal code is in a language it does not read', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'discover-'))
+    writeFileSync(
+      path.join(dir, 'server.py'),
+      'from paypalserversdk.paypal_serversdk_client import PaypalServersdkClient\n',
+    )
+    const found = discover(dir)
+    expect(found.checks[0]).toMatch(/JavaScript and TypeScript only.*Python \(server\.py\)/)
+  })
+
+  it("reads the body a page sends when the URL starts with the API's address", () => {
+    const body = clientBodyOf(
+      [
+        sourceOf(
+          'web/checkout.ts',
+          `await axios.post(\`\${API}/paypal/create-order\`, { cart: [{ id: sku, quantity: 1 }] })`,
+        ),
+      ],
+      '/paypal/create-order',
+    )
+    expect(body?.fields.map((f) => f.name)).toEqual(['cart'])
+    expect(body?.line.map((f) => f.name)).toEqual(['id', 'quantity'])
   })
 
   it('reads SvelteKit routes, parameters included', () => {

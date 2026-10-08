@@ -43,7 +43,10 @@ export interface CreateOrderRoute extends RouteSpec {
   }
 }
 
-/** Capturing an approved order. Its path's first `:param` is the PayPal order ID. */
+/**
+ * Capturing an approved order. Its path's first `:param` is the PayPal order ID; a store that takes
+ * it in the body instead uses the {{paypalOrderId}} placeholder, e.g. `body: { orderId: '{{paypalOrderId}}' }`.
+ */
 export interface CaptureRoute extends RouteSpec {
   body?: Template
   line?: Template
