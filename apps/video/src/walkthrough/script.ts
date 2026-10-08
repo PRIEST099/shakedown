@@ -32,7 +32,7 @@ export const W_SCENES = [
   {
     id: 'w-flow',
     title: 'What happens when someone buys',
-    seconds: 16.4,
+    seconds: 18.0,
     source: 'HYBRID',
     vo: 'When someone buys, three things happen. The customer fills in the checkout and approves the payment. PayPal collects the money. And then my shop’s own code decides what to ship. That’s where money leaks: in my shop’s own code, where PayPal can’t see it.',
     pauses: { 1: 0.3, 2: 0.2, 3: 0.2, 4: 0.5 },
@@ -40,7 +40,7 @@ export const W_SCENES = [
   {
     id: 'w-double',
     title: 'Leak one: the double click',
-    seconds: 20.3,
+    seconds: 21.1,
     source: 'MG',
     vo: `Here’s the first leak. A customer presses Pay, the page is slow, so they press it again. My shop opens a second order, and the customer is charged for both. Here’s my shop’s order list: two orders, ${usd(2400)} each, for one checkout. To PayPal, those are two good payments.`,
     pauses: { 1: 0.3, 2: 0.3, 3: 0.6, 4: 0.8 },
@@ -48,7 +48,7 @@ export const W_SCENES = [
   {
     id: 'w-echo',
     title: 'Leak two: the echo, for real',
-    seconds: 29.5,
+    seconds: 31.8,
     source: 'LIVE',
     vo: `The second one is sneakier. After a payment, PayPal tells the shop the order is paid, in a message signed to prove it came from PayPal. My shop never checks the signature. Watch: here’s an order for a ${usd(ECHO_ITEM.cents)} water bottle. It says awaiting payment, and nothing has shipped. I’ll send my shop that message myself, with no signature at all. And there it goes: shipped. PayPal never collected a cent.`,
     pauses: { 1: 0.3, 2: 0.2, 3: 0.8, 4: 0.2, 5: 0.5, 6: 0.9, 7: 0.6 },
@@ -72,7 +72,7 @@ export const W_SCENES = [
   {
     id: 'w-receipt',
     title: 'The receipt',
-    seconds: 22.8,
+    seconds: 23.1,
     source: 'HYBRID',
     vo: `It finds ${numberWords(checkout.findings)} leaks, including both you just saw. My shop would lose ${usd(checkout.merchantLeakCents)}, and a customer paid ${usd(checkout.customerHarmCents)} too much. It also writes a report, with the evidence for every leak, and the fix. For the double click, the fix is one key per checkout, so a second press gets the same order back.`,
     // The receipt prints first (about two seconds at the CLI's own pace), then the voice reads it.
@@ -89,7 +89,7 @@ export const W_SCENES = [
   {
     id: 'w-close',
     title: 'Close',
-    seconds: 9.8,
+    seconds: 9.5,
     source: 'MG',
     vo: 'That’s Shakedown. Let customers from hell find your leaks, before your real customers do.',
     pauses: { 1: 0.3 },

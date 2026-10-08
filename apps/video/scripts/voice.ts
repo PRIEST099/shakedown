@@ -10,7 +10,7 @@
  *
  * The first run downloads the model (about 330 MB) from Hugging Face into the transformers.js
  * cache under node_modules. It writes public/audio/vo/<scene>/<n>.wav, 48 kHz with each line at
- * about −16 LUFS, and src/data/vo.json, each line's text and length, which the cut is timed from.
+ * about −16 LUFS after the broadcast voice chain (scripts/voice-chain.ts), and src/data/vo.json, each line's text and length, which the cut is timed from.
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -19,6 +19,7 @@ import { SCENES, type Scene, sentences } from '../src/script'
 import { voiced } from '../src/spoken'
 import { W_SCENES } from '../src/walkthrough/script'
 import { integratedLoudness, limit } from './loudness'
+import { broadcastVoice } from './voice-chain'
 import { decode, floatWav, RATE } from './wav'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -27,9 +28,9 @@ const DTYPE = 'fp32'
 const LINE_LUFS = -16
 
 /**
- * Each film's script, voice and pace. The walkthrough is a young man explaining his screen: the
- * lighter of the model's best male voices, at its natural pace, and each scene read in one breath
- * (`whole`) so the sentences flow into each other, then cut apart at the pauses it leaves.
+ * Each film's script, voice and pace. The walkthrough is a man explaining his screen: Fable, the
+ * model's British male narrator (picked from an audition of six), at about its natural pace, and
+ * each sentence read alone, with the pauses the cut places between them.
  */
 const FILMS = {
   demo: {
@@ -41,9 +42,11 @@ const FILMS = {
   },
   walkthrough: {
     scenes: W_SCENES as readonly Scene[],
-    voice: 'am_fenrir',
-    speed: 0.94,
-    whole: true,
+    voice: 'bm_fable',
+    speed: 0.96,
+    // Fable reads a whole scene with almost no pause between sentences, so each is read alone
+    // and the cut places the pauses.
+    whole: false,
     file: 'vo-walkthrough.json',
   },
 } as const
@@ -63,7 +66,7 @@ const tts = await KokoroTTS.from_pretrained(MODEL, { dtype: DTYPE, device: 'cpu'
 if (process.argv.includes('--probe')) {
   for (const text of process.argv.slice(2).filter((a) => !a.startsWith('--'))) {
     const splitter = new TextSplitterStream()
-    const stream = tts.stream(splitter)
+    const stream = tts.stream(splitter, { voice: VOICE as 'af_heart' })
     splitter.push(voiced(text))
     splitter.close()
     for await (const chunk of stream) console.log(`${text}  →  ${chunk.phonemes}`)
@@ -74,15 +77,46 @@ if (process.argv.includes('--probe')) {
 // Release the ONNX session before exit: tearing it down mid-exit aborts the process.
 await tts.model.dispose()
 
-/** The speech without the silence the model leaves around it, plus 40 ms either side. */
+/**
+ * The speech without the silence or breath the model leaves around it, plus 60 ms before and a
+ * 120 ms fade after (room for a final "t" or "s"). Levels are 50 ms averages, judged against the
+ * take itself: Fable leaves 0.7 s of breath at −40 to −50 dB after the last word, flickering past
+ * any fixed gate frame by frame, while a word's own ending stays within about 20 dB of the loud
+ * parts.
+ */
 function trim(samples: Float32Array, rate: number) {
-  const floor = 10 ** (-50 / 20)
-  let start = 0
-  let end = samples.length - 1
-  while (start < end && Math.abs(samples[start] ?? 0) < floor) start += 1
-  while (end > start && Math.abs(samples[end] ?? 0) < floor) end -= 1
-  const pad = Math.round(0.04 * rate)
-  return samples.slice(Math.max(0, start - pad), Math.min(samples.length, end + pad))
+  const hop = Math.round(0.01 * rate)
+  const power: number[] = []
+  for (let s = 0; s + hop <= samples.length; s += hop) {
+    let sum = 0
+    for (let i = s; i < s + hop; i += 1) sum += (samples[i] ?? 0) ** 2
+    power.push(sum / hop)
+  }
+  const levels = power.map((_, k) => {
+    const window = power.slice(Math.max(0, k - 2), k + 3)
+    return Math.sqrt(window.reduce((a, b) => a + b, 0) / window.length)
+  })
+  const sorted = [...levels].sort((a, b) => a - b)
+  const floor = sorted[Math.floor(sorted.length * 0.1)] ?? 0
+  const loud = sorted[Math.floor(sorted.length * 0.95)] ?? 1
+  // 12 dB over the floor, and at least 24 dB under the loud parts. Never under −50 dBFS.
+  const gate = Math.max(10 ** (-50 / 20), floor * 10 ** (12 / 20), loud * 10 ** (-24 / 20))
+  let first = 0
+  let last = levels.length - 1
+  while (first < last && (levels[first] ?? 0) < gate) first += 1
+  while (last > first && (levels[last] ?? 0) < gate) last -= 1
+  const pad = Math.round(0.06 * rate)
+  const tail = Math.round(0.12 * rate)
+  const out = samples.slice(
+    Math.max(0, first * hop - pad),
+    Math.min(samples.length, (last + 1) * hop + tail),
+  )
+  // The last word's decay, faded over the tail rather than cut, so nothing clicks.
+  for (let i = 0; i < Math.min(tail, out.length); i += 1) {
+    const k = out.length - 1 - i
+    out[k] = (out[k] ?? 0) * (i / tail)
+  }
+  return out
 }
 
 /**
@@ -187,11 +221,12 @@ async function speak() {
       // ffmpeg resamples the model's 24 kHz to 48 kHz stereo; the line is then levelled.
       const raw = path.join(dir, `.${i}.raw.wav`)
       writeFileSync(raw, floatWav(speech, undefined, rate))
-      const { left, right } = decode(raw)
+      // Then the broadcast chain (EQ, de-esser, compressor), the treatment a studio voiceover gets.
+      const voice = broadcastVoice(decode(raw).left, RATE)
       rmSync(raw)
-      const gain = 10 ** ((LINE_LUFS - integratedLoudness(left, right)) / 20)
-      const l = left.map((v) => v * gain)
-      const r = right.map((v) => v * gain)
+      const gain = 10 ** ((LINE_LUFS - integratedLoudness(voice, voice)) / 20)
+      const l = voice.map((v) => v * gain)
+      const r = Float32Array.from(l)
       limit(l, r, -3)
       writeFileSync(path.join(dir, `${i}.wav`), floatWav(l, r))
       said.push({ text: sentence, seconds: Math.round((l.length / RATE) * 1000) / 1000 })
