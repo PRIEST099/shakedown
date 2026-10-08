@@ -1,11 +1,11 @@
 import {
   assertTargetAllowed,
+  catalogItemsOf,
   describeSecret,
   EnvError,
   fillPath,
   loadEnv,
   PROBE_HEADER,
-  pick,
   type RouteMap,
   resolveRoutes,
   type ShakedownEnv,
@@ -124,24 +124,33 @@ export async function preflightTarget(options: TargetCheckOptions): Promise<Pref
       checks.push({
         label: 'Store',
         ok: true,
-        detail: `answering; ${options.catalog?.length ?? 0} products listed in the config`,
+        detail: `answering; ${options.catalog?.length ?? 0} product${options.catalog?.length === 1 ? '' : 's'} listed in the config`,
       })
     } else {
       const res = await http(`${origin}${routes.catalog.path}`)
       const body = await res.json().catch(() => ({}))
-      const items = routes.catalog.items ? pick(body, routes.catalog.items) : body
+      const { items, listed } = catalogItemsOf(body, routes.catalog)
+      const { sku = 'sku', price = 'priceCents' } = routes.catalog
       checks.push(
-        res.ok
+        res.ok && items.length
           ? {
               label: 'Store',
               ok: true,
-              detail: `answering, ${Array.isArray(items) ? items.length : 0} products in the catalog`,
+              detail: `answering, ${items.length} products in the catalog`,
             }
-          : {
-              label: 'Store',
-              ok: false,
-              detail: `GET ${routes.catalog.path} answered HTTP ${res.status}`,
-            },
+          : res.ok
+            ? {
+                label: 'Store',
+                ok: false,
+                detail: listed
+                  ? `GET ${routes.catalog.path} lists ${listed} product${listed === 1 ? '' : 's'}, but none has a \`${sku}\` and a \`${price}\`: set routes.catalog.sku and .price to the fields it uses`
+                  : `GET ${routes.catalog.path} lists no products${routes.catalog.items ? ` at \`${routes.catalog.items}\`` : ''}: check routes.catalog.items, or give target.catalog`,
+              }
+            : {
+                label: 'Store',
+                ok: false,
+                detail: `GET ${routes.catalog.path} answered HTTP ${res.status}`,
+              },
       )
     }
   } catch (error) {

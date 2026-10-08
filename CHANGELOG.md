@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-### @shakedown-dev/cli 0.2.3: tried on stores in other setups (2026-10-08)
+### @shakedown-dev/cli 0.2.3: tried on 16 more stores, in other setups (2026-10-08)
 
 - **Tried on:** PayPal's standard checkout sample with its Python (Flask) backend, and a public
   NestJS + Next.js project. Live in the sandbox:
@@ -21,7 +21,35 @@
   routes with a JSON 404. Only a probe's own answer, with `found`, counts as a probe route now.
 - **Capture by body:** `{{paypalOrderId}}` puts PayPal's order ID in a capture route's body, for
   stores that take `{ orderId }` instead of a path parameter.
-- **discover:**
+- **Then tried on 14 more public projects** (Express, Next.js, SvelteKit, Hono, Fastify, a
+  Turborepo monorepo, Laravel, and PayPal's own v6 SDK sample and Next.js guide). Live in the
+  sandbox:
+  - **PayPal's v6 SDK sample:** one leak, the double click charging the customer twice ($15). It
+    sends a `PayPal-Request-Id`, but a new random one on every request, so PayPal can't tell the
+    second submit is a repeat.
+  - **An Express tutorial that captures on PayPal's redirect back** (`GET /execute-payment?token=`):
+    one leak, the same double charge ($115).
+- **Fixed: preflight counted products the run couldn't use.** It said "4 products" for a list
+  whose entries lacked the field the config names, and the run then found nothing to sell. Preflight
+  now reads the list the way the run does, and fails with the field to set.
+- **discover, from those projects:**
+  - follows a product route into the constants it lists (`getAllProducts()` → `PRODUCT_CATALOG`), so
+    it names the right fields;
+  - reads Hono routes chained on `new Hono()`, mounted with `.route()`, and typed parameters
+    (`/:id{[0-9]+}`);
+  - finds a capture on PayPal's redirect back, with the order in the query (`?token=:token`), and
+    one whose URL ends in the order's own intent;
+  - reads a route that names its handler (`router.post('/orders', createOrder)`) for its answer,
+    and an answer that wraps PayPal's (`res.json({ data: response.body })`);
+  - accepts the camelCase capture ID that PayPal's server SDK returns (`purchaseUnits`);
+  - reads the port from `PORT ? Number(PORT) : 8080`;
+  - flags an idempotency key made fresh on every request;
+  - no longer takes a store's own `ordersController.createOrder`, or another provider's webhook
+    (Stripe, BenefitPay, Tiltify), for PayPal's; the paid-on-the-browser's-word hint leaves other
+    providers' routes and admin routes alone;
+  - says when a checkout runs on Next.js Server Actions (no URL to test), and when a project has no
+    PayPal code at all.
+- **discover, from the first two:**
   - reads NestJS `@Body('amount')` and `@Body() dto`, and a service that returns PayPal's answer;
   - reads how a page calls a route whose URL starts with a variable (`${API_URL}/paypal/...`);
   - fills in a capture route's body when the order travels there;

@@ -115,13 +115,17 @@ export interface AnswerGuess {
   storeOrderId?: string
   /** True when the handler hands PayPal's own answer straight back. */
   passesPayPalThrough: boolean
+  /** The field PayPal's answer is wrapped in, for `res.json({ data: response.body })`. */
+  under?: string
   /** The top-level fields it answers with, when they could be read. */
   fields: string[]
 }
 
 /** What a handler answers with. */
 export function answerOf(route: Route): AnswerGuess {
-  const own = route.pieces[0]?.text ?? ''
+  // A route that names its handler (router.post('/orders', createOrder)) answers from that.
+  const first = route.pieces[0]?.text ?? ''
+  const own = /\bjson\(|\.send\(|\breturn\b/.test(first) ? first : (route.pieces[1]?.text ?? first)
   const fields = new Set<string>()
   for (const m of own.matchAll(/(?:\.json|json)\(\s*\{([\s\S]*?)\}\s*[,)]/g)) {
     for (const name of fieldsOf(m[1] ?? '')) fields.add(name)
@@ -144,19 +148,27 @@ export function answerOf(route: Route): AnswerGuess {
           piece.text,
         ),
     )
+  // Or wrapped in one field: res.json({ data: response.body })
+  const under =
+    /json\(\s*\{\s*(\w+)\s*:\s*(?:response|res|r|result|resp)\.(?:body|data)\s*\}\s*\)/.exec(
+      own,
+    )?.[1]
   const passesPayPalThrough =
+    Boolean(under) ||
     /(?:\.json|json|\.send)\(\s*(?:jsonResponse|order|response|data(?:\.result)?|result|captureData|orderData|payload|paypalOrder)\s*\)/.test(
       own,
     ) ||
     (delegates && serviceReturnsPayPal)
   const paypalOrderId = passesPayPalThrough
-    ? 'id'
+    ? under
+      ? `${under}.id`
+      : 'id'
     : (list.find((name) => /^(?:paypalOrderId|paypal_order_id|orderID)$/i.test(name)) ??
       list.find((name) => /^(?:orderId|order_id|id)$/i.test(name)))
   const storeOrderId = list.find((name) =>
     /^(?:orderNumber|order_number|orderRef|reference|storeOrderId|number)$/i.test(name),
   )
-  return { paypalOrderId, storeOrderId, passesPayPalThrough, fields: list }
+  return { paypalOrderId, storeOrderId, passesPayPalThrough, under, fields: list }
 }
 
 /** How a catalog route lists its products. `extra` is the code of the list it answers with. */

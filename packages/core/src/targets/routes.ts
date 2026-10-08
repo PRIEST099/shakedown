@@ -222,6 +222,28 @@ export function fillPath(path: string, value: string): string {
   return path.replace(/:[A-Za-z_]\w*|\[[^\]]+\]/, encodeURIComponent(value))
 }
 
+/**
+ * The products in a catalog route's answer, as Shakedown reads them: the list at `items` (or the
+ * answer itself), each entry's sku, name and price at the route's paths. Preflight counts these,
+ * not the raw list, so it can't promise products the run can't use.
+ */
+export function catalogItemsOf(
+  body: unknown,
+  route: CatalogRoute,
+): { items: { sku: string; name: string; priceCents: number }[]; listed: number } {
+  const list = route.items ? pick(body, route.items) : body
+  const entries = Array.isArray(list) ? (list as unknown[]) : []
+  const asText = (value: unknown) =>
+    typeof value === 'string' ? value : typeof value === 'number' ? String(value) : undefined
+  const items = entries.flatMap((entry) => {
+    const sku = asText(pick(entry, route.sku ?? 'sku'))
+    const priceCents = centsOf(pick(entry, route.price ?? 'priceCents'), route.priceUnit ?? 'cents')
+    if (!sku || priceCents === undefined) return []
+    return [{ sku, name: asText(pick(entry, route.name ?? 'name')) ?? sku, priceCents }]
+  })
+  return { items, listed: entries.length }
+}
+
 /** Dollars to cents, from a number (18, 18.5) or a decimal string ("18.00"). */
 export function centsOf(value: unknown, unit: 'cents' | 'dollars' = 'cents'): number | undefined {
   const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN

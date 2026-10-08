@@ -89,8 +89,11 @@ export function guessUrl(root: string, files: readonly SourceFile[]): string {
     /(?:--port|-p)[ =](\d{4,5})/.exec(scripts)?.[1] ??
     files
       .map((file) =>
-        // PORT ?? 8888, PORT || 3000, { PORT = 8080 } = process.env, .listen(4000)
-        /PORT\)?\s*(?:\?\?|\|\||=)\s*(\d{4,5})|\.listen\(\s*(\d{4,5})/.exec(file.text),
+        // PORT ?? 8888, PORT || 3000, { PORT = 8080 } = process.env, PORT ? Number(PORT) : 8080,
+        // .listen(4000)
+        /PORT\)?\s*(?:\?\?|\|\||=)\s*(\d{4,5})|PORT\)\s*:\s*(\d{4,5})|\.listen\(\s*(\d{4,5})/.exec(
+          file.text,
+        ),
       )
       .find(Boolean)
       ?.slice(1)
@@ -104,7 +107,10 @@ const methodOf = (route: Route, fallback: 'GET' | 'POST') =>
 
 export function discoverIn(files: readonly SourceFile[]): Discovery {
   const routes = routesOf(files)
-  const picks = pick(routes)
+  const payPalFiles = new Set(
+    files.filter((file) => /paypal|v2\/checkout\/orders/i.test(file.text)).map((file) => file.rel),
+  )
+  const picks = pick(routes, payPalFiles)
   const map: RouteMap = {}
   const checks: string[] = []
   const { best } = picks
@@ -172,7 +178,13 @@ export function discoverIn(files: readonly SourceFile[]): Discovery {
       method: methodOf(capture, 'POST'),
       path: capture.path,
       answer: answer.passesPayPalThrough
-        ? { status: 'status', captureId: 'purchase_units.0.payments.captures.0.id' }
+        ? (() => {
+            const at = answer.under ? `${answer.under}.` : ''
+            return {
+              status: `${at}status`,
+              captureId: `${at}purchase_units.0.payments.captures.0.id|${at}purchaseUnits.0.payments.captures.0.id`,
+            }
+          })()
         : {
             ...(answer.fields.includes('kind') ? { kind: 'kind' } : {}),
             ...(answer.fields.includes('status') ? { status: 'status' } : {}),
@@ -188,7 +200,15 @@ export function discoverIn(files: readonly SourceFile[]): Discovery {
       const id = reads?.fields.find((f) =>
         /^(?:orderId|order_id|paypalOrderId|paypal_order_id|id|token)$/i.test(f.name),
       )
+      // Or in the query, as PayPal's redirect back to the store sends it: ?token=<order ID>.
+      const query =
+        /\b(?:_?req|request)\.query\.(\w+)|searchParams\.get\(\s*['"](\w+)['"]|\.query\(\s*['"](\w+)['"]/.exec(
+          capture.pieces.map((piece) => piece.text).join('\n'),
+        )
+      const queryName = query?.slice(1).find(Boolean)
       if (id) map.capture.body = { [id.name]: '{{paypalOrderId}}' }
+      else if (queryName && /^(?:token|orderId|orderID|order_id|paypalOrderId|id)$/.test(queryName))
+        map.capture.path = `${capture.path}?${queryName}=:${queryName}`
       else
         checks.push(
           `${capture.path} takes no order in its path; check how it learns which order to capture.`,
@@ -202,9 +222,14 @@ export function discoverIn(files: readonly SourceFile[]): Discovery {
 
   const catalog = best.catalog?.route
   if (catalog) {
-    // A route that answers with a list declared elsewhere: json(PRODUCTS).
-    const listName = /json\(\s*([A-Za-z_$][\w$]*)\s*\)/.exec(catalog.pieces[0]?.text ?? '')?.[1]
-    const list = listName ? declarationOf(files, listName) : ''
+    // A route that answers with a list declared elsewhere: json(PRODUCTS), or a handler that gets
+    // it from a function over a constant (getAllProducts() → Object.values(PRODUCT_CATALOG)).
+    const code = catalog.pieces.map((piece) => piece.text).join('\n')
+    const names = [
+      /json\(\s*([A-Za-z_$][\w$]*)\s*\)/.exec(code)?.[1],
+      ...[...code.matchAll(/\b([A-Z][A-Z0-9_]{2,})\b/g)].map((m) => m[1]),
+    ].filter((name): name is string => Boolean(name))
+    const list = [...new Set(names)].map((name) => declarationOf(files, name)).join('\n')
     if (!isDefault('catalog', catalog))
       map.catalog = { method: 'GET', path: catalog.path, ...catalogOf(catalog, list) }
   } else {
@@ -226,9 +251,21 @@ export function discoverIn(files: readonly SourceFile[]): Discovery {
     map.support = { method: 'POST', path: support.path }
   if (!support) map.support = false
 
+  // Next.js Server Actions: called through an ID Next.js makes at build time, not a URL.
+  const action = order
+    ? undefined
+    : files.find(
+        (file) =>
+          /^\s*['"]use server['"]/m.test(file.text) &&
+          /createOrder|captureOrder|v2\/checkout\/orders|paypal/i.test(file.text),
+      )
   if (!order)
     checks.unshift(
-      'No route that creates a PayPal order was found. Is this the store’s source folder?',
+      action
+        ? `The checkout runs on Next.js Server Actions (${action.rel}), which have no URL of their own: Next.js calls them through an ID it makes at build time. Shakedown needs an HTTP route to send customers to; a route handler (app/api/.../route.ts) that calls the same functions is enough.`
+        : payPalFiles.size
+          ? 'No route that creates a PayPal order was found. Is this the store’s source folder?'
+          : 'No PayPal code was found in this project: nothing calls PayPal’s Orders API or mentions PayPal.',
     )
   if (order && !capture)
     checks.unshift('No route that captures a PayPal order was found; set routes.capture by hand.')
@@ -276,6 +313,8 @@ const ASKS_PAYPAL =
   /v2\/checkout\/orders|ordersController\.|\.captureOrder\(|\.getOrder\(|OrdersGetRequest|OrdersCaptureRequest|api-m(?:\.sandbox)?\.paypal\.com|paypal\.orders\./i
 const MARKS_PAID =
   /\b(?:isPaid|is_paid|paid)\s*=\s*true|\bpaidAt\s*=|\bstatus\s*[:=]\s*['"](?:paid|PAID)['"]|paymentStatus\s*[:=]\s*['"](?:paid|PAID|completed|COMPLETED)['"]/
+const OTHER_PROVIDERS =
+  /stripe|paytabs|stc ?pay|hyperpay|postpay|moyasar|benefit ?pay|razorpay|mollie|squareup|adyen|klarna|tabby|tamara|paystack|flutterwave|mercadopago|braintree|checkout\.com/i
 const FROM_REQUEST = /\b(?:_?req|request|ctx\.request)\.body\b|await\s+(?:_?req|request)\.json\(\)/
 
 /**
@@ -288,8 +327,21 @@ function risksOf(files: readonly SourceFile[], routes: readonly Route[], picks: 
 
   // An order marked paid on the browser's word: the page captures with PayPal's buttons, then
   // tells the server, which never asks PayPal.
+  // The mistake this looks for is PayPal's: the page captures with PayPal's buttons, then tells
+  // the server. Without a capture in the browser, only a route that deals with PayPal counts.
+  const capturesInBrowser = files.some((file) =>
+    /actions\.order\.capture\(|\.order\.capture\(\)/.test(file.text),
+  )
   for (const route of routes) {
     if (!/POST|PUT|PATCH|\*/.test(route.method) || route === best.webhook?.route) continue
+    if (!capturesInBrowser && !route.pieces.some((piece) => /paypal/i.test(piece.text))) continue
+    // Another provider's route (Stripe, PayTabs, BenefitPay…) is not PayPal's to judge, and one
+    // that checks a signature isn't taking the browser's word.
+    if (
+      OTHER_PROVIDERS.test(`${route.path}\n${route.pieces[0]?.text ?? ''}`) ||
+      route.pieces.some((piece) => /verify\w*Signature|constructEvent\(/i.test(piece.text))
+    )
+      continue
     const paid = lineOf(route, MARKS_PAID)
     const reads = lineOf(route, FROM_REQUEST)
     if (!paid || !reads || route.pieces.some((piece) => ASKS_PAYPAL.test(piece.text))) continue
@@ -328,6 +380,19 @@ function risksOf(files: readonly SourceFile[], routes: readonly Route[], picks: 
         'Two submits of one checkout open two PayPal orders, and a customer who presses Pay twice can pay twice. Send one PayPal-Request-Id per checkout attempt. The Double-Clicker tests this.',
       evidence: at ? [at] : [],
     })
+  } else if (order) {
+    // A key made fresh on every request is no key: the second submit gets a new one.
+    const fresh = lineOf(
+      order,
+      /(?:PayPal-Request-Id|paypalRequestId|requestId|idempotencyKey)['"]?\s*[:=]\s*(?:crypto\.)?(?:randomUUID|uuidv4|uuid|v4|nanoid|cuid)\(\)/i,
+    )
+    if (fresh)
+      risks.push({
+        title: `${order.method} ${order.path} makes a new idempotency key on every request`,
+        detail:
+          'PayPal can only spot a repeated submit by its key, and each request here brings a new one, so pressing Pay twice still opens two orders. Make the key once per checkout attempt (in the page, or from the cart) and send the same one on a retry. The Double-Clicker tests this.',
+        evidence: [fresh],
+      })
   }
 
   // A price the browser sends, charged as it comes: the Cart Shuffler's own-price-tag check.

@@ -10,6 +10,7 @@ import type {
   TargetAdapter,
 } from '../target'
 import {
+  catalogItemsOf,
   centsOf,
   dollarsOf,
   fillPath,
@@ -127,15 +128,7 @@ export async function httpStoreTarget(options: HttpStoreOptions): Promise<Target
         throw new Error(
           `The store's catalog route (${route.path}) answered HTTP ${res.status}; give target.catalog instead.`,
         )
-      const body = await res.json()
-      const list = route.items ? pick(body, route.items) : body
-      const unit = route.priceUnit ?? 'cents'
-      return (Array.isArray(list) ? (list as unknown[]) : []).flatMap((entry) => {
-        const sku = string(pick(entry, route.sku ?? 'sku'))
-        const priceCents = centsOf(pick(entry, route.price ?? 'priceCents'), unit)
-        if (!sku || priceCents === undefined) return []
-        return [{ sku, name: string(pick(entry, route.name ?? 'name')) ?? sku, priceCents }]
-      })
+      return catalogItemsOf(await res.json(), route).items
     })())
 
   /** The variables a body template can use for this cart. */

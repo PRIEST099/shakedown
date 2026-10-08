@@ -54,7 +54,19 @@ const SIGNALS: Signal[] = [
     says: 'captures a PayPal order',
     code: /\/capture['"`]|OrdersCaptureRequest|ordersController\.captureOrder|orders\.capture\(|\.captureOrder\(|captureOrder\(/,
   },
+  {
+    role: 'capture',
+    weight: 4,
+    says: "captures with the order's own intent",
+    code: /\/\$\{\s*intent\s*\}|['"`]\/['"`]\s*\+\s*[\w.]*intent\.toLowerCase\(\)/,
+  },
   { role: 'capture', weight: 3, says: 'a capture route', path: /capture/i },
+  {
+    role: 'capture',
+    weight: 1,
+    says: 'where the buyer lands after paying',
+    path: /execute|complete|approve|success|return|confirm|finali[sz]e/i,
+  },
   { role: 'capture', weight: 1, says: 'takes the order in its path', path: /:[\w*]+/ },
   { role: 'capture', weight: -5, says: 'a webhook or refund route', path: /webhook|refund/i },
   // Hearing from PayPal.
@@ -152,11 +164,20 @@ function locate(pieces: readonly Piece[], pattern: RegExp) {
   return undefined
 }
 
-export function score(route: Route, role: Role): Scored {
+/** Roles whose code signals only count where the code has to do with PayPal. */
+const PAYPAL_ROLES = new Set<Role>(['createOrder', 'capture', 'webhook'])
+
+/**
+ * `payPalFiles`: the files that mention PayPal. A store's own `ordersController.createOrder`, or a
+ * webhook from another payment provider, only counts when its code has to do with PayPal.
+ */
+export function score(route: Route, role: Role, payPalFiles?: ReadonlySet<string>): Scored {
   let total = 0
   const evidence: Evidence[] = []
+  const aboutPayPal = !payPalFiles || route.pieces.some((piece) => payPalFiles.has(piece.file))
   for (const signal of SIGNALS) {
     if (signal.role !== role) continue
+    if (signal.code && PAYPAL_ROLES.has(role) && !aboutPayPal) continue
     if (signal.method && !signal.method.test(route.method)) continue
     if (signal.path && !signal.path.test(route.path)) continue
     if (signal.code) {
@@ -197,8 +218,8 @@ export const ROLES: readonly Role[] = [
 ]
 
 /** The best route for each role, each route used for one role at most. */
-export function pick(routes: readonly Route[]): Picks {
-  const all = ROLES.flatMap((role) => routes.map((route) => score(route, role)))
+export function pick(routes: readonly Route[], payPalFiles?: ReadonlySet<string>): Picks {
+  const all = ROLES.flatMap((role) => routes.map((route) => score(route, role, payPalFiles)))
     .filter((entry) => entry.score >= ENOUGH[entry.role])
     // Best score first; on a tie, the shorter path: the resource, not a route beneath it.
     .sort(

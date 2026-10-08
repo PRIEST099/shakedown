@@ -74,7 +74,10 @@ const withinCaptured: Invariant = {
       }
       return {
         verdict: 'inconclusive',
-        detail: 'The store did not report its shipments.',
+        detail:
+          listCents !== undefined
+            ? `PayPal captured ${dollars(captured)}, the cart's full price at the catalog's prices. What the store shipped for it needs its probe route.`
+            : 'The store did not report its shipments.',
         evidence: facts,
       }
     }

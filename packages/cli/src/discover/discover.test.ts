@@ -57,7 +57,7 @@ describe('discover, on a store built like PayPal’s standard sample', () => {
   it('reads a capture that hands PayPal’s answer straight back', () => {
     expect(found.map.capture?.answer).toEqual({
       status: 'status',
-      captureId: 'purchase_units.0.payments.captures.0.id',
+      captureId: 'purchase_units.0.payments.captures.0.id|purchaseUnits.0.payments.captures.0.id',
     })
   })
 
@@ -282,11 +282,114 @@ describe('discover, across frameworks', () => {
     expect(found.map.createOrder?.body).toEqual({ items: '{{lines}}', customerEmail: '{{email}}' })
   })
 
+  it("doesn't take a store's own createOrder for PayPal's", () => {
+    const found = discoverIn([
+      sourceOf(
+        'src/router/orders.router.ts',
+        `ordersRouter.post('/orders', ordersController.createOrder)
+        ordersRouter.post('/orders/:id/complete', ordersController.completeOrder)`,
+      ),
+      sourceOf(
+        'src/controller/orders.controller.ts',
+        `export const createOrder = async (req, res) => {
+          const order = await ordersService.createOrder(req.body)
+          res.status(201).json(order)
+        }`,
+      ),
+    ])
+    expect(found.picks.best.createOrder).toBeUndefined()
+  })
+
+  it('reads Hono routes chained on new Hono(), mounted with .route()', () => {
+    const found = discoverIn([
+      sourceOf(
+        'src/app.ts',
+        `import { PaypalAccess } from "./paypal";
+        import { productsRoute } from "./routes/products";
+        const app = new Hono();
+        app.basePath("/api").route("/products", productsRoute).route("/", PaypalAccess);`,
+      ),
+      sourceOf(
+        'src/routes/products.ts',
+        `export const productsRoute = new Hono()
+          .get("/", async (c) => c.json({ products: await db.select().from(products) }))
+          .get("/:id{[0-9]+}", async (c) => c.json({ product: { price: 1 } }))`,
+      ),
+      sourceOf(
+        'src/paypal.ts',
+        `export const PaypalAccess = new Hono()
+          .post("/paypal/orders", async (c) => {
+            const res = await fetch(\`\${base}/v2/checkout/orders\`, { method: "POST", body: JSON.stringify({ intent: "CAPTURE" }) })
+            return c.json(await res.json())
+          })
+          .post("/paypal/orders/:id/capture", async (c) => {
+            const res = await fetch(\`\${base}/v2/checkout/orders/\${c.req.param("id")}/capture\`, { method: "POST" })
+            return c.json(await res.json())
+          })`,
+      ),
+    ])
+    expect(found.routes.map((r) => `${r.method} ${r.path}`)).toEqual(
+      expect.arrayContaining(['GET /products', 'GET /products/:id', 'POST /paypal/orders']),
+    )
+    expect(found.picks.best.createOrder?.route.path).toBe('/paypal/orders')
+    expect(found.picks.best.capture?.route.path).toBe('/paypal/orders/:id/capture')
+  })
+
+  it("reads a capture on PayPal's redirect back, with the order in the query", () => {
+    const found = discoverIn([
+      sourceOf(
+        'app.js',
+        `const createPayment = (req, res) => {
+          request.post(\`\${PAYPAL_API}/v2/checkout/orders\`, { body: { intent: 'CAPTURE', purchase_units } }, (e, r) => res.json({ data: r.body }))
+        }
+        const executePayment = (req, res) => {
+          const token = req.query.token
+          request.post(\`\${PAYPAL_API}/v2/checkout/orders/\${token}/capture\`, {}, (e, r) => res.json({ data: r.body }))
+        }
+        app.post('/create-payment', createPayment)
+        app.get('/execute-payment', executePayment)`,
+      ),
+    ])
+    expect(found.map.capture).toMatchObject({
+      method: 'GET',
+      path: '/execute-payment?token=:token',
+    })
+  })
+
+  it("reads a capture whose URL ends in the order's own intent", () => {
+    const found = discoverIn([
+      sourceOf(
+        'src_back/PaypalController.ts',
+        `server.post("/api/paypal/create_order", async (q, r) => await this.postCreateOrder(q, r));
+        server.post("/api/paypal/complete_order", async (q, r) => await this.postCompleteOrder(q, r));
+        async postCreateOrder(q, r) { await fetch(Config.PAYPAL_ENDPOINT + "/v2/checkout/orders", { method: "POST", body: JSON.stringify({ intent: "CAPTURE" }) }) }
+        async postCompleteOrder(q, r) {
+          const url = Config.PAYPAL_ENDPOINT + "/v2/checkout/orders/" + q.body.orderID + "/" + order.intent.toLowerCase();
+          await fetch(url, { method: "POST" })
+        }`,
+      ),
+    ])
+    expect(found.picks.best.capture?.route.path).toBe('/api/paypal/complete_order')
+  })
+
+  it('says when the checkout runs on Next.js Server Actions', () => {
+    const found = discoverIn([
+      sourceOf(
+        'app/actions.ts',
+        `"use server";
+        import { createPayPalOrder } from "@/lib/paypal";
+        export async function createOrder() { return { id: await createPayPalOrder("9.99") } }`,
+      ),
+    ])
+    expect(found.checks[0]).toMatch(/Server Actions \(app\/actions\.ts\)/)
+  })
+
   it('reads NestJS controllers', () => {
     const found = discoverIn([
       sourceOf(
         'src/payments.controller.ts',
-        `@Controller('payments')
+        `import { OrdersController } from '@paypal/paypal-server-sdk'
+        @Controller('payments')
         export class PaymentsController {
           @Post('orders')
           async create(@Body() body: { cart: Line[] }) {
@@ -307,7 +410,8 @@ describe('discover, across frameworks', () => {
     const found = discoverIn([
       sourceOf(
         'server/server.js',
-        `app.post("/api/orders", async (req, res) => {
+        `import { OrdersController } from "@paypal/paypal-server-sdk"
+        app.post("/api/orders", async (req, res) => {
           const { cart } = req.body
           const { jsonResponse, httpStatusCode } = await createOrder(cart)
           res.status(httpStatusCode).json(jsonResponse)
@@ -385,7 +489,8 @@ describe('what discover flags as worth checking', () => {
     const found = discoverIn([
       sourceOf(
         'server.js',
-        `app.post('/api/orders', async (req, res) => res.json(await ordersController.createOrder({})))
+        `import { OrdersController } from '@paypal/paypal-server-sdk'
+         app.post('/api/orders', async (req, res) => res.json(await ordersController.createOrder({})))
          app.post('/api/orders/:id/capture', async (req, res) => res.json(await ordersController.captureOrder({})))
          app.post('/webhooks/paypal', async (req, res) => { handle(req.body); res.sendStatus(200) })`,
       ),
@@ -404,13 +509,48 @@ describe('what discover flags as worth checking', () => {
     expect(found.risks[0]?.title).toMatch(/older v1 Payments API/)
   })
 
+  it("leaves other providers' routes, and admin routes, out of the paid-on-the-browser's-word hint", () => {
+    const found = discoverIn([
+      sourceOf(
+        'src/routes/payments.ts',
+        `import { paypal } from './paypal'
+        app.post('/paytabs/webhook', async (request) => {
+          const { tran_ref } = request.body
+          await db.order.update({ data: { status: 'PAID' } })
+        })
+        app.patch('/admin/invoices/:id/pay', async (request) => {
+          const { note } = request.body
+          await db.invoice.update({ data: { status: 'PAID' } })
+        })`,
+      ),
+    ])
+    expect(found.risks.filter((risk) => /browser's word/.test(risk.title))).toEqual([])
+  })
+
+  it('flags an idempotency key made fresh on every request', () => {
+    const found = discoverIn([
+      sourceOf(
+        'src/routes/orders.ts',
+        `import { OrdersController } from '@paypal/paypal-server-sdk'
+        router.post('/api/orders', async (req, res) => {
+          const { result } = await ordersController.createOrder({ body, paypalRequestId: randomUUID() })
+          res.json(result)
+        })`,
+      ),
+    ])
+    expect(found.risks.map((risk) => risk.title)).toEqual([
+      'POST /api/orders makes a new idempotency key on every request',
+    ])
+  })
+
   it('leaves the Echo out of the cast when there is no webhook listener', () => {
     const found = discover(path.join(REPO, 'examples/standard-checkout'))
     expect(found.cast).toBeUndefined()
     const noHook = discoverIn([
       sourceOf(
         'server.js',
-        `app.post('/api/orders', async (req, res) => res.json(await ordersController.createOrder({})))
+        `import { OrdersController } from '@paypal/paypal-server-sdk'
+         app.post('/api/orders', async (req, res) => res.json(await ordersController.createOrder({})))
          app.post('/api/orders/:id/capture', async (req, res) => res.json(await ordersController.captureOrder({})))`,
       ),
     ])
@@ -422,7 +562,9 @@ describe('discover, when there is nothing to find', () => {
   it('says so when there is no checkout to find', () => {
     const found = discoverIn([sourceOf('index.js', 'console.log("hello")')])
     expect(found.picks.best.createOrder).toBeUndefined()
-    expect(found.checks[0]).toMatch(/No route that creates a PayPal order/)
+    expect(found.checks[0]).toMatch(/No PayPal code was found/)
+    const elsewhere = discoverIn([sourceOf('lib/paypal.js', 'export const paypal = {}')])
+    expect(elsewhere.checks[0]).toMatch(/No route that creates a PayPal order/)
   })
 })
 

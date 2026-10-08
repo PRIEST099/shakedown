@@ -55,7 +55,8 @@ npx @shakedown-dev/cli discover --write
 
 `discover` reads your project's source code. It knows:
 - Next.js (app and pages routers), SvelteKit and Nuxt server routes;
-- Express-style routers (Express, Fastify, Hono), mount prefixes and `router.route()` chains included;
+- Express-style routers (Express, Fastify, Hono), mount prefixes and `router.route()` chains included,
+  and Hono's routes chained on `new Hono()` and mounted with `.route()`;
 - NestJS controllers;
 - Workers and plain Node servers that route by hand (`if (path === '/api/orders')`).
 
@@ -69,11 +70,12 @@ It only reads files on your machine and sends nothing.
 `discover` reads JavaScript and TypeScript only. Shakedown itself talks to your store over HTTP, so
 a store in Python, PHP, Ruby, Java or anything else works the same: write `target.routes` by hand
 (see [Routes of your own](#routes-of-your-own)). `discover` tells you when it sees PayPal code in
-another language.
+another language. A checkout built on Next.js Server Actions has no URL to send customers to; a
+route handler that calls the same functions gives it one.
 
 It also flags patterns worth a look before any run, each with the lines behind it:
 - a route that marks an order paid on the browser's word, never asking PayPal;
-- an order created with no idempotency key;
+- an order created with no idempotency key, or with a new one made on every request;
 - an order priced from what the browser sends (`amount`, `total`, `price` in the request);
 - a webhook listener that never verifies a signature;
 - PayPal's older v1 Payments API, which the cast can't test.
@@ -171,6 +173,8 @@ target: {
     },
     // Or one that takes the order in the body:
     // capture: { path: '/paypal/capture-order', body: { orderId: '{{paypalOrderId}}' } },
+    // Or in the query, as on PayPal's redirect back to the store:
+    // capture: { method: 'GET', path: '/execute-payment?token=:token' },
     webhook: { path: '/webhooks/paypal' },
     // `items`: where the list is in the answer ('' when the answer is the list itself)
     catalog: { path: '/api/products', items: '', sku: 'id', name: 'title', price: 'price', priceUnit: 'dollars' },

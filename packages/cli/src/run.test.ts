@@ -225,7 +225,12 @@ describe('preflight against a store', () => {
 
   beforeAll(async () => {
     server = createServer((req, res) => {
-      if (req.url === '/api/catalog') return res.end('{"items":[{},{}]}')
+      if (req.url === '/api/catalog')
+        return res.end(
+          '{"items":[{"sku":"A","name":"Ale","priceCents":500},{"sku":"B","name":"Bun","priceCents":200}]}',
+        )
+      // A list whose products name their fields differently from the route map.
+      if (req.url === '/api/shop') return res.end('[{"id":"A","cost":"5.00"}]')
       if (req.url?.startsWith('/api/probe/')) {
         const authorised = openProbe || req.headers['x-shakedown-probe'] === SECRET
         // What a probe route answers for an order it doesn't know.
@@ -248,6 +253,18 @@ describe('preflight against a store', () => {
     const result = await preflightTarget({ url: origin, probeSecret: SECRET })
     expect(result.exitCode).toBe(EXIT.pass)
     expect(result.checks.map((c) => c.detail).join(' ')).toContain('2 products')
+  })
+
+  it('fails a catalog whose products the run could not read', async () => {
+    const result = await preflightTarget({
+      url: origin,
+      probeSecret: SECRET,
+      routes: { catalog: { path: '/api/shop', items: '' } },
+    })
+    expect(result.exitCode).toBe(EXIT.preflight)
+    expect(result.checks.find((c) => c.label === 'Store')?.detail).toContain(
+      'lists 1 product, but none has a `sku`',
+    )
   })
 
   it('fails a wrong secret, and a probe API that answers anyone', async () => {

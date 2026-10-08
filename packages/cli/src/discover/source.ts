@@ -452,11 +452,12 @@ const CLIENTS =
 /** Routes declared in code, Express style: `app.post('/api/orders', ...)`, with any mount prefix. */
 function declaredRoutes(files: readonly SourceFile[]) {
   const out: (Omit<Route, 'pieces'> & { own: Piece; extra: string[] })[] = []
-  // Routers mounted under a prefix: app.use('/api', ordersRouter), with where they came from.
+  // Routers mounted under a prefix, with where they came from: app.use('/api', ordersRouter), or
+  // Hono's app.route('/orders', orderRoute).
   const mounts = new Map<string, string>()
   for (const file of files) {
     for (const match of file.text.matchAll(
-      /\.use\(\s*(['"`])(\/[^'"`]*)\1\s*,\s*([A-Za-z_$][\w$]*)/g,
+      /\.(?:use|route)\(\s*(['"`])(\/[^'"`]*)\1\s*,\s*([A-Za-z_$][\w$]*)/g,
     )) {
       const prefix = match[2] ?? ''
       const name = match[3] ?? ''
@@ -474,11 +475,15 @@ function declaredRoutes(files: readonly SourceFile[]) {
       mounts.get(file.rel.replace(/\.[cm]?[jt]sx?$/, '')) ??
       mounts.get(file.rel.replace(/\/index\.[cm]?[jt]sx?$/, '')) ??
       ''
+    // Hono and Elysia chain their routes: new Hono().get('/', ...).post('/', ...).
+    const chains = /new\s+(?:Hono|Elysia)\b/.test(file.text)
     for (const match of file.text.matchAll(
-      /\b([A-Za-z_$][\w$]*)\.(get|post|put|patch|delete|all)\(\s*(['"`])(\/[^'"`]*)\3/g,
+      /(?:\b([A-Za-z_$][\w$]*)|\))\s*\.(get|post|put|patch|delete|all)\(\s*(['"`])(\/[^'"`]*)\3/g,
     )) {
       const receiver = match[1] ?? ''
-      if (CLIENTS.test(receiver)) continue
+      if (CLIENTS.test(receiver) || (!receiver && !chains)) continue
+      // Hono's typed parameters: /:id{[0-9]+}
+      const routePath = (match[4] ?? '').replace(/(:\w+)\{[^}]*\}/g, '$1')
       const start = match.index ?? 0
       const open = file.text.indexOf('(', start)
       const text = file.text.slice(start, closeOf(file.text, open) + 1)
@@ -488,7 +493,8 @@ function declaredRoutes(files: readonly SourceFile[]) {
       const line = lineAt(file, start)
       out.push({
         method: (match[2] ?? 'get').toUpperCase().replace('ALL', '*'),
-        path: `${receiver === 'app' ? '' : prefix}${match[4] ?? ''}` || '/',
+        // A sub-app's own root, mounted under /products, is /products, not /products/.
+        path: `${receiver === 'app' ? '' : prefix}${routePath}`.replace(/(.)\/$/, '$1') || '/',
         file: file.rel,
         line,
         framework: 'Express-style router',
