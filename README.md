@@ -226,7 +226,6 @@ the demo's HTTP API: the store's checkout, probe and webhook routes, and the con
 - **Postman:** a collection of the demo's API, 13 requests, in [docs/postman](docs/postman).
 - **The stack:** Next.js 16, React 19, TypeScript, Drizzle ORM with PGlite and Postgres,
   Turborepo and pnpm, Vitest, Playwright with axe, and Biome.
-- **Built with Claude Code.**
 
 ## Repository layout
 
