@@ -28,7 +28,7 @@ const SITE_URL =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Shakedown: customers from hell, in the sandbox',
+  title: 'Shakedown: chaos customers, in the sandbox',
   description:
     'Sandbox-only QA for PayPal checkouts and AI support agents. Five test customers find what would have leaked, then help you seal it.',
 }

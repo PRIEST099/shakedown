@@ -95,14 +95,18 @@ describe('the PR comment', () => {
     const md = markdownComment(built)
 
     expect(md.startsWith(COMMENT_MARKER)).toBe(true)
-    expect(md).toContain('1 of 1 customers from hell got through')
+    expect(md).toContain('1 of 1 chaos customers got through')
     expect(md).toContain('| 3. The Echo |')
     expect(md.match(/<details>/g)).toHaveLength(built.totals.leaks)
     expect(md).toContain('no real money moved')
   })
 
-  it('says sealed when nothing got through', async () => {
-    expect(markdownComment(await report(SEALED))).toContain('**Shakedown: sealed.**')
+  it('says sealed when nothing got through, in the singular for one customer', async () => {
+    const sealed = await report(SEALED)
+    expect(markdownComment(sealed)).toContain('**Shakedown: sealed.**')
+    if (sealed.totals.personasTested === 1)
+      expect(markdownComment(sealed)).toContain('The chaos customer didn’t get through.')
+    expect(markdownComment(sealed)).not.toContain('None of the 1 ')
   })
 
   it('never lets a store reply turn into markup', async () => {

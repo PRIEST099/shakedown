@@ -9,7 +9,7 @@ const STEPS = [
   {
     icon: Users,
     title: 'Cast',
-    body: 'Pick your customers from hell. Each one runs a scripted scenario against your checkout, your webhook listener or your support assistant.',
+    body: 'Pick your chaos customers. Each one runs a scripted scenario against your checkout, your webhook listener or your support assistant.',
   },
   {
     icon: Receipt,

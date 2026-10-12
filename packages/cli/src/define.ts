@@ -4,7 +4,7 @@
  * `@shakedown-dev/cli` with its own copy of this module.
  */
 
-/** The customers from hell this version can send. */
+/** The chaos customers this version can send. */
 export type PersonaName = 'double-clicker' | 'cart-shuffler' | 'echo' | 'bouncer' | 'policy-lawyer'
 
 /** A demo store's switch: the way most integrations ship, or the documented fix. */

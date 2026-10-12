@@ -16,7 +16,7 @@ const POSE: Partial<Record<PersonaId, { x: number; size: number; tilt: number }>
 /** The receipt's torn top edge, where the imps stand. */
 const EDGE = 770
 
-/** The Devpost cover, 3:2: the customers from hell themselves, what each one cost, the total. */
+/** The Devpost cover, 3:2: the chaos customers themselves, what each one cost, the total. */
 export function DevpostThumbnail() {
   const lines = runs.hero.before as { personaId: PersonaId; amountCents: number }[]
   return (
@@ -36,7 +36,7 @@ export function DevpostThumbnail() {
             letterSpacing: '-0.01em',
           }}
         >
-          <span style={{ background: C.highlighter, padding: '0 16px' }}>customers from hell</span>
+          <span style={{ background: C.highlighter, padding: '0 16px' }}>chaos customers</span>
         </div>
       </AbsoluteFill>
 

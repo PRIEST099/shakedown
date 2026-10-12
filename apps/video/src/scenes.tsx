@@ -1487,7 +1487,7 @@ export function Close() {
         >
           <Wordmark size={150} color={C.paper} />
           <div style={{ font: `800 64px ${FONT.display}`, fontVariationSettings: '"wdth" 80' }}>
-            Let the customers from hell find your leaks first.
+            Let chaos customers find your leaks first.
           </div>
           <div style={{ font: `600 28px ${FONT.mono}`, color: C.sealedOnInk }}>
             Sandbox only · test your own store

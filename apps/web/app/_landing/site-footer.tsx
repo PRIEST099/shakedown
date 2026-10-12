@@ -11,7 +11,7 @@ export function SiteFooter() {
       <div className="site-footer__top">
         <div>
           <Logo size={24} />
-          <p className="site-footer__tagline">Customers from hell. Sandbox only.</p>
+          <p className="site-footer__tagline">Chaos customers. Sandbox only.</p>
         </div>
         <nav aria-label="Footer" className="site-footer__links">
           <div>

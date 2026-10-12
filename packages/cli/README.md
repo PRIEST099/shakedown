@@ -1,6 +1,6 @@
 # @shakedown-dev/cli
 
-**Customers from hell for your PayPal sandbox checkout. Sandbox only.**
+**Chaos customers for your PayPal sandbox checkout. Sandbox only.**
 
 Shakedown sends test customers at your own checkout, webhook listener and support assistant in the
 PayPal sandbox. It grades each one from PayPal's ledger, not from what your store says, and prints a

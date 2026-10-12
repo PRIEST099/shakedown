@@ -2,7 +2,7 @@
   "name": "shakedown-monorepo",
   "private": true,
   "version": "0.0.0",
-  "description": "Customers from hell for your PayPal sandbox checkout and AI support agent.",
+  "description": "Chaos customers for your PayPal sandbox checkout and AI support agent.",
   "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@12.8.1",

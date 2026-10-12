@@ -1,6 +1,6 @@
 # Shakedown
 
-**Customers from hell. Sandbox only.**
+**Chaos customers. Sandbox only.**
 
 Shakedown is a pre-launch test drive for PayPal checkouts and AI support agents. Five sandbox-only test
 customers (a sixth is planned) run against your *own* integration in the PayPal sandbox. Shakedown then prints a receipt for

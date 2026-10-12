@@ -20,10 +20,10 @@ const DESCRIPTION =
   'Five test customers run your own PayPal sandbox checkout. You get a receipt for every dollar that would have leaked, plus the fix.'
 
 export const metadata: Metadata = {
-  title: 'Shakedown: customers from hell for your PayPal sandbox',
+  title: 'Shakedown: chaos customers for your PayPal sandbox',
   description: DESCRIPTION,
   openGraph: {
-    title: 'Shakedown: customers from hell. Sandbox only.',
+    title: 'Shakedown: chaos customers. Sandbox only.',
     description: DESCRIPTION,
     images: [
       {

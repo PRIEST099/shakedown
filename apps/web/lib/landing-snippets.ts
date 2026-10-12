@@ -43,7 +43,7 @@ export function landingSnippets(): LandingSnippets {
   const cliOutput = [
     '$ npx @shakedown-dev/cli run --target http://localhost:3100',
     '',
-    `  Shakedown → http://localhost:3100 · seed ${result.seed} · ${personas.length} customers from hell`,
+    `  Shakedown → http://localhost:3100 · seed ${result.seed} · ${personas.length} chaos ${personas.length === 1 ? 'customer' : 'customers'}`,
     '',
     ...progress,
     '',
@@ -68,7 +68,7 @@ export function landingSnippets(): LandingSnippets {
   return {
     cliOutput,
     comment: {
-      headline: `Shakedown: ${leaking.length} of ${personas.length} customers from hell got through. ${usd(result.merchantLeakCents)} at risk for the merchant, ${usd(result.customerHarmCents)} for customers.`,
+      headline: `Shakedown: ${leaking.length} of ${personas.length} chaos customers got through. ${usd(result.merchantLeakCents)} at risk for the merchant, ${usd(result.customerHarmCents)} for customers.`,
       rows,
     },
   }

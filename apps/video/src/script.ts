@@ -133,7 +133,7 @@ export const SCENES = [
     title: 'Sandbox, scripts, and the five customers',
     seconds: 14.1,
     source: 'HYBRID',
-    vo: 'Shakedown runs in PayPal’s sandbox: pretend money, nothing really ships. Its five customers from hell are fixed scripts, not AI. Four test my checkout; one tests my shop’s AI assistant, Lulu.',
+    vo: 'Shakedown runs in PayPal’s sandbox: pretend money, nothing really ships. Its five chaos customers are fixed scripts, not AI. Four test my checkout; one tests my shop’s AI assistant, Lulu.',
   },
   {
     id: 'live',
@@ -168,7 +168,7 @@ export const SCENES = [
     title: 'Proof it works, how it decides, and the promise',
     seconds: 20.9,
     source: 'MG',
-    vo: `I tested the tester: every checkout bug I switched on was caught, with no false alarms. Claude runs Lulu, reads my policy, and explains; plain code decides. I also sent PayPal’s Agent Toolkit a fix for retried calls. Shakedown: let customers from hell find your leaks first.`,
+    vo: `I tested the tester: every checkout bug I switched on was caught, with no false alarms. Claude runs Lulu, reads my policy, and explains; plain code decides. I also sent PayPal’s Agent Toolkit a fix for retried calls. Shakedown: let chaos customers find your leaks first.`,
   },
 ] as const satisfies readonly Scene[]
 

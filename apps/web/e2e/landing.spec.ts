@@ -18,7 +18,7 @@ const total = (page: Page, tone: 'leak' | 'sealed') =>
 test('the hero prints the recorded run, then seals it to $0.00', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-    'Meet your customers from hell. In the sandbox.',
+    'Meet your chaos customers. In the sandbox.',
   )
   await expect(page.locator('.hero .sd-tape__meta').first()).toHaveText(
     'Sandbox · Leaky Llama Supply Co. · run 74A923AC',

@@ -1,5 +1,5 @@
 /**
- * The cast: six sandbox-only "customers from hell".
+ * The cast: six sandbox-only "chaos customers".
  * Each persona tests exactly one integration property and has one standard fix.
  */
 export const PERSONA_IDS = [

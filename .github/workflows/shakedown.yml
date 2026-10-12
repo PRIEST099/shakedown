@@ -1,4 +1,4 @@
-# Shakedown tests its own demo store on every pull request: the four customers from hell that
+# Shakedown tests its own demo store on every pull request: the four chaos customers that
 # need no AI, against Leaky Llama exactly as it ships (apps/leaky-llama/lib/shipped-mode.ts).
 # Everything runs in the PayPal sandbox. The scoreboard lands on the pull request as one comment
 # that each push updates, posted with this workflow's own token; no third-party action sees it.
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   shakedown:
-    name: Customers from hell
+    name: Chaos customers
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -64,7 +64,7 @@ jobs:
           cat "$RUNNER_TEMP/store.log"
           exit 1
 
-      - name: Send in the customers from hell
+      - name: Send in the chaos customers
         id: shakedown
         run: |
           set +e

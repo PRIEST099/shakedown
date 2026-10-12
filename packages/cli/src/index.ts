@@ -15,7 +15,7 @@ import { runCommand } from './run'
 
 const VERSION = pkg.version
 
-const HELP = `shakedown ${VERSION}: customers from hell for your PayPal sandbox checkout
+const HELP = `shakedown ${VERSION}: chaos customers for your PayPal sandbox checkout
 
 Usage:
   npx @shakedown-dev/cli run [options]        Send the customers in and grade what PayPal saw

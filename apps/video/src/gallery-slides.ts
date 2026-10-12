@@ -22,7 +22,7 @@ export const SLIDES: Slide[] = [
   },
   {
     name: 'the-cast',
-    headline: 'Meet the customers from hell',
+    headline: 'Meet the chaos customers',
     caption:
       'Each one does something real customers do. Afterwards, Shakedown reads PayPal’s own records to see whether your shop got it right.',
     cast: true,

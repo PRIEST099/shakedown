@@ -160,7 +160,7 @@ export async function runCommand(flags: RunFlags, io: RunIo): Promise<number> {
   const bus = new EventBus()
   showProgress(bus, io.log)
   io.log(
-    `\n  Shakedown → ${target.origin} · seed ${settings.seed} · ${settings.cast.length} ${settings.cast.length === 1 ? 'customer' : 'customers'} from hell${mode ? ' · switches set for this run' : ''}\n`,
+    `\n  Shakedown → ${target.origin} · seed ${settings.seed} · ${settings.cast.length} chaos ${settings.cast.length === 1 ? 'customer' : 'customers'}${mode ? ' · switches set for this run' : ''}\n`,
   )
   const result = await runCampaign({
     target,

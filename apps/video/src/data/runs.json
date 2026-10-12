@@ -372,9 +372,9 @@
     ]
   },
   "cli": {
-    "cliOutput": "$ npx @shakedown-dev/cli run --target http://localhost:3100\n\n  Shakedown → http://localhost:3100 · seed 2026 · 4 customers from hell\n\n  ✗ The Double-Clicker · Presses Pay twice before the page answers (1 leak)\n  ✗ The Double-Clicker · Retries the payment on hotel Wi-Fi (1 leak)\n  ✗ The Cart Shuffler · Brings their own price tag (1 leak)\n  ✗ The Cart Shuffler · Approves the cart, then changes it (1 leak)\n  ✗ The Echo · An unsigned \"you have been paid\" (1 leak)\n  ✗ The Echo · The same payment event, twice (1 leak)\n  ✗ The Echo · A payment event that arrives after the refund (1 leak)\n  ✗ The Bouncer · Pays with a card that bounces (1 leak)\n\n  MERCHANT LEAK     $467.00\n  CUSTOMER HARM      $24.00\n\n  8 LEAKS · reports in .shakedown/ · exit code 1",
+    "cliOutput": "$ npx @shakedown-dev/cli run --target http://localhost:3100\n\n  Shakedown → http://localhost:3100 · seed 2026 · 4 chaos customers\n\n  ✗ The Double-Clicker · Presses Pay twice before the page answers (1 leak)\n  ✗ The Double-Clicker · Retries the payment on hotel Wi-Fi (1 leak)\n  ✗ The Cart Shuffler · Brings their own price tag (1 leak)\n  ✗ The Cart Shuffler · Approves the cart, then changes it (1 leak)\n  ✗ The Echo · An unsigned \"you have been paid\" (1 leak)\n  ✗ The Echo · The same payment event, twice (1 leak)\n  ✗ The Echo · A payment event that arrives after the refund (1 leak)\n  ✗ The Bouncer · Pays with a card that bounces (1 leak)\n\n  MERCHANT LEAK     $467.00\n  CUSTOMER HARM      $24.00\n\n  8 LEAKS · reports in .shakedown/ · exit code 1",
     "comment": {
-      "headline": "Shakedown: 4 of 4 customers from hell got through. $467.00 at risk for the merchant, $24.00 for customers.",
+      "headline": "Shakedown: 4 of 4 chaos customers got through. $467.00 at risk for the merchant, $24.00 for customers.",
       "rows": [
         {
           "customer": "The Double-Clicker",

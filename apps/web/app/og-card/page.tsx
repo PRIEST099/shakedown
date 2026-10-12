@@ -18,7 +18,7 @@ export default function OgCard() {
           <Mark size={64} />
           shakedown
         </p>
-        <p className="og__tagline">Customers from hell. Sandbox only.</p>
+        <p className="og__tagline">Chaos customers. Sandbox only.</p>
         <p className="og__sub">
           Test customers for your own PayPal sandbox checkout. A receipt for every dollar that would
           have leaked, read from PayPal’s sandbox ledger.

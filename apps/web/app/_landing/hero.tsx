@@ -16,7 +16,7 @@ export function Hero({ run }: { run: RunFixture & { recordedOn: string } }) {
           agents
         </p>
         <h1 id="hero-title" className="display-xl hero__title">
-          Meet your <span className="swipe">customers from hell.</span> In the sandbox.
+          Meet your <span className="swipe">chaos customers.</span> In the sandbox.
         </h1>
         <p className="hero__sub">
           <span className="hero__sub-long">

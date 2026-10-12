@@ -2,7 +2,7 @@
   "leaky": {
     "campaignId": "CMP-74A923AC4019",
     "command": "npx @shakedown-dev/cli run --target http://localhost:3100",
-    "header": "  Shakedown → http://localhost:3100 · seed 2026 · 4 customers from hell",
+    "header": "  Shakedown → http://localhost:3100 · seed 2026 · 4 chaos customers",
     "progress": [
       [
         ["  "],
@@ -245,7 +245,7 @@
   "sealed": {
     "campaignId": "CMP-74A923AC4019",
     "command": "npx @shakedown-dev/cli run --target http://localhost:3101",
-    "header": "  Shakedown → http://localhost:3101 · seed 2026 · 4 customers from hell",
+    "header": "  Shakedown → http://localhost:3101 · seed 2026 · 4 chaos customers",
     "progress": [
       [["  · The Double-Clicker · Presses Pay twice before the page answers"]],
       [["  · The Double-Clicker · Retries the payment on hotel Wi-Fi"]],

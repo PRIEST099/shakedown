@@ -30,9 +30,9 @@ in order with a one-second pause between them, so they can be cut apart cleanly.
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | Shakedown runs in PayPal’s sandbox: pretend money, nothing really ships. |  | 4.5 s | 0:32.4 |
-| 2 | Its five customers from hell are fixed scripts, not AI. |  | 3.2 s | 0:37.2 |
-| 3 | Four test my checkout; one tests my shop’s AI assistant, Lulu. |  | 4.2 s | 0:40.8 |
+| 1 | Shakedown runs in PayPal’s sandbox: pretend money, nothing really ships. |  | 4.7 s | 0:32.4 |
+| 2 | Its five chaos customers are fixed scripts, not AI. |  | 3.5 s | 0:37.4 |
+| 3 | Four test my checkout; one tests my shop’s AI assistant, Lulu. |  | 4.3 s | 0:41.2 |
 
 ## 4. A live run, customer by customer (`04-live.wav`, 37.2 s)
 
@@ -83,8 +83,8 @@ in order with a one-second pause between them, so they can be cut apart cleanly.
 
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
-| 1 | I tested the tester: every checkout bug I switched on was caught, with no false alarms. |  | 5.2 s | 2:33.5 |
-| 2 | Claude runs Lulu, reads my policy, and explains; plain code decides. |  | 4.5 s | 2:39.0 |
-| 3 | I also sent PayPal’s Agent Toolkit a fix for retried calls. |  | 4.0 s | 2:43.8 |
-| 4 | Shakedown: let customers from hell find your leaks first. |  | 3.1 s | 2:48.1 |
+| 1 | I tested the tester: every checkout bug I switched on was caught, with no false alarms. |  | 5.3 s | 2:33.5 |
+| 2 | Claude runs Lulu, reads my policy, and explains; plain code decides. |  | 4.6 s | 2:39.1 |
+| 3 | I also sent PayPal’s Agent Toolkit a fix for retried calls. |  | 4.1 s | 2:44.0 |
+| 4 | Shakedown: let chaos customers find your leaks first. |  | 3.2 s | 2:48.4 |
 

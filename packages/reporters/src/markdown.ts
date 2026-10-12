@@ -16,8 +16,10 @@ export function markdownComment(report: ShakedownReport): string {
     totals.leaks === 0 && totals.sealed === 0
       ? `**Shakedown: inconclusive.** No check could be judged: see why below.`
       : totals.leaks === 0
-        ? `**Shakedown: sealed.** None of the ${totals.personasTested} customers from hell got through.`
-        : `**Shakedown: ${totals.personasLeaking} of ${totals.personasTested} customers from hell got through.** ${money(totals.merchantLeakCents)} at risk for the merchant, ${money(totals.customerHarmCents)} for customers.`
+        ? totals.personasTested === 1
+          ? '**Shakedown: sealed.** The chaos customer didn’t get through.'
+          : `**Shakedown: sealed.** None of the ${totals.personasTested} chaos customers got through.`
+        : `**Shakedown: ${totals.personasLeaking} of ${totals.personasTested} chaos customers got through.** ${money(totals.merchantLeakCents)} at risk for the merchant, ${money(totals.customerHarmCents)} for customers.`
 
   const rows = report.personas.map((persona) => {
     const checks = persona.scenarios.flatMap((scenario) => scenario.checks)

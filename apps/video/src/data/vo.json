@@ -36,15 +36,15 @@
     "meet": [
       {
         "text": "Shakedown runs in PayPal’s sandbox: pretend money, nothing really ships.",
-        "seconds": 4.544
+        "seconds": 4.65
       },
       {
-        "text": "Its five customers from hell are fixed scripts, not AI.",
-        "seconds": 3.224
+        "text": "Its five chaos customers are fixed scripts, not AI.",
+        "seconds": 3.52
       },
       {
         "text": "Four test my checkout; one tests my shop’s AI assistant, Lulu.",
-        "seconds": 4.231
+        "seconds": 4.27
       }
     ],
     "live": [
@@ -158,19 +158,19 @@
     "close": [
       {
         "text": "I tested the tester: every checkout bug I switched on was caught, with no false alarms.",
-        "seconds": 5.192
+        "seconds": 5.3
       },
       {
         "text": "Claude runs Lulu, reads my policy, and explains; plain code decides.",
-        "seconds": 4.528
+        "seconds": 4.64
       },
       {
         "text": "I also sent PayPal’s Agent Toolkit a fix for retried calls.",
-        "seconds": 3.989
+        "seconds": 4.1
       },
       {
-        "text": "Shakedown: let customers from hell find your leaks first.",
-        "seconds": 3.083
+        "text": "Shakedown: let chaos customers find your leaks first.",
+        "seconds": 3.18
       }
     ]
   }

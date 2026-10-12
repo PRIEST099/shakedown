@@ -64,7 +64,7 @@ function terminal(file: string, target: string) {
     view: {
       campaignId: result.campaignId,
       command: `npx @shakedown-dev/cli run --target ${target}`,
-      header: `  Shakedown → ${target} · seed ${result.seed} · ${personas.size} customers from hell`,
+      header: `  Shakedown → ${target} · seed ${result.seed} · ${personas.size} chaos ${personas.size === 1 ? 'customer' : 'customers'}`,
       progress: progress.map((line) =>
         line.includes('✗') ? segments(line.replace('✗', '\u001B[38;5;203m✗\u001B[0m')) : [[line]],
       ),

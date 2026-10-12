@@ -58,8 +58,8 @@ export const W_SCENES = [
     title: 'So I built Shakedown',
     seconds: 19.2,
     source: 'LIVE',
-    vo: 'A normal test won’t catch leaks like these, because test customers behave. So I built Shakedown. It sends customers from hell at your checkout, in PayPal’s sandbox. Five scripts, like the Double-Clicker and the Echo you just saw, and one that tests AI support assistants.',
-    pauses: { 1: 0.6, 2: 0.3, 3: 0.5 },
+    vo: 'A normal test won’t catch leaks like these, because test customers behave. So I built Shakedown. It sends chaos customers at your checkout, in PayPal’s sandbox. Five scripts, like the Double-Clicker and the Echo you just saw, and one that tests AI support assistants.',
+    pauses: { 1: 0.6, 2: 0.3, 3: 0.35 },
   },
   {
     id: 'w-cli',
@@ -91,7 +91,7 @@ export const W_SCENES = [
     title: 'Close',
     seconds: 9.5,
     source: 'MG',
-    vo: 'That’s Shakedown. Let customers from hell find your leaks, before your real customers do.',
+    vo: 'That’s Shakedown. Let chaos customers find your leaks, before your real customers do.',
     pauses: { 1: 0.3 },
   },
 ] as const satisfies readonly Scene[]

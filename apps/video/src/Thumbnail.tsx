@@ -29,9 +29,7 @@ export function Thumbnail() {
               fontVariationSettings: '"wdth" 78',
             }}
           >
-            <span style={{ background: C.highlighter, padding: '0 14px' }}>
-              customers from hell
-            </span>
+            <span style={{ background: C.highlighter, padding: '0 14px' }}>chaos customers</span>
           </div>
         </div>
         <div style={{ font: `600 38px ${FONT.mono}`, color: C.muted }}>

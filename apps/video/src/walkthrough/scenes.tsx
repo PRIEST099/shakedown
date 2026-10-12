@@ -998,7 +998,7 @@ export function WClose() {
             ...presence(frame, line - 4, Number.POSITIVE_INFINITY, 10),
           }}
         >
-          Let customers from hell find your leaks, before your real customers do.
+          Let chaos customers find your leaks, before your real customers do.
         </div>
         <div
           style={{

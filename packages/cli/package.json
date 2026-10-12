@@ -1,7 +1,7 @@
 {
   "name": "@shakedown-dev/cli",
-  "version": "0.2.3",
-  "description": "Customers from hell for your PayPal sandbox checkout. Sandbox only.",
+  "version": "0.2.4",
+  "description": "Chaos customers for your PayPal sandbox checkout. Sandbox only.",
   "keywords": [
     "paypal",
     "paypal-sandbox",

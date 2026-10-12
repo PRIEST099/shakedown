@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### @shakedown-dev/cli 0.2.4: "chaos customers" (2026-10-12)
+
+- **New wording:** the tagline is now "Chaos customers. Sandbox only." The help text, the run
+  header ("4 chaos customers"), the pull-request comment and the HTML report say "chaos customers".
+  The old wording used a word with religious meaning, and I'd rather no one is put off by it.
+- **Fixed: a sealed run of one customer read "None of the 1 … got through".** It now says "The
+  chaos customer didn't get through."
+
 ### @shakedown-dev/cli 0.2.3: tried on 16 more stores, in other setups (2026-10-08)
 
 - **Tried on:** PayPal's standard checkout sample with its Python (Flask) backend, and a public

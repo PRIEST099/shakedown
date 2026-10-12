@@ -142,7 +142,7 @@ export function Teaser() {
           Every test passed.
         </Say>
         <Say from={64} to={cut.totalAt}>
-          Then the customers from hell showed up.
+          Then the chaos customers showed up.
         </Say>
       </Sequence>
       <Sequence from={cut.totalAt} durationInFrames={cut.castAt - cut.totalAt}>
@@ -248,7 +248,7 @@ export function Teaser() {
               fontVariationSettings: '"wdth" 80',
             }}
           >
-            Let the customers from hell find your leaks first.
+            Let chaos customers find your leaks first.
           </div>
           <div style={{ color: C.sealedOnInk, font: `600 40px ${FONT.mono}` }}>
             PayPal sandbox only

@@ -58,8 +58,8 @@ one-second pause between lines, so they can be cut apart cleanly.
 |---|---|---|---|---|
 | 1 | A normal test won’t catch leaks like these, because test customers behave. |  | 4.4 s | 1:28.0 |
 | 2 | So I built Shakedown. |  | 2.1 s | 1:33.3 |
-| 3 | It sends customers from hell at your checkout, in PayPal’s sandbox. |  | 3.8 s | 1:35.9 |
-| 4 | Five scripts, like the Double-Clicker and the Echo you just saw, and one that tests AI support assistants. |  | 5.8 s | 1:40.6 |
+| 3 | It sends chaos customers at your checkout, in PayPal’s sandbox. |  | 4.0 s | 1:35.9 |
+| 4 | Five scripts, like the Double-Clicker and the Echo you just saw, and one that tests AI support assistants. |  | 5.8 s | 1:40.7 |
 
 ## 6. One command (`06-w-cli.wav`, 19 s)
 
@@ -92,5 +92,5 @@ one-second pause between lines, so they can be cut apart cleanly.
 | # | Line | Say | Scratch | In the film |
 |---|---|---|---|---|
 | 1 | That’s Shakedown. |  | 1.5 s | 2:46.7 |
-| 2 | Let customers from hell find your leaks, before your real customers do. |  | 4.0 s | 2:48.8 |
+| 2 | Let chaos customers find your leaks, before your real customers do. |  | 3.9 s | 2:48.8 |
 

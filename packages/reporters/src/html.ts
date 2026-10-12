@@ -128,7 +128,7 @@ footer{color:var(--muted);font-size:13px;margin-top:24px;text-align:center}
 <div class="total ${totals.customerHarmCents ? 'bad' : 'good'}"><b>${money(totals.customerHarmCents)}</b><span>Customer harm: customers charged for nothing</span></div>
 </div>
 ${verdict}
-<p class="sub">${totals.personasLeaking} of ${totals.personasTested} customers from hell got through · ${totals.sealed} sealed · ${totals.inconclusive} inconclusive · ${totals.skipped} skipped${report.ai ? ` · Claude spend $${report.ai.spentUsd.toFixed(4)}` : ''}</p>
+<p class="sub">${totals.personasLeaking} of ${totals.personasTested} chaos customers got through · ${totals.sealed} sealed · ${totals.inconclusive} inconclusive · ${totals.skipped} skipped${report.ai ? ` · Claude spend $${report.ai.spentUsd.toFixed(4)}` : ''}</p>
 ${campaign.stoppedEarly ? `<p class="error">Stopped early: ${esc(campaign.stoppedEarly)}</p>` : ''}
 ${personas}
 </div>
