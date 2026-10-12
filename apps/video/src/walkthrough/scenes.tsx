@@ -691,7 +691,7 @@ export function WMeet() {
     <Scene id="w-meet">
       <BrowserWindow
         url="shakedown-web.onrender.com"
-        note="Recorded Oct 7, 2026 · Shakedown’s site"
+        note="Recorded Oct 12, 2026 · Shakedown’s site"
         rate={rateAt(cut, frame)}
       >
         <Played
